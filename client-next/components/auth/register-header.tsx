@@ -41,7 +41,7 @@ export default function Header() {
         </div>
         <Link
           href="/login"
-          className="flex min-w-[84px] cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-[#137fec]/10 text-[#137fec] text-sm font-bold hover:bg-[#137fec]/20 transition-all"
+          className="flex min-w-21 cursor-pointer items-center justify-center rounded-lg h-10 px-4 bg-[#137fec]/10 text-[#137fec] text-sm font-bold hover:bg-[#137fec]/20 transition-all"
         >
           Login
         </Link>
