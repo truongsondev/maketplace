@@ -66,7 +66,6 @@ export default function RegistrationForm() {
 
   return (
     <div className="w-full max-w-160 bg-white dark:bg-[#1a2632] shadow-xl rounded-xl border border-[#dbe0e6] dark:border-[#2c3e50] overflow-hidden">
-      {/* Page Heading */}
       <div className="flex flex-col gap-2 p-8 border-b border-[#f0f2f4] dark:border-[#2c3e50]">
         <h1 className="text-[#111418] dark:text-white text-3xl font-black leading-tight tracking-[-0.033em]">
           Create Your Account
@@ -77,7 +76,6 @@ export default function RegistrationForm() {
       </div>
 
       <div className="p-8">
-        {/* Role Selection */}
         <div className="mb-8">
           <p className="text-[#111418] dark:text-white text-sm font-bold uppercase tracking-wider mb-3">
             Register as
@@ -136,9 +134,7 @@ export default function RegistrationForm() {
           </div>
         </div>
 
-        {/* Registration Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Full Name */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[#111418] dark:text-gray-200 text-sm font-semibold">
               Full Name
@@ -159,7 +155,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Email/Phone & OTP */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col gap-1.5">
               <label className="text-[#111418] dark:text-gray-200 text-sm font-semibold">
@@ -205,7 +200,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Password Section */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[#111418] dark:text-gray-200 text-sm font-semibold">
               Create Password
@@ -232,7 +226,6 @@ export default function RegistrationForm() {
               </button>
             </div>
 
-            {/* Password Strength Meter */}
             <div className="mt-2">
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#617589]">
@@ -257,7 +250,6 @@ export default function RegistrationForm() {
             </div>
           </div>
 
-          {/* Terms Checkbox */}
           <div className="flex items-start gap-3 py-2">
             <input
               type="checkbox"
@@ -285,7 +277,6 @@ export default function RegistrationForm() {
             </p>
           </div>
 
-          {/* Submit Button */}
           <button
             type="submit"
             className="w-full h-14 bg-[#137fec] text-white rounded-xl font-bold text-lg shadow-lg shadow-[#137fec]/20 hover:bg-[#137fec]/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
@@ -294,7 +285,6 @@ export default function RegistrationForm() {
           </button>
         </form>
 
-        {/* Alternative Option */}
         <div className="mt-8 pt-6 border-t border-[#f0f2f4] dark:border-[#2c3e50] text-center">
           <p className="text-[#617589] dark:text-gray-400 text-sm">
             Already have an account?{" "}
