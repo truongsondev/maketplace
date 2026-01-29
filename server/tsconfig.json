@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
-    "target": "ES2020",
-    "esModuleInterop": true,
-    "outDir": "dist",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2023",
     "strict": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "esModuleInterop": true
+    // "ignoreDeprecations": "6.0"
   }
 }
