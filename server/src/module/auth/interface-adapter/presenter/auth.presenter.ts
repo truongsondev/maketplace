@@ -1,12 +1,26 @@
-import { User } from '../../entities/user/user.entity';
-import { IAuthPresenter, RegisterResponse } from './auth-presenter.interface';
+import { AuthResult } from '../../applications/dto/result/auth.result';
+import { AuthHttpResponse, IAuthPresenter } from './auth-presenter.interface';
 
+/**
+ * Auth Presenter - transforms use case results to HTTP responses
+ */
 export class AuthPresenter implements IAuthPresenter {
-  // chỗ này phải config
-  toResponse(user: User): RegisterResponse {
+  toHttpResponse(result: AuthResult): AuthHttpResponse {
     return {
-      email: user.email.getValue(),
-      name: user.getName(),
+      success: true,
+      data: {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        expiresIn: result.expiresIn,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          phone: result.user.phone,
+          emailVerified: result.user.emailVerified,
+          phoneVerified: result.user.phoneVerified,
+          status: result.user.status,
+        },
+      },
     };
   }
 }
