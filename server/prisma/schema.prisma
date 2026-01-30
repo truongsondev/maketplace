@@ -1,0 +1,216 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum OAuthProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ShopStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+// ============================================================================
+// AUTHENTICATION
+// ============================================================================
+
+/// Bảng người dùng gốc - lưu thông tin xác thực cốt lõi
+model User {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  email         String?  @unique @db.VarChar(255)
+  phone         String?  @unique @db.VarChar(20)
+  passwordHash  String?  @map("password_hash") @db.VarChar(255)
+  emailVerified Boolean  @default(false) @map("email_verified")
+  phoneVerified Boolean  @default(false) @map("phone_verified")
+  status        UserStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  profile       UserProfile?
+  addresses     UserAddress[]
+  refreshTokens RefreshToken[]
+  oauthAccounts OAuthAccount[]
+  shops         Shop[]
+  userRoles     UserRole[]
+
+  @@map("users")
+}
+
+/// Quản lý phiên đăng nhập với JWT
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  token     String   @unique @db.VarChar(255)
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// OTP cho xác minh email (đăng ký/đăng nhập)
+model Otp {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  email        String   @unique @db.VarChar(255)
+  otp          String   @db.VarChar(20)
+  passwordHash String?  @map("password_hash") @db.VarChar(255)
+  expiresAt    DateTime @map("expires_at")
+  attempts     Int      @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("otps")
+}
+
+/// Liên kết đăng nhập OAuth (Google, Facebook, Apple)
+model OAuthAccount {
+  id             String        @id @default(uuid()) @db.VarChar(36)
+  userId         String        @map("user_id") @db.VarChar(36)
+  provider       OAuthProvider
+  providerUserId String        @map("provider_user_id") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+// ============================================================================
+// AUTHORIZATION (RBAC)
+// ============================================================================
+
+/// Định nghĩa các vai trò trong hệ thống
+model Role {
+  id   Int    @id @default(autoincrement())
+  code String @unique @db.VarChar(50) // BUYER, SELLER, ADMIN
+  name String @db.VarChar(100)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+/// Bảng trung gian - gán vai trò cho user (n-n)
+model UserRole {
+  userId     String   @map("user_id") @db.VarChar(36)
+  roleId     Int      @map("role_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ============================================================================
+// PROFILE
+// ============================================================================
+
+/// Hồ sơ cá nhân - tách khỏi auth để dễ mở rộng
+model UserProfile {
+  userId    String   @id @map("user_id") @db.VarChar(36)
+  fullName  String?  @map("full_name") @db.VarChar(255)
+  avatarUrl String?  @map("avatar_url") @db.Text
+  gender    Gender?
+  birthday  DateTime? @db.Date
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+/// Địa chỉ người dùng - quản lý nhiều địa chỉ giao hàng
+model UserAddress {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  userId      String  @map("user_id") @db.VarChar(36)
+  recipient   String  @db.VarChar(255)
+  phone       String  @db.VarChar(20)
+  addressLine String  @map("address_line") @db.Text
+  ward        String  @db.VarChar(100)
+  district    String  @db.VarChar(100)
+  city        String  @db.VarChar(100)
+  isDefault   Boolean @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_addresses")
+}
+
+// ============================================================================
+// MARKETPLACE CORE
+// ============================================================================
+
+/// Gian hàng người bán - đại diện cho shop trong marketplace
+model Shop {
+  id          String     @id @default(uuid()) @db.VarChar(36)
+  ownerId     String     @map("owner_id") @db.VarChar(36)
+  name        String     @db.VarChar(255)
+  description String?    @db.Text
+  status      ShopStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("shops")
+}
