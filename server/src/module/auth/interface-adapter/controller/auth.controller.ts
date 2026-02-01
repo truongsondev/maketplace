@@ -1,23 +1,52 @@
 import {
-  IAuth,
-  RegisterCommand,
-} from '../../applications/interfaces/auth.interface';
+  RegisterWithEmailCommand,
+  RegisterWithPhoneCommand,
+  VerifyEmailOtpCommand,
+} from '../../applications/dto/command';
 import {
+  IRegisterWithEmailUseCase,
+  IRegisterWithPhoneUseCase,
+  IVerifyEmailOtpUseCase,
+} from '../../applications/ports/input';
+import {
+  AuthHttpResponse,
   IAuthPresenter,
-  RegisterResponse,
 } from '../presenter/auth-presenter.interface';
+import {
+  IOTPPresenter,
+  OTPHttpResponse,
+} from '../presenter/otp-presenter.interface';
 
+/**
+ * Auth Controller - handles HTTP request/response for auth operations
+ */
 export class AuthController {
-  private readonly authUseCase: IAuth;
-  private readonly authPresenter: IAuthPresenter;
+  constructor(
+    private readonly registerWithEmailUseCase: IRegisterWithEmailUseCase,
+    private readonly registerWithPhoneUseCase: IRegisterWithPhoneUseCase,
+    private readonly verifyEmailOtpUseCase: IVerifyEmailOtpUseCase,
+    private readonly presenter: IAuthPresenter,
+    private readonly otpPresenter: IOTPPresenter,
+  ) {}
 
-  constructor(authUseCase: IAuth, authPresenter: IAuthPresenter) {
-    this.authUseCase = authUseCase;
-    this.authPresenter = authPresenter;
+  async registerWithEmail(
+    command: RegisterWithEmailCommand,
+  ): Promise<AuthHttpResponse> {
+    const result = await this.registerWithEmailUseCase.execute(command);
+    return this.presenter.toHttpResponse(result);
   }
 
-  async register(command: RegisterCommand): Promise<RegisterResponse> {
-    const user = await this.authUseCase.register(command);
-    return this.authPresenter.toResponse(user);
+  async registerWithPhone(
+    command: RegisterWithPhoneCommand,
+  ): Promise<AuthHttpResponse> {
+    const result = await this.registerWithPhoneUseCase.execute(command);
+    return this.presenter.toHttpResponse(result);
+  }
+
+  async verifyEmailOtp(
+    command: VerifyEmailOtpCommand,
+  ): Promise<OTPHttpResponse> {
+    const result = await this.verifyEmailOtpUseCase.execute(command);
+    return this.otpPresenter.toHttpResponse(result);
   }
 }
