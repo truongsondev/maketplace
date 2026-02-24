@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
   provider = "prisma-client"
@@ -41,30 +36,75 @@ enum ShopStatus {
   SUSPENDED
 }
 
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum InventoryAction {
+  IMPORT
+  EXPORT
+  RETURN
+  ADJUSTMENT
+}
+
+enum ActorType {
+  ADMIN
+  USER
+  SYSTEM
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
 
 /// Bảng người dùng gốc - lưu thông tin xác thực cốt lõi
 model User {
-  id            String   @id @default(uuid()) @db.VarChar(36)
-  email         String?  @unique @db.VarChar(255)
-  phone         String?  @unique @db.VarChar(20)
-  passwordHash  String?  @map("password_hash") @db.VarChar(255)
-  emailVerified Boolean  @default(false) @map("email_verified")
-  phoneVerified Boolean  @default(false) @map("phone_verified")
+  id            String     @id @default(uuid()) @db.VarChar(36)
+  email         String?    @unique @db.VarChar(255)
+  phone         String?    @unique @db.VarChar(20)
+  passwordHash  String?    @map("password_hash") @db.VarChar(255)
+  emailVerified Boolean    @default(false) @map("email_verified")
+  phoneVerified Boolean    @default(false) @map("phone_verified")
   status        UserStatus @default(ACTIVE)
+  lastLogin     DateTime?  @map("last_login")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  profile       UserProfile?
-  addresses     UserAddress[]
-  refreshTokens RefreshToken[]
-  oauthAccounts OAuthAccount[]
-  shops         Shop[]
-  userRoles     UserRole[]
+  profile                    UserProfile?
+  addresses                  UserAddress[]
+  refreshTokens              RefreshToken[]
+  oauthAccounts              OAuthAccount[]
+  emailVerificationTokens    EmailVerificationToken[]
+  shops                      Shop[]
+  userRoles                  UserRole[]
+  cart                       Cart?
+  orders                     Order[]
+  notifications              Notification[]
+  activityLogs               UserActivityLog[]
+  wishlist                   Wishlist[]
+  reviews                    Review[]
 
   @@map("users")
 }
@@ -73,7 +113,7 @@ model User {
 model RefreshToken {
   id        String   @id @default(uuid()) @db.VarChar(36)
   userId    String   @map("user_id") @db.VarChar(36)
-  token     String   @unique @db.VarChar(255)
+  token     String   @unique @db.VarChar(500)
   expiresAt DateTime @map("expires_at")
   revoked   Boolean  @default(false)
 
@@ -101,12 +141,28 @@ model Otp {
   @@map("otps")
 }
 
+/// Email verification tokens for registration flow
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @map("user_id") @db.VarChar(36)
+  tokenHash String   @unique @map("token_hash") @db.VarChar(64)
+  expiresAt DateTime @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("email_verification_tokens")
+}
+
 /// Liên kết đăng nhập OAuth (Google, Facebook, Apple)
 model OAuthAccount {
   id             String        @id @default(uuid()) @db.VarChar(36)
   userId         String        @map("user_id") @db.VarChar(36)
   provider       OAuthProvider
-  providerUserId String        @map("provider_user_id") @db.VarChar(255)
+  providerUserId String        @map("provider_user_id") @db.VarChar(500)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -157,9 +213,9 @@ model UserRole {
 
 /// Hồ sơ cá nhân - tách khỏi auth để dễ mở rộng
 model UserProfile {
-  userId    String   @id @map("user_id") @db.VarChar(36)
-  fullName  String?  @map("full_name") @db.VarChar(255)
-  avatarUrl String?  @map("avatar_url") @db.Text
+  userId    String    @id @map("user_id") @db.VarChar(36)
+  fullName  String?   @map("full_name") @db.VarChar(255)
+  avatarUrl String?   @map("avatar_url") @db.Text
   gender    Gender?
   birthday  DateTime? @db.Date
 
@@ -209,8 +265,328 @@ model Shop {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products Product[]
 
   @@index([ownerId])
   @@map("shops")
+}
+
+// ============================================================================
+// PRODUCTS (Soft delete + chống oversell)
+// ============================================================================
+
+/// Sản phẩm - hỗ trợ soft delete và quản lý tồn kho
+model Product {
+  id             String  @id @default(uuid()) @db.VarChar(36)
+  shopId         String  @map("shop_id") @db.VarChar(36)
+  name           String  @db.VarChar(255)
+  description    String? @db.Text
+  price          Decimal @db.Decimal(10, 2)
+  stockAvailable Int     @default(0) @map("stock_available")
+  stockReserved  Int     @default(0) @map("stock_reserved")
+  minStock       Int     @default(5) @map("min_stock")
+  isDeleted      Boolean @default(false) @map("is_deleted")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  shop          Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  inventoryLogs InventoryLog[]
+  wishlist      Wishlist[]
+  reviews       Review[]
+
+  @@index([shopId])
+  @@fulltext([name])
+  @@map("products")
+}
+
+// ============================================================================
+// CART
+// ============================================================================
+
+/// Giỏ hàng - mỗi user có 1 giỏ hàng
+model Cart {
+  id     String @id @default(uuid()) @db.VarChar(36)
+  userId String @unique @map("user_id") @db.VarChar(36)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+/// Chi tiết giỏ hàng
+model CartItem {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  cartId    String @map("cart_id") @db.VarChar(36)
+  productId String @map("product_id") @db.VarChar(36)
+  quantity  Int
+
+  // Relations
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+// ============================================================================
+// ORDERS
+// ============================================================================
+
+/// Đơn hàng
+model Order {
+  id         String      @id @default(uuid()) @db.VarChar(36)
+  userId     String      @map("user_id") @db.VarChar(36)
+  totalPrice Decimal     @map("total_price") @db.Decimal(10, 2)
+  status     OrderStatus @default(PENDING)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user          User                 @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+  payment       Payment?
+  statusHistory OrderStatusHistory[]
+  invoice       Invoice?
+
+  @@index([status])
+  @@index([userId])
+  @@map("orders")
+}
+
+/// Chi tiết đơn hàng
+model OrderItem {
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  orderId   String  @map("order_id") @db.VarChar(36)
+  productId String  @map("product_id") @db.VarChar(36)
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+
+  // Relations
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product  @relation(fields: [productId], references: [id])
+  returns Return[]
+
+  @@unique([orderId, productId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ============================================================================
+// PAYMENT (1 order = 1 payment chính)
+// ============================================================================
+
+/// Thanh toán - 1:1 với đơn hàng
+model Payment {
+  id            String        @id @default(uuid()) @db.VarChar(36)
+  orderId       String        @unique @map("order_id") @db.VarChar(36)
+  amount        Decimal       @db.Decimal(10, 2)
+  method        String        @db.VarChar(50)
+  transactionId String?       @unique @map("transaction_id") @db.VarChar(255)
+  status        PaymentStatus @default(PENDING)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  paidAt    DateTime? @map("paid_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ============================================================================
+// INVENTORY LOG (Audit kho hàng)
+// ============================================================================
+
+/// Lịch sử nhập/xuất kho
+model InventoryLog {
+  id          String          @id @default(uuid()) @db.VarChar(36)
+  productId   String          @map("product_id") @db.VarChar(36)
+  action      InventoryAction
+  quantity    Int
+  referenceId String?         @map("reference_id") @db.VarChar(36)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@map("inventory_logs")
+}
+
+// ============================================================================
+// RETURNS (Đúng cấp order_item)
+// ============================================================================
+
+/// Yêu cầu trả hàng - liên kết với từng order_item
+model Return {
+  id          String       @id @default(uuid()) @db.VarChar(36)
+  orderItemId String       @map("order_item_id") @db.VarChar(36)
+  quantity    Int
+  reason      String?      @db.Text
+  status      ReturnStatus @default(REQUESTED)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id])
+
+  @@index([orderItemId])
+  @@map("returns")
+}
+
+// ============================================================================
+// ORDER STATUS HISTORY
+// ============================================================================
+
+/// Lịch sử thay đổi trạng thái đơn hàng
+model OrderStatusHistory {
+  id        String       @id @default(uuid()) @db.VarChar(36)
+  orderId   String       @map("order_id") @db.VarChar(36)
+  oldStatus OrderStatus? @map("old_status")
+  newStatus OrderStatus  @map("new_status")
+  changedBy String?      @map("changed_by") @db.VarChar(36)
+
+  changedAt DateTime @default(now()) @map("changed_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_status_history")
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+/// Thông báo cho người dùng
+model Notification {
+  id      String  @id @default(uuid()) @db.VarChar(36)
+  userId  String  @map("user_id") @db.VarChar(36)
+  content String  @db.Text
+  isRead  Boolean @default(false) @map("is_read")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+// ============================================================================
+// USER ACTIVITY LOG (Phân tích hành vi)
+// ============================================================================
+
+/// Lịch sử hoạt động người dùng - phục vụ phân tích AI
+model UserActivityLog {
+  id       String  @id @default(uuid()) @db.VarChar(36)
+  userId   String? @map("user_id") @db.VarChar(36)
+  action   String  @db.VarChar(255)
+  metadata Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("user_activity_logs")
+}
+
+// ============================================================================
+// WISHLIST
+// ============================================================================
+
+/// Danh sách yêu thích
+model Wishlist {
+  id        String @id @default(uuid()) @db.VarChar(36)
+  userId    String @map("user_id") @db.VarChar(36)
+  productId String @map("product_id") @db.VarChar(36)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("wishlists")
+}
+
+// ============================================================================
+// REVIEWS
+// ============================================================================
+
+/// Đánh giá sản phẩm - mỗi user chỉ đánh giá 1 lần/sản phẩm
+model Review {
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  userId    String  @map("user_id") @db.VarChar(36)
+  productId String  @map("product_id") @db.VarChar(36)
+  rating    Int // 1-5
+  comment   String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@map("reviews")
+}
+
+// ============================================================================
+// INVOICES
+// ============================================================================
+
+/// Hóa đơn - 1:1 với đơn hàng
+model Invoice {
+  id            String  @id @default(uuid()) @db.VarChar(36)
+  orderId       String  @unique @map("order_id") @db.VarChar(36)
+  invoiceNumber String  @unique @map("invoice_number") @db.VarChar(50)
+  totalAmount   Decimal @map("total_amount") @db.Decimal(10, 2)
+
+  issuedAt DateTime @default(now()) @map("issued_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("invoices")
+}
+
+// ============================================================================
+// AUDIT LOG (Chuẩn compliance)
+// ============================================================================
+
+/// Nhật ký kiểm toán - theo dõi mọi thay đổi trong hệ thống
+model AuditLog {
+  id         String    @id @default(uuid()) @db.VarChar(36)
+  actorType  ActorType @map("actor_type")
+  actorId    String?   @map("actor_id") @db.VarChar(36)
+  targetType String?   @map("target_type") @db.VarChar(100)
+  targetId   String?   @map("target_id") @db.VarChar(36)
+  action     String    @db.VarChar(255)
+  oldData    Json?     @map("old_data")
+  newData    Json?     @map("new_data")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@map("audit_logs")
 }

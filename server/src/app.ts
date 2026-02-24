@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createAuthModule } from './module/auth/di';
+import { errorHandlingMiddleware } from './shared/server/error-middleware';
 
 const app = express();
 
@@ -16,5 +17,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/api/auth', createAuthModule());
+
+app.use(errorHandlingMiddleware);
 
 export default app;

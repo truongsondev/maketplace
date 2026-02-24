@@ -6,11 +6,7 @@ import {
 import { IUserRepository } from '../../applications/ports/output/user.repository';
 import { User, UserStatus } from '../../entities/user/user.entity';
 import { Email } from '../../entities/value-object/email.vo';
-import { Phone } from '../../entities/value-object/phone.vo';
 
-/**
- * Prisma implementation of User Repository
- */
 export class PrismaUserRepository implements IUserRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -41,10 +37,8 @@ export class PrismaUserRepository implements IUserRepository {
   async save(user: User): Promise<User> {
     const data = {
       email: user.email?.getValue() ?? null,
-      phone: user.phone?.getValue() ?? null,
       passwordHash: user.passwordHash ?? null,
       emailVerified: user.emailVerified,
-      phoneVerified: user.phoneVerified,
       status: user.status as PrismaUserStatus,
     };
 
@@ -85,10 +79,8 @@ export class PrismaUserRepository implements IUserRepository {
     return User.fromPersistence({
       id: prismaUser.id,
       email: prismaUser.email ? new Email(prismaUser.email) : undefined,
-      phone: prismaUser.phone ? new Phone(prismaUser.phone) : undefined,
       passwordHash: prismaUser.passwordHash ?? undefined,
       emailVerified: prismaUser.emailVerified,
-      phoneVerified: prismaUser.phoneVerified,
       status: prismaUser.status as UserStatus,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,

@@ -1,0 +1,99 @@
+/**
+ * Standardized Error Codes cho tất cả APIs
+ */
+
+export const ErrorCode = {
+  // Validation Errors (4001-4099)
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INVALID_EMAIL: 'INVALID_EMAIL',
+  INVALID_PHONE: 'INVALID_PHONE',
+  INVALID_PASSWORD: 'INVALID_PASSWORD',
+  INVALID_OTP: 'INVALID_OTP',
+  MISSING_REQUIRED_FIELD: 'MISSING_REQUIRED_FIELD',
+
+  // Authentication Errors (4010-4099)
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  INVALID_TOKEN: 'INVALID_TOKEN',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  REFRESH_TOKEN_EXPIRED: 'REFRESH_TOKEN_EXPIRED',
+  INVALID_REFRESH_TOKEN: 'INVALID_REFRESH_TOKEN',
+
+  // Resource Errors (4040-4099)
+  NOT_FOUND: 'NOT_FOUND',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  OTP_NOT_FOUND: 'OTP_NOT_FOUND',
+
+  // Conflict Errors (4090-4099)
+  CONFLICT: 'CONFLICT',
+  EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
+  PHONE_ALREADY_EXISTS: 'PHONE_ALREADY_EXISTS',
+  DUPLICATE_RESOURCE: 'DUPLICATE_RESOURCE',
+
+  // Business Logic Errors (4200-4299)
+  TOO_MANY_OTP_ATTEMPTS: 'TOO_MANY_OTP_ATTEMPTS',
+  OTP_EXPIRED: 'OTP_EXPIRED',
+  USER_NOT_ACTIVE: 'USER_NOT_ACTIVE',
+  FORBIDDEN: 'FORBIDDEN',
+  INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
+
+  // Server Errors (5000-5099)
+  INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+  EMAIL_SEND_FAILED: 'EMAIL_SEND_FAILED',
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+} as const;
+
+export type ErrorCodeType = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+/**
+ * HTTP Status Code mappings cho error codes
+ */
+export const ErrorCodeToStatusCode: Record<ErrorCodeType, number> = {
+  // Validation Errors - 400
+  [ErrorCode.VALIDATION_ERROR]: 400,
+  [ErrorCode.INVALID_EMAIL]: 400,
+  [ErrorCode.INVALID_PHONE]: 400,
+  [ErrorCode.INVALID_PASSWORD]: 400,
+  [ErrorCode.INVALID_OTP]: 400,
+  [ErrorCode.MISSING_REQUIRED_FIELD]: 400,
+
+  // Authentication Errors - 401
+  [ErrorCode.UNAUTHORIZED]: 401,
+  [ErrorCode.INVALID_CREDENTIALS]: 401,
+  [ErrorCode.INVALID_TOKEN]: 401,
+  [ErrorCode.TOKEN_EXPIRED]: 401,
+  [ErrorCode.REFRESH_TOKEN_EXPIRED]: 401,
+  [ErrorCode.INVALID_REFRESH_TOKEN]: 401,
+
+  // Not Found - 404
+  [ErrorCode.NOT_FOUND]: 404,
+  [ErrorCode.USER_NOT_FOUND]: 404,
+  [ErrorCode.OTP_NOT_FOUND]: 404,
+
+  // Conflict - 409
+  [ErrorCode.CONFLICT]: 409,
+  [ErrorCode.EMAIL_ALREADY_EXISTS]: 409,
+  [ErrorCode.PHONE_ALREADY_EXISTS]: 409,
+  [ErrorCode.DUPLICATE_RESOURCE]: 409,
+
+  // Business Logic - 422
+  [ErrorCode.TOO_MANY_OTP_ATTEMPTS]: 422,
+  [ErrorCode.OTP_EXPIRED]: 422,
+  [ErrorCode.USER_NOT_ACTIVE]: 422,
+  [ErrorCode.FORBIDDEN]: 403,
+  [ErrorCode.INSUFFICIENT_PERMISSIONS]: 403,
+
+  // Server Errors - 500
+  [ErrorCode.INTERNAL_SERVER_ERROR]: 500,
+  [ErrorCode.DATABASE_ERROR]: 500,
+  [ErrorCode.EMAIL_SEND_FAILED]: 500,
+  [ErrorCode.SERVICE_UNAVAILABLE]: 503,
+} as const;
+
+/**
+ * Get HTTP Status Code từ Error Code
+ */
+export function getStatusCodeFromErrorCode(errorCode: ErrorCodeType): number {
+  return ErrorCodeToStatusCode[errorCode] || 500;
+}

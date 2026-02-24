@@ -1,5 +1,4 @@
 import { Email } from '../value-object/email.vo';
-import { Phone } from '../value-object/phone.vo';
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
@@ -10,10 +9,8 @@ export enum UserStatus {
 export interface UserProps {
   id?: string;
   email?: Email;
-  phone?: Phone;
   passwordHash?: string;
   emailVerified?: boolean;
-  phoneVerified?: boolean;
   status?: UserStatus;
   createdAt?: Date;
   updatedAt?: Date;
@@ -22,19 +19,15 @@ export interface UserProps {
 export class User {
   private readonly _id?: string;
   private _email?: Email;
-  private _phone?: Phone;
   private _passwordHash?: string;
   private _emailVerified: boolean;
-  private _phoneVerified: boolean;
   private _status: UserStatus;
 
   private constructor(props: UserProps) {
     this._id = props.id;
     this._email = props.email;
-    this._phone = props.phone;
     this._passwordHash = props.passwordHash;
     this._emailVerified = props.emailVerified ?? false;
-    this._phoneVerified = props.phoneVerified ?? false;
     this._status = props.status ?? UserStatus.ACTIVE;
   }
 
@@ -43,23 +36,12 @@ export class User {
       email,
       passwordHash,
       emailVerified: false,
-      phoneVerified: false,
       status: UserStatus.ACTIVE,
     });
   }
 
-  static registerWithPhone(phone: Phone, passwordHash: string): User {
-    return new User({
-      phone,
-      passwordHash,
-      emailVerified: false,
-      phoneVerified: false,
-      status: UserStatus.ACTIVE,
-    });
-  }
-
-  static registerWithOAuth(email?: Email, phone?: Phone): User {
-    if (!email && !phone) {
+  static registerWithOAuth(email?: Email): User {
+    if (!email) {
       throw new Error(
         'Either email or phone is required for OAuth registration',
       );
@@ -67,14 +49,11 @@ export class User {
 
     return new User({
       email,
-      phone,
       emailVerified: email ? true : false,
-      phoneVerified: phone ? true : false,
       status: UserStatus.ACTIVE,
     });
   }
 
-  // Reconstitute from persistence
   static fromPersistence(props: UserProps): User {
     return new User(props);
   }
@@ -87,20 +66,12 @@ export class User {
     return this._email;
   }
 
-  get phone(): Phone | undefined {
-    return this._phone;
-  }
-
   get passwordHash(): string | undefined {
     return this._passwordHash;
   }
 
   get emailVerified(): boolean {
     return this._emailVerified;
-  }
-
-  get phoneVerified(): boolean {
-    return this._phoneVerified;
   }
 
   get status(): UserStatus {
@@ -114,13 +85,6 @@ export class User {
     this._emailVerified = true;
   }
 
-  verifyPhone(): void {
-    if (!this._phone) {
-      throw new Error('No phone to verify');
-    }
-    this._phoneVerified = true;
-  }
-
   changePassword(newPasswordHash: string): void {
     this._passwordHash = newPasswordHash;
   }
@@ -131,14 +95,6 @@ export class User {
     }
     this._email = email;
     this._emailVerified = false;
-  }
-
-  linkPhone(phone: Phone): void {
-    if (this._phone) {
-      throw new Error('Phone already linked');
-    }
-    this._phone = phone;
-    this._phoneVerified = false;
   }
 
   suspend(): void {

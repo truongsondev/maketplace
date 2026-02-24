@@ -19,9 +19,9 @@ export interface IEmailSender {
   send(options: EmailOptions): Promise<void>;
 
   /**
-   * Send OTP verification email
-   * @param to - Recipient email address
-   * @param otp - OTP code to send
+   * Send email verification email
+   * @param email Email address
+   * @param token Verification token
    */
-  sendOtpEmail(to: string, otp: string): Promise<void>;
+  sendEmailVerification(email: string, token: string): Promise<void>;
 }

@@ -1,2 +1,2 @@
-export * from './auth.result';
-export * from './otp-initiated.result';
+export * from './register.result';
+export * from './verify-email.result';
