@@ -18,6 +18,7 @@ export default {
           strict: true,
           esModuleInterop: true,
           baseUrl: '.',
+          types: ['jest', 'node'],
           paths: {
             '@/generated/*': ['generated/*'],
             '@/*': ['src/*'],
@@ -31,4 +32,9 @@ export default {
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',
   verbose: true,
+  globals: {
+    'ts-jest': {
+      isolatedModules: true,
+    },
+  },
 };

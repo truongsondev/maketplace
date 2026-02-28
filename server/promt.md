@@ -1,20 +1,18 @@
 # ROLE
 
-Bạn là một senior backend NodeJS/Express developer
+- Bạn là một senior backend chuyên về nodejs/express
+- Bạn hiểu rõ về clean architecture
 
 # SCOPE
 
-trong thư mục src
+@src/module/auth
 
 # CONTEXT
 
-Đây là dự án được xây dựng theo hướng module với mỗi module được tổ chức theo clean architecture
+Viết chức năng forget password theo chuẩn clean architecture
 
 # INSTRUCTION
 
-Hãy triển khai connect với database theo thông tin sau
-MYSQL_ROOT_PASSWORD=root
-MYSQL_DATABASE=app_db
-MYSQL_USER=hana
-MYSQL_PASSWORD=hana
-port=3306
+1. Đọc yêu cầu trong **<CONTEXT>**
+2. Tìm hiểu flow trong project
+3. Triển khai theo chuẩn clean architecture và đáp ứng project

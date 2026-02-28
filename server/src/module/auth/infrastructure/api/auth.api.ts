@@ -1,16 +1,10 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { ResponseFormatter } from '../../../../shared/server/api-response';
+import { HttpErrorHandler } from '../../../../shared/server/http-error-handler';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
-import { ConflicError } from '../../../../error-handlling/conflicError';
-import { CustomError } from '../../../../error-handlling/customError';
-import {
-  EmailAlreadyExistsError,
-  PhoneAlreadyExistsError,
-} from '../../applications/errors';
+import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { AuthController } from '../../interface-adapter/controller/auth.controller';
 
-/**
- * Auth API - Express routes for authentication
- */
 export class AuthAPI {
   readonly router = express.Router();
 
@@ -19,135 +13,87 @@ export class AuthAPI {
   }
 
   private initializeRoutes(): void {
-    this.router.post('/register/email', this.registerWithEmail.bind(this));
-
-    this.router.post('/register/phone', this.registerWithPhone.bind(this));
-    this.router.post(
-      '/verify-email-otp',
-      async (req: Request, res: Response) => {
-        res.status(200).json({ message: 'Not implemented yet' });
-      },
-    );
+    this.router.post('/register', asyncHandler(this.register.bind(this)));
+    this.router.get('/verify-email', asyncHandler(this.verifyEmail.bind(this)));
+    this.router.post('/login', asyncHandler(this.login.bind(this)));
+    this.router.post('/forgot-password', asyncHandler(this.forgotPassword.bind(this)));
+    this.router.post('/reset-password', asyncHandler(this.resetPassword.bind(this)));
   }
 
-  private async registerWithEmail(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
-      const { email, password } = req.body;
+  private validateRegisterInput(email: string, password: string): void {
+    HttpErrorHandler.validateRequired({ email, password }, 'email', 'password');
+    HttpErrorHandler.validateEmail(email);
 
-      if (!email || !password) {
-        throw new BadRequestError('Email and password are required');
-      }
-
-      if (password.length < 8) {
-        throw new BadRequestError('Password must be at least 8 characters');
-      }
-
-      const result = await this.authController.registerWithEmail({
-        email,
-        password,
-      });
-      res.status(201).json(result);
-    } catch (error) {
-      this.handleError(error, res);
+    if (password.length < 6) {
+      throw new BadRequestError('Password must be at least 6 characters long');
     }
   }
 
-  private async registerWithPhone(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
-      const { phone, password } = req.body;
+  private async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { email, password } = req.body;
 
-      if (!phone || !password) {
-        throw new BadRequestError('Phone and password are required');
-      }
+    this.validateRegisterInput(email, password);
 
-      if (password.length < 8) {
-        throw new BadRequestError('Password must be at least 8 characters');
-      }
+    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
 
-      const result = await this.authController.registerWithPhone({
-        phone,
-        password,
-      });
-      res.status(201).json(result);
-    } catch (error) {
-      this.handleError(error, res);
-    }
+    const result = await this.authController.register({ email, password }, ipAddress);
+    const response = ResponseFormatter.success(result, result.message);
+    res.status(201).json(response);
   }
 
-  private async verifyOTP(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    const { email, otp } = req.body;
-    res.status(200).json({ message: 'Not implemented yet' });
+  private async verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { token } = req.query;
+
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestError('Token is required');
+    }
+
+    const result = await this.authController.verifyEmail({ token });
+    const response = ResponseFormatter.success(result, result.message);
+    res.status(200).json(response);
   }
 
-  private handleError(error: unknown, res: Response): void {
-    if (error instanceof EmailAlreadyExistsError) {
-      const httpError = new ConflicError(error.message);
-      res.status(httpError.statusCode).json({
-        success: false,
-        error: {
-          code: error.code,
-          message: error.message,
-        },
-      });
-      return;
+  private async login(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { email, password } = req.body;
+
+    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+
+    const result = await this.authController.login({ email, password }, ipAddress);
+    const response = ResponseFormatter.success(result, 'Login successful');
+    res.status(200).json(response);
+  }
+
+  private async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      throw new BadRequestError('Email is required');
     }
 
-    if (error instanceof PhoneAlreadyExistsError) {
-      const httpError = new ConflicError(error.message);
-      res.status(httpError.statusCode).json({
-        success: false,
-        error: {
-          code: error.code,
-          message: error.message,
-        },
-      });
-      return;
+    HttpErrorHandler.validateEmail(email);
+
+    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+
+    const result = await this.authController.forgotPassword({ email }, ipAddress);
+    const response = ResponseFormatter.success(result, result.message);
+    res.status(200).json(response);
+  }
+
+  private async resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { token, newPassword } = req.body;
+
+    if (!token || typeof token !== 'string') {
+      throw new BadRequestError('Token is required');
+    }
+    if (!newPassword || typeof newPassword !== 'string') {
+      throw new BadRequestError('New password is required');
+    }
+    if (newPassword.length < 6) {
+      throw new BadRequestError('Password must be at least 6 characters long');
     }
 
-    if (error instanceof CustomError) {
-      res.status(error.statusCode).json({
-        success: false,
-        error: {
-          message: error.message,
-        },
-      });
-      return;
-    }
-
-    if (error instanceof Error) {
-      if (
-        error.message.includes('Invalid email') ||
-        error.message.includes('Invalid phone')
-      ) {
-        res.status(400).json({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: error.message,
-          },
-        });
-        return;
-      }
-    }
-
-    console.error('Unhandled error:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        message: 'Internal server error',
-      },
-    });
+    const result = await this.authController.resetPassword({ token, newPassword });
+    const response = ResponseFormatter.success(result, result.message);
+    res.status(200).json(response);
   }
 }

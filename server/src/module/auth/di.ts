@@ -1,72 +1,82 @@
 import { Router } from 'express';
-import { prisma } from '../../infrastructure/database/prisma.service';
+import { prisma, redis } from '../../infrastructure/database';
 
-import { RegisterWithEmailUseCase } from './applications/usecases/register-with-email.usecase';
-import { RegisterWithPhoneUseCase } from './applications/usecases/register-with-phone.usecase';
+import { VerifyEmailUseCase } from './applications/usecases/verify-email.usecase';
+import { ResetPasswordUseCase } from './applications/usecases/reset-password.usecase';
 
 import { PrismaUserRepository } from './infrastructure/repositories/prisma-user.repository';
-import { PrismaRefreshTokenRepository } from './infrastructure/repositories/prisma-refresh-token.repository';
-import { PrismaOtpRepository } from './infrastructure/repositories/prisma-otp.repository';
+import { PrismaEmailVerificationTokenRepository } from './infrastructure/repositories/prisma-email-verification-token.repository';
+import { PrismaPasswordResetTokenRepository } from './infrastructure/repositories/prisma-password-reset-token.repository';
 import { CryptoPasswordHasher } from './infrastructure/security/crypto-password-hasher';
-import { CryptoOtpGenerator } from './infrastructure/security/crypto-otp-generator';
-import { JwtTokenProvider } from './infrastructure/security/jwt-token-provider';
+import { CryptoTokenGenerator } from './infrastructure/security/crypto-token-generator';
+import { RedisRateLimiter } from './infrastructure/security/redis-rate-limiter';
 import { EmailSender } from './infrastructure/email/console-email-sender';
 import { AuthAPI } from './infrastructure/api/auth.api';
 
 import { AuthController } from './interface-adapter/controller/auth.controller';
-import { AuthPresenter } from './interface-adapter/presenter/auth.presenter';
-import { VerifyEmailOtpUseCase } from './applications';
-import { OTPPresenter } from './interface-adapter';
+import { RegisterUseCaseFactory } from './interface-adapter/pattern/register-usecase.factory';
+import { LoginUseCaseFactory } from './interface-adapter/pattern/login-usecase.factory';
+import { ForgotPasswordUseCaseFactory } from './interface-adapter/pattern/forgot-password-usecase.factory';
+import { PrismaTokenRepository } from './infrastructure/repositories/prisma-token.repository';
+import { RedisCache } from './infrastructure/security/redis-cache';
 
 export function createAuthModule(): Router {
   const userRepository = new PrismaUserRepository(prisma);
-  const refreshTokenRepository = new PrismaRefreshTokenRepository(prisma);
-
-  const otpRepository = new PrismaOtpRepository(prisma);
-  const otpGenerator = new CryptoOtpGenerator();
-  const emailSender = new EmailSender({
-    appName: 'Marketplace',
-    expiresInMinutes: 10,
-  });
+  const tokenRepository = new PrismaTokenRepository(prisma);
+  const emailVerificationTokenRepository = new PrismaEmailVerificationTokenRepository(prisma);
+  const passwordResetTokenRepository = new PrismaPasswordResetTokenRepository(prisma);
 
   const passwordHasher = new CryptoPasswordHasher();
-  const tokenProvider = new JwtTokenProvider({
-    accessTokenExpiresIn: 15 * 60,
-    refreshTokenExpiresIn: 7 * 24 * 60 * 60,
-  });
+  const tokenGenerator = new CryptoTokenGenerator();
+  const rateLimiter = new RedisRateLimiter(redis);
+  const redisCache = new RedisCache(redis);
+  const emailSender = new EmailSender();
 
-  const registerWithEmailUseCase = new RegisterWithEmailUseCase(
+  const verifyEmailUseCase = new VerifyEmailUseCase(
+    userRepository,
+    tokenGenerator,
+    emailVerificationTokenRepository,
+  );
+
+  const resetPasswordUseCase = new ResetPasswordUseCase(
     userRepository,
     passwordHasher,
-    tokenProvider,
-    refreshTokenRepository,
-    otpGenerator,
-    otpRepository,
+    tokenGenerator,
+    passwordResetTokenRepository,
+  );
+
+  const registerUseCaseFactory = new RegisterUseCaseFactory(
+    userRepository,
+    passwordHasher,
+    rateLimiter,
+    tokenGenerator,
+    emailVerificationTokenRepository,
     emailSender,
   );
 
-  const registerWithPhoneUseCase = new RegisterWithPhoneUseCase(
+  const loginUseCaseFactory = new LoginUseCaseFactory(
     userRepository,
     passwordHasher,
-    tokenProvider,
-    refreshTokenRepository,
+    tokenGenerator,
+    tokenRepository,
+    redisCache,
+    rateLimiter,
   );
 
-  const verifyEmailOtpUseCase = new VerifyEmailOtpUseCase(
+  const forgotPasswordUseCaseFactory = new ForgotPasswordUseCaseFactory(
     userRepository,
-    otpRepository,
-    tokenProvider,
-    refreshTokenRepository,
+    tokenGenerator,
+    passwordResetTokenRepository,
+    emailSender,
+    rateLimiter,
   );
 
-  const presenter = new AuthPresenter();
-  const otpPresenter = new OTPPresenter();
   const controller = new AuthController(
-    registerWithEmailUseCase,
-    registerWithPhoneUseCase,
-    verifyEmailOtpUseCase,
-    presenter,
-    otpPresenter,
+    registerUseCaseFactory,
+    verifyEmailUseCase,
+    loginUseCaseFactory,
+    forgotPasswordUseCaseFactory,
+    resetPasswordUseCase,
   );
 
   const authAPI = new AuthAPI(controller);

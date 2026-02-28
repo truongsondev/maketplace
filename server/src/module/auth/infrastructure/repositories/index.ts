@@ -1,4 +1,3 @@
+export * from './prisma-email-verification-token.repository';
+export * from './prisma-password-reset-token.repository';
 export * from './prisma-user.repository';
-export * from './prisma-refresh-token.repository';
-export * from './in-memory-otp.repository';
-export * from './prisma-otp.repository';
