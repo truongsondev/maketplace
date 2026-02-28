@@ -32,7 +32,7 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendEmailVerification(email: string, token: string): Promise<void> {
-    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/verify-email?token=${token}`;
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth/verify-email?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Verify Your Email Address</h2>
@@ -52,6 +52,31 @@ export class EmailSender implements IEmailSender {
     await this.send({
       to: email,
       subject: 'Verify Your Email Address',
+      html,
+    });
+  }
+
+  async sendPasswordReset(email: string, token: string): Promise<void> {
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth/reset-password?token=${token}`;
+    const html = `
+      <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
+        <h2>Reset Your Password</h2>
+        <p>We received a request to reset your password. Click the button below to choose a new password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetUrl}"
+             style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+            Reset Password
+          </a>
+        </div>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #dc3545;">${resetUrl}</p>
+        <p><small>This link will expire in 15 minutes. If you did not request a password reset, you can safely ignore this email.</small></p>
+      </div>
+    `;
+
+    await this.send({
+      to: email,
+      subject: 'Reset Your Password',
       html,
     });
   }

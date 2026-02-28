@@ -10,7 +10,7 @@ export class PrismaEmailVerificationTokenRepository implements IEmailVerificatio
   async save(token: EmailVerificationToken): Promise<void> {
     await this.prisma.emailVerificationToken.create({
       data: {
-        id: token.id || undefined, // Let Prisma generate ID if empty
+        id: token.id || undefined,
         userId: token.userId,
         tokenHash: token.tokenHash,
         expiresAt: token.expiresAt,

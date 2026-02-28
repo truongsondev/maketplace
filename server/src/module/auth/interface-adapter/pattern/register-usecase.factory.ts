@@ -1,4 +1,3 @@
-import { RegisterCommand, RegisterResult } from '../../applications/dto';
 import { IRegisterUseCase } from '../../applications/ports/input';
 import {
   IEmailSender,
