@@ -1,6 +1,15 @@
 "use client";
 
-import { ShoppingCart, Search, User, Menu, X, Sun, Moon } from "lucide-react";
+import {
+  ShoppingCart,
+  Search,
+  User,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth.store";
@@ -27,18 +36,16 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
   };
   return (
     <>
-      {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md px-6 py-4 lg:px-10 transition-colors duration-200">
         <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center size-10 rounded-lg bg-primary text-white font-bold text-lg">
-            ◆
+          <div className="flex items-center justify-center size-10 rounded-lg bg-gradient-to-br from-primary to-orange-400 text-white shadow-lg shadow-primary/30">
+            <Sparkles className="size-6" />
           </div>
           <h2 className="text-2xl font-bold leading-tight tracking-[-0.015em]">
             AURA
           </h2>
         </div>
 
-        {/* Desktop Navigation */}
         <nav className="hidden md:flex flex-1 justify-center gap-8">
           <a
             href="#"
@@ -72,7 +79,6 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
           </a>
         </nav>
 
-        {/* Right Actions */}
         <div className="flex items-center gap-3">
           <button
             onClick={handleAuthAction}
@@ -120,7 +126,6 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
         </div>
       </header>
 
-      {/* Mobile Menu */}
       {isMenuOpen && (
         <div className="md:hidden border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-6 py-4 transition-colors duration-200">
           <nav className="flex flex-col gap-4">

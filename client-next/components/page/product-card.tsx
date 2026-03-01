@@ -1,6 +1,7 @@
 "use client";
 
-import { Heart } from "lucide-react";
+import { Heart, ShoppingCart, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { ProductItem } from "@/types/product";
 
 const FALLBACK_IMAGE =
@@ -11,10 +12,22 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
+
   const formattedPrice = new Intl.NumberFormat("vi-VN", {
     style: "currency",
     currency: "VND",
   }).format(Number(product.minPrice));
+
+  const handleViewDetail = () => {
+    router.push(`/product/${product.id}`);
+  };
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // TODO: Implement add to cart functionality
+    console.log("Add to cart:", product.id);
+  };
 
   return (
     <div className="group relative flex flex-col">
@@ -25,17 +38,36 @@ export function ProductCard({ product }: ProductCardProps) {
         <img
           src={product.imageUrl ?? FALLBACK_IMAGE}
           alt={product.name}
-          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
+          onClick={handleViewDetail}
         />
+
+        {/* Action Buttons */}
+        <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={handleAddToCart}
+            className="flex-1 flex items-center justify-center gap-2 bg-primary text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-lg hover:bg-orange-600 transition-colors"
+          >
+            <ShoppingCart className="size-4" />
+            Thêm
+          </button>
+          <button
+            onClick={handleViewDetail}
+            className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <Eye className="size-4" />
+            Chi tiết
+          </button>
+        </div>
       </div>
       <div className="mt-4 flex flex-col gap-1">
         <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-          <a
-            href={`/product/${product.id}`}
-            className="hover:text-primary transition-colors"
+          <button
+            onClick={handleViewDetail}
+            className="hover:text-primary transition-colors text-left"
           >
             {product.name}
-          </a>
+          </button>
         </h3>
         <p className="text-sm font-bold text-neutral-900 dark:text-white">
           {formattedPrice}

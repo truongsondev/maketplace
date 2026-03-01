@@ -47,3 +47,47 @@ export interface Color {
   value: string;
   textColor: string;
 }
+
+/** Product Detail Response */
+export interface ProductImage {
+  id: string;
+  url: string;
+  altText: string;
+  isPrimary: boolean;
+  sortOrder: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  attributes: Record<string, string>;
+  price: number;
+  stockAvailable: number;
+  images: ProductImage[];
+}
+
+export interface ProductCategory {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface ProductReviews {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: Record<string, number>;
+}
+
+export interface ProductDetail {
+  id: string;
+  name: string;
+  description: string;
+  basePrice: number;
+  images: ProductImage[];
+  variants: ProductVariant[];
+  categories: ProductCategory[];
+  tags: string[];
+  reviews: ProductReviews;
+  createdAt: string;
+  updatedAt: string;
+}
