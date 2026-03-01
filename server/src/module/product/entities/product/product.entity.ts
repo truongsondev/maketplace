@@ -6,6 +6,17 @@ export interface ProductProps {
   minPrice: number;
   originalPrice?: number;
   discountPercent?: number;
+  // For detailed view
+  description?: string | null;
+  basePrice?: number;
+  isDeleted?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+  variants?: any[];
+  images?: any[];
+  categories?: any[];
+  tags?: any[];
+  reviews?: any[];
 }
 
 export class Product {
@@ -32,6 +43,36 @@ export class Product {
   get discountPercent(): number | undefined {
     return this.props.discountPercent;
   }
+  get description(): string | null | undefined {
+    return this.props.description;
+  }
+  get basePrice(): number | undefined {
+    return this.props.basePrice;
+  }
+  get isDeleted(): boolean | undefined {
+    return this.props.isDeleted;
+  }
+  get createdAt(): Date | undefined {
+    return this.props.createdAt;
+  }
+  get updatedAt(): Date | undefined {
+    return this.props.updatedAt;
+  }
+  get variants(): any[] | undefined {
+    return this.props.variants;
+  }
+  get images(): any[] | undefined {
+    return this.props.images;
+  }
+  get categories(): any[] | undefined {
+    return this.props.categories;
+  }
+  get tags(): any[] | undefined {
+    return this.props.tags;
+  }
+  get reviews(): any[] | undefined {
+    return this.props.reviews;
+  }
 
   hasDiscount(): boolean {
     return !!this.props.discountPercent && this.props.discountPercent > 0;
@@ -43,5 +84,25 @@ export class Product {
 
   static fromPersistence(props: ProductProps): Product {
     return new Product(props);
+  }
+
+  static fromPersistenceWithDetails(data: any): Product {
+    return new Product({
+      id: data.id,
+      name: data.name,
+      slug: data.slug || '',
+      imageUrl: data.images?.[0]?.url || null,
+      minPrice: data.variants?.[0]?.price ? Number(data.variants[0].price) : Number(data.basePrice),
+      description: data.description,
+      basePrice: Number(data.basePrice),
+      isDeleted: data.isDeleted,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      variants: data.variants,
+      images: data.images,
+      categories: data.categories,
+      tags: data.tags,
+      reviews: data.reviews,
+    });
   }
 }

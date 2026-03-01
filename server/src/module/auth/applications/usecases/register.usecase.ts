@@ -13,9 +13,11 @@ import {
 } from '../ports';
 import { IRegisterUseCase } from '../ports/input/register.usecase';
 import { RateLimitHelper, isDuplicateEmailError } from '../utils';
+import { createLogger } from '@/shared/util/logger';
 
 export class RegisterUseCase implements IRegisterUseCase {
   private readonly rateLimitHelper: RateLimitHelper;
+  private readonly logger = createLogger('RegisterUseCase');
 
   constructor(
     private readonly userRepository: IUserRepository,
@@ -31,6 +33,8 @@ export class RegisterUseCase implements IRegisterUseCase {
 
   async execute(command: RegisterCommand): Promise<RegisterResult> {
     const { email: emailString, password } = command;
+
+    this.logger.info('Starting user registration', { email: emailString });
 
     await this.rateLimitHelper.checkRateLimit(emailString, this.ipAddress);
 
@@ -59,13 +63,20 @@ export class RegisterUseCase implements IRegisterUseCase {
 
       await this.emailSender.sendEmailVerification(emailString, rawToken);
 
+      this.logger.info('User registered successfully', {
+        userId: savedUser.id,
+        email: emailString,
+      });
+
       return {
         message: 'Registration successful. Please verify your email.',
       };
     } catch (error: any) {
       if (isDuplicateEmailError(error)) {
+        this.logger.warn('Registration failed: Email already exists', { email: emailString });
         throw new EmailAlreadyExistsError();
       }
+      this.logger.error('Registration failed with unexpected error', error, { email: emailString });
       throw error;
     }
   }

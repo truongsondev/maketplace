@@ -82,6 +82,43 @@ export class PrismaProductRepository implements IProductRepository {
     };
   }
 
+  async findByIdWithDetails(id: string): Promise<Product | null> {
+    const row = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        variants: {
+          where: { isDeleted: false },
+          include: {
+            images: {
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        images: {
+          orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+        },
+        categories: {
+          include: {
+            category: true,
+          },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+        reviews: true,
+      },
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    return Product.fromPersistenceWithDetails(row);
+  }
+
   private toDomain(row: any): Product {
     const minPrice = row.variants[0]?.price ?? row.basePrice ?? 0;
     const imageUrl = row.images[0]?.imageUrl ?? null;

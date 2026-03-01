@@ -3,11 +3,16 @@ import { ProductListResult, ProductSummary } from '../dto/result/product-list.re
 import { IGetProductsUseCase } from '../ports/input/get-products.usecase';
 import { IProductRepository, ProductFilters } from '../ports/output/product.repository';
 import { Product } from '../../entities/product/product.entity';
+import { createLogger } from '@/shared/util/logger';
 
 export class GetProductsUseCase implements IGetProductsUseCase {
+  private readonly logger = createLogger('GetProductsUseCase');
+
   constructor(private readonly productRepository: IProductRepository) {}
 
   async execute(query: GetProductsQuery): Promise<ProductListResult> {
+    this.logger.debug('Fetching products', { query });
+
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 && query.limit <= 100 ? query.limit : 10;
 
@@ -32,6 +37,14 @@ export class GetProductsUseCase implements IGetProductsUseCase {
     const { products, total } = await this.productRepository.findWithFilters(filters, {
       page,
       limit,
+    });
+
+    this.logger.info('Products fetched successfully', {
+      total,
+      page,
+      limit,
+      resultsCount: products.length,
+      filters,
     });
 
     return {

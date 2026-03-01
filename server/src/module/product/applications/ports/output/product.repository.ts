@@ -18,4 +18,6 @@ export interface IProductRepository {
     filters: ProductFilters,
     pagination: PaginationParams,
   ): Promise<{ products: Product[]; total: number }>;
+
+  findByIdWithDetails(id: string): Promise<Product | null>;
 }
