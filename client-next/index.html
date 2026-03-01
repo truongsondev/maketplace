@@ -1,0 +1,942 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Modern Fashion Home Page</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#ee7c2b",
+              "primary-light": "#fff1e6",
+              "primary-dark": "#b05515",
+              "background-light": "#f8f7f6",
+              "background-dark": "#221810",
+              "neutral-50": "#fbf9f8",
+              "neutral-100": "#f4f2f0",
+              "neutral-200": "#e6e0db",
+              "neutral-800": "#181411",
+              "neutral-900": "#110e0c",
+            },
+            fontFamily: {
+              display: ["Plus Jakarta Sans", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "0.25rem",
+              lg: "0.5rem",
+              xl: "0.75rem",
+              "2xl": "1rem",
+              full: "9999px",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-50 transition-colors duration-200"
+  >
+    <div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+      <!-- Header -->
+      <header
+        class="sticky top-0 z-50 flex items-center justify-between border-b border-neutral-200 bg-white/90 backdrop-blur-md px-6 py-4 dark:border-neutral-700 dark:bg-neutral-900/90 lg:px-10"
+      >
+        <div
+          class="flex items-center gap-4 text-neutral-800 dark:text-neutral-50"
+        >
+          <div
+            class="flex items-center justify-center size-10 rounded-lg bg-primary text-white"
+          >
+            <span class="material-symbols-outlined text-2xl">diamond</span>
+          </div>
+          <h2 class="text-2xl font-bold leading-tight tracking-[-0.015em]">
+            VIBE
+          </h2>
+        </div>
+        <nav class="hidden md:flex flex-1 justify-center gap-8">
+          <a
+            class="text-sm font-bold text-neutral-800 hover:text-primary dark:text-neutral-50 dark:hover:text-primary transition-colors"
+            href="#"
+            >Home</a
+          >
+          <a
+            class="text-sm font-medium text-neutral-600 hover:text-primary dark:text-neutral-300 dark:hover:text-primary transition-colors"
+            href="#"
+            >Tops</a
+          >
+          <a
+            class="text-sm font-medium text-neutral-600 hover:text-primary dark:text-neutral-300 dark:hover:text-primary transition-colors"
+            href="#"
+            >Bottoms</a
+          >
+          <a
+            class="text-sm font-medium text-neutral-600 hover:text-primary dark:text-neutral-300 dark:hover:text-primary transition-colors"
+            href="#"
+            >Accessories</a
+          >
+          <a
+            class="text-sm font-bold text-red-500 hover:text-red-600 transition-colors"
+            href="#"
+            >Sale</a
+          >
+        </nav>
+        <div class="flex items-center gap-3">
+          <button
+            class="hidden lg:flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all"
+          >
+            <span>Sign In</span>
+          </button>
+          <button
+            class="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <span
+              class="material-symbols-outlined text-neutral-800 dark:text-neutral-50 group-hover:text-primary"
+              >search</span
+            >
+          </button>
+          <button
+            class="group relative flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <span
+              class="material-symbols-outlined text-neutral-800 dark:text-neutral-50 group-hover:text-primary"
+              >shopping_cart</span
+            >
+            <span
+              class="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white"
+              >2</span
+            >
+          </button>
+          <button
+            class="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors"
+          >
+            <span
+              class="material-symbols-outlined text-neutral-800 dark:text-neutral-50 group-hover:text-primary"
+              >account_circle</span
+            >
+          </button>
+        </div>
+      </header>
+      <!-- Main Content -->
+      <main class="flex-1">
+        <!-- Hero Section -->
+        <section class="relative w-full px-4 pt-6 pb-8 lg:px-10 lg:pt-8">
+          <div
+            class="relative overflow-hidden rounded-2xl bg-neutral-900 aspect-[16/9] md:aspect-[21/9] w-full shadow-xl"
+          >
+            <div
+              class="absolute inset-0 bg-cover bg-center"
+              data-alt="Stylish woman in coat shopping in modern city street"
+              style="
+                background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuA6knPWlgZgkJDh1rNJ9ahARvCCVupkTFZjGCMnIStFqAFQvZcg6L0gZCtNOpm3FWtKurN_3NdIKgXhUMWVTgdB7coRcKucCZVLDqzCUVv0FBuT3B4orbKeL3c9AriK72vp-1nR7hb6rqduoYskvR8KYeu0R5ZCOKanHHJ_7dmQsbcGmE1LPba_7Yib-_Av-KUPK7z87hrX0ZuOm9IwmTKjXJ6svr42kdpus3jaK4FD6m1OTM3vRhCU3ER1Z5C2I_wWvo-_T43ZC0I&quot;);
+              "
+            ></div>
+            <div
+              class="absolute inset-0 bg-gradient-to-r from-black/70 to-transparent"
+            ></div>
+            <div
+              class="absolute inset-0 flex flex-col justify-center px-8 md:px-16 lg:px-24"
+            >
+              <span
+                class="mb-4 inline-block w-fit rounded-full bg-white/20 px-3 py-1 text-xs font-bold uppercase tracking-wider text-white backdrop-blur-md"
+                >New Season</span
+              >
+              <h1
+                class="mb-6 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight text-white md:text-6xl lg:text-7xl"
+              >
+                Urban <span class="text-primary">Vibes</span><br />Collection
+              </h1>
+              <p class="mb-8 max-w-lg text-lg text-neutral-200">
+                Discover the latest trends in street fashion. Bold colors,
+                comfortable fits, and uncompromising style for the modern you.
+              </p>
+              <div class="flex gap-4">
+                <button
+                  class="flex h-12 items-center justify-center rounded-full bg-primary px-8 text-base font-bold text-white shadow-lg shadow-primary/30 transition-transform hover:scale-105 active:scale-95"
+                >
+                  Shop Now
+                </button>
+                <button
+                  class="flex h-12 items-center justify-center rounded-full bg-white px-8 text-base font-bold text-neutral-900 transition-transform hover:bg-neutral-100 hover:scale-105 active:scale-95"
+                >
+                  View Lookbook
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- Filters Section -->
+        <section
+          class="sticky top-[72px] z-40 border-b border-neutral-200 bg-background-light/95 px-4 py-4 backdrop-blur-sm dark:border-neutral-700 dark:bg-background-dark/95 lg:px-10"
+        >
+          <div
+            class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+          >
+            <!-- Quick Filters -->
+            <div
+              class="flex flex-nowrap gap-3 overflow-x-auto scrollbar-hide pb-2 lg:pb-0"
+            >
+              <button
+                class="flex shrink-0 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 hover:border-primary hover:text-primary dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:border-primary transition-all"
+              >
+                <span class="material-symbols-outlined text-[18px]">tune</span>
+                Filters
+              </button>
+              <button
+                class="flex shrink-0 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              >
+                Price
+                <span class="material-symbols-outlined text-[18px]"
+                  >expand_more</span
+                >
+              </button>
+              <button
+                class="flex shrink-0 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              >
+                Size
+                <span class="material-symbols-outlined text-[18px]"
+                  >expand_more</span
+                >
+              </button>
+              <button
+                class="flex shrink-0 items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-700"
+              >
+                Color
+                <span class="material-symbols-outlined text-[18px]"
+                  >expand_more</span
+                >
+              </button>
+              <div
+                class="h-8 w-px bg-neutral-300 dark:bg-neutral-700 mx-1"
+              ></div>
+              <div class="flex gap-2">
+                <label
+                  aria-label="Mint Green"
+                  class="cursor-pointer relative flex items-center justify-center size-9 rounded-full border border-neutral-200 bg-[#E0F2F1] hover:scale-110 transition-transform dark:border-neutral-700"
+                >
+                  <input
+                    class="peer sr-only"
+                    name="color-filter"
+                    type="radio"
+                  />
+                  <span
+                    class="hidden peer-checked:block material-symbols-outlined text-teal-800 text-sm"
+                    >check</span
+                  >
+                </label>
+                <label
+                  aria-label="Soft Pink"
+                  class="cursor-pointer relative flex items-center justify-center size-9 rounded-full border border-neutral-200 bg-[#FCE4EC] hover:scale-110 transition-transform dark:border-neutral-700"
+                >
+                  <input
+                    class="peer sr-only"
+                    name="color-filter"
+                    type="radio"
+                  />
+                  <span
+                    class="hidden peer-checked:block material-symbols-outlined text-pink-800 text-sm"
+                    >check</span
+                  >
+                </label>
+                <label
+                  aria-label="Electric Blue"
+                  class="cursor-pointer relative flex items-center justify-center size-9 rounded-full border border-neutral-200 bg-[#E3F2FD] hover:scale-110 transition-transform dark:border-neutral-700"
+                >
+                  <input
+                    class="peer sr-only"
+                    name="color-filter"
+                    type="radio"
+                  />
+                  <span
+                    class="hidden peer-checked:block material-symbols-outlined text-blue-800 text-sm"
+                    >check</span
+                  >
+                </label>
+                <label
+                  aria-label="Black"
+                  class="cursor-pointer relative flex items-center justify-center size-9 rounded-full border border-neutral-200 bg-neutral-900 hover:scale-110 transition-transform dark:border-neutral-500"
+                >
+                  <input
+                    class="peer sr-only"
+                    name="color-filter"
+                    type="radio"
+                  />
+                  <span
+                    class="hidden peer-checked:block material-symbols-outlined text-white text-sm"
+                    >check</span
+                  >
+                </label>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 ml-auto">
+              <span class="text-sm text-neutral-500 dark:text-neutral-400"
+                >Sort by:</span
+              >
+              <select
+                class="bg-transparent text-sm font-semibold text-neutral-800 outline-none dark:text-neutral-200 cursor-pointer"
+              >
+                <option>Recommended</option>
+                <option>Newest</option>
+                <option>Price: Low to High</option>
+                <option>Price: High to Low</option>
+              </select>
+            </div>
+          </div>
+        </section>
+        <!-- Featured Categories (Mini) -->
+        <section class="px-4 py-8 lg:px-10">
+          <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <a
+              class="group relative overflow-hidden rounded-xl bg-neutral-100 aspect-[4/5] dark:bg-neutral-800"
+              href="#"
+            >
+              <div
+                class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                data-alt="Woman wearing stylish yellow sweater and skirt"
+                style="
+                  background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuD2XksVyWUXBv61yiE2pjKPLbyrw_200lkg1WYxDML1gqi_c0KZ7_UMwMI6r2PvjEjpTegWKs0tkzHQt4I7ZHI2e025B9j4BhL_3VUYONL2ryyYJ9Ip2sL4HHDiRyE_NRQ1J7FRhexzj9qRHq26omu7Ki8M3ztBHIDXxSGn75EovrwvuGyJxuC5JLdMwvEZ0J9-9jUEmdJ0FCLgh4ZLDNMYxEqVLYk7Q1ETcg3bYJdUKhLLaS1XrfqQSb5Nvb5cLKdKfI8DodRWrDU&quot;);
+                "
+              ></div>
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+              ></div>
+              <div class="absolute bottom-4 left-4">
+                <h3 class="text-lg font-bold text-white">Tops</h3>
+                <p class="text-xs text-neutral-300">120+ Items</p>
+              </div>
+            </a>
+            <a
+              class="group relative overflow-hidden rounded-xl bg-neutral-100 aspect-[4/5] dark:bg-neutral-800"
+              href="#"
+            >
+              <div
+                class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                data-alt="Person wearing blue jeans sitting on stairs"
+                style="
+                  background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuBBz1A_-mW3119MlF2Sd7qTRWFJA8o0xHb4JKUQ0z_NBIMsifSL5wokFwIeeIZp8cKHB5jsUhhso8F0mey3wuJAWoPTwrWKli6mBlcCKqi-aNSVDnHWBY6dz_0S7BtsCnulKSS2YyKVbKXU3NODDCh6dLK93TTHKT1THZUHVcL6EzBDtoGymQJnwLEo3FOfN3Oto0Fq5d3Rr63h5e3I3xN2CvCCvUEMhwvSEV0MLZqLdPySSamobgCIAoyaQfDtTe3SoGMVGk1pJrI&quot;);
+                "
+              ></div>
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+              ></div>
+              <div class="absolute bottom-4 left-4">
+                <h3 class="text-lg font-bold text-white">Bottoms</h3>
+                <p class="text-xs text-neutral-300">85+ Items</p>
+              </div>
+            </a>
+            <a
+              class="group relative overflow-hidden rounded-xl bg-neutral-100 aspect-[4/5] dark:bg-neutral-800"
+              href="#"
+            >
+              <div
+                class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                data-alt="Collection of modern accessories sunglasses and bags"
+                style="
+                  background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDu_pzGe14lCbGd6ImTPsT_fvPRzmoYzFUNWmr3C2lRvNuZIJv1qKrWfgnzyA2TSh4_kCLOBRLSiwzyI_QiAl12Rblp8ODK7jEWE_8YNFf9nNeHgM7dvmHtpMzP0UC0DaI_aTOCZZ_09fB7vQxhqcciO9oa1mNfkukmORCEvYvkcZ1UdT2tyNDvx8wOBjNWIS0Njgo1LAuk909nN3RNMPWaE53c5CmezTreyfpwnMzuENiV0aepSsGH0LsuZzdN39qH59qjMt9oBW8&quot;);
+                "
+              ></div>
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+              ></div>
+              <div class="absolute bottom-4 left-4">
+                <h3 class="text-lg font-bold text-white">Accessories</h3>
+                <p class="text-xs text-neutral-300">50+ Items</p>
+              </div>
+            </a>
+            <a
+              class="group relative overflow-hidden rounded-xl bg-neutral-100 aspect-[4/5] dark:bg-neutral-800"
+              href="#"
+            >
+              <div
+                class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110"
+                data-alt="Sneakers on display shelf"
+                style="
+                  background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuA2hTaxd2p369hAMYVq5n47KvCulVfe0Dx4XfOiI_KXXBe9ImgDhfzLtUjbXd4hMRWWhriFXYRqP95QPP5QaEoGF7YAqbA5ONfn5U5mlqb9VcAtXz7DFnLsK1sR_poPVcBJq7rsErdURjAXqxQzDtBUSk1VLgLu4TBxGIYgkXCpyRMTKynjdZl0vSPR6wUnhIcwvQxqNrKBS5Aduh8TQHs9MHqPLqelwW3OusDH1a7Uk0QsCBQg92rRp7eBRgzEgRxwAyyAg6fO3EM&quot;);
+                "
+              ></div>
+              <div
+                class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"
+              ></div>
+              <div class="absolute bottom-4 left-4">
+                <h3 class="text-lg font-bold text-white">Shoes</h3>
+                <p class="text-xs text-neutral-300">40+ Items</p>
+              </div>
+            </a>
+          </div>
+        </section>
+        <!-- Product Grid -->
+        <section class="px-4 pb-16 lg:px-10">
+          <div class="mb-8 flex items-center justify-between">
+            <h2 class="text-2xl font-bold text-neutral-900 dark:text-white">
+              Trending Now
+            </h2>
+            <a
+              class="flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+              href="#"
+            >
+              View All
+              <span class="material-symbols-outlined text-sm"
+                >arrow_forward</span
+              >
+            </a>
+          </div>
+          <div
+            class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 xl:gap-x-8"
+          >
+            <!-- Product Card 1 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <div
+                  class="absolute top-3 left-3 z-10 rounded bg-white px-2 py-1 text-xs font-bold uppercase tracking-wider text-black shadow-sm"
+                >
+                  New
+                </div>
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <!-- Main Image -->
+                <img
+                  alt="Oversized Wool Coat"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Woman wearing beige oversized coat"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYZtoNCgvAkQhylHdeXLYIy_KA4oPHuoS6cU4W2zlVruTEjzRNT1A7xJZzeTFhW79ZekK8iIinfV_9T_MpvssSFBg0CL7OGcSLgAbV_y6uZTOh01Okp0W1a2Gr2eFKV_AArmEzvAVRhxtxDlnifk0zO1H9yFa7KR3aCbVTm8QL4lAx2GaBOBjiDTd4UsQRZMjpMieSE955I-DZTjWLFGTq7eC1Prnq25LaBaf73lxcSgXhCoOdbhWcxga-7xHYLvXmKENE44KEWJ0"
+                />
+                <!-- Hover Image (Background) -->
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Detail shot of beige wool coat fabric"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuAPNsh9PokDLL3NP13Na-jFDvYiFhJkyy67lrRVPu7ozFcQJPQqzqQSXBnuJFK-mqw_v0CdrpqPjPztjDY5T4hCmm5t9iVABBpFVRKOL46oRZkIRf0jpY3Xh77dLVNq1XddNrDGrUiibPJZpGYBg3QGQuof4A1YJWcD3Bx4NROM-7SnjZhNC_-g2Qlx5MEspxEVRWYi_BrQQjMY0OPVpkYv511Be0FtfdRmZ-91p1DE0w-FndJiGV4s8SLC6W6x1hgujo-RPeBlUl0&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Oversized Wool Coat
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Natural Beige</p>
+                </div>
+                <p class="text-sm font-bold text-neutral-900 dark:text-white">
+                  $129
+                </p>
+              </div>
+            </div>
+            <!-- Product Card 2 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <div
+                  class="absolute top-3 left-3 z-10 rounded bg-red-500 px-2 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                >
+                  -20%
+                </div>
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Graphic Print Tee"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Man wearing white graphic tee"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7fy5X3tpQd8FoVujxuE5A1sWSB3eNtH-mAkBvtTbumwQ9vsAroWfF7pLlqBKiTmhewn-J_uXBtRyu1PeJ9RbJ8UZ69h5cVxKqOG-vVEDa0MIJrHAbJCqDSOMOhB8FWVKMf7bA3Otufp6BcEjJndyQJIid5I3OO1ztXuroSuV-FcxrsXLk7-eJxkZwGREJSpVgygiBL8hq9meJELcb3KXuFBut1vpfnttnf50DEfJtZWNh3zo0_xHqS8VsBE9MZMKDXnScHEK7kM8"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Model wearing white tee in urban setting"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuBDjt4ha8nZgpR6BmJ-oqzKFtikdoxCjIzWNk85MQzmh8oecnzTztn9UKwZg-39bbU9dveSBQzk7kAbERmvAxpMfti7xJT00abcWbeWa1MY7cxKoqpgq_U84eupco1AzhJPTw6VyepBI9QjXUEViqYnHHKJ_BDykq8jRaRlG8LK-gpTbjcX2aJLSjKTxKIKASTlAcRgY1j9_5ljPtRjL2u4dvMKyDoML6ppuS16AcAlWCceKik6nzH4GRv8vCHpG-jkOhs-a75hJNc&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Graphic Print Tee
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">White / Black</p>
+                </div>
+                <div class="flex flex-col items-end">
+                  <p class="text-sm font-bold text-red-500">$28</p>
+                  <p class="text-xs text-neutral-400 line-through">$35</p>
+                </div>
+              </div>
+            </div>
+            <!-- Product Card 3 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Vintage Denim Jacket"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Woman wearing denim jacket"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHxuzLD5BFyJfMBDACYjriUaYzhxKHRb6ZSvmdO34JSW35Icml16t0YoSLqBevY1AHyO6_NQGJvKq7Ppa66U6L4PwJlibtuPN1oHrs_nuknNSX4HxbgQDZigFk5tDLk84CZnsfgqzQ5F8QzwVnrOg5YlASFe6STY7QTsjDIct7Echoz1LALAJiwJsnciTnmQYtA5obNafAphsBldhsEnf5Lxb0XluLDPx6lIVip-FTp_4VS9RZ6thuN8bJFNAG_UVg6aPAlDmO8Wc"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Back view of denim jacket"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuA8iPUh74_9_gBrjFMaoV9fiSGy4gMNsmcBmqSDKGl-QXDljpFrMsLENr9EJpw80nOKGKx8ZOUD9-9sGK5FHyjYzfvZflCW3ST3p1C8O6cTU3pvsislWlm4niBrB5t5850pc8t2hFCUWo8dQ4Az2qY7hqYvFR4mdyoMPrYoX3LHg2VO7qPTS5h8WxPLO8jS0boDdw9a6Wr9fMXR1XDSuBPhgY0fgqhal-1_8wcFMldumZbuIw9FiS-yEYhUYdKaMHs0jZnKow8HHX8&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Vintage Denim Jacket
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Washed Blue</p>
+                </div>
+                <p class="text-sm font-bold text-neutral-900 dark:text-white">
+                  $89
+                </p>
+              </div>
+            </div>
+            <!-- Product Card 4 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <div
+                  class="absolute top-3 left-3 z-10 rounded bg-primary px-2 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                >
+                  Hot
+                </div>
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Urban Runner Sneakers"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Pair of blue sneakers"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHR8BWolkRH2I4RrTJ2fXp0-s_bB_BiOtduaWaw7XGrzTRK8y-cD9-RpMz7cL9JQQtxf9j5U1OINLl1bsp3wxMzp1uX0BXGrmwZRUyMCBau1yDsO_oZpTqS58j4uLPDusNMYsvqFry4S-_vBuvotj6AbeO-gLhW8ZllIVKKL7sSFtZyT7dqcIdE1vfMrU_AKGORdr4IpZBDYzEdpLbQP8ofm3ZU85uKQX-Zv93YT4v3GQ0S8dMTbS3biJCmP2iQNZtI36zqwHed6U"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Sneakers being worn while walking"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDHMkLryI76uYpOWHLYHfGyatipbzece-_17tvSpN2l0MZACIu0G-c8hMLMrQtjpdrTIKMMNNzr0RBJ8JyJRXA1ZJwSVTanvkl2bgIx7bwfs0IC9xIOqqxQmVvxrQXGW_kqIvYs68ASXSlGHg-HeXi-3GhLKQlIbKvQG5B4Eos6cPQr0wa2xY4ZhYcStEz7KhwesTV8lJMoUaMhmTTXL2RVHZZ0DBmv2GK7tCeR_2P_s3iOhssZesb6EfGCJTDvEAvEdul9iMb3Z18&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Urban Runner Sneakers
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Multi-color</p>
+                </div>
+                <p class="text-sm font-bold text-neutral-900 dark:text-white">
+                  $110
+                </p>
+              </div>
+            </div>
+            <!-- Product Card 5 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Casual Jumpsuit"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Woman wearing pink jumpsuit"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuHYJk6rwI-bzc7CfgyjiNPukQvhrcUR7WsUWp2ZFUdnhQlEy0EP4_7kMiliS5EvAD_8fblhqUv0O67mK2hDCOfw0SQ2Hft_wfzkqglVteoACS2lkxwi1ugmFkHzgS3BRRFqpy5Tw__Lrzl3Givz2o-YS86MEOv6b-BwWWEJJeF1Ai_93j4s0F8xFGBElfgK5VIf7N-jRwXjLong0uW1CTEIxFvdhVvSzSD9LAIOrWF8lN6CrQ9X2YrfOYw5F_b4N_4inpETe0NQE"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Close up of pink jumpsuit texture"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuDsXWo8a4zwXr2nspIiLtDmnGwmp5tkCrn4axgo34s1CtzxmuklyTJcOATw-f_XK2evLSUHy5pLBnaOeyFlXyoogSs2y-GSUwDz2zXlmd67kI-FwWveReFz7l8jnTW9woQJpGldo5nuoUQ-v4WtCRPDtN2YtsxENxJ1OCS_4c-ujzL6sp0bR4SulPhWvPnPHR5GPad_IOOU-qyjAxU97t6BdJSflRScz0JKxa-dSwNqMsLc0g3yMlp8KmGL6-vG7IDHDJGE-_7zKZQ&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Casual Jumpsuit
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Soft Pink</p>
+                </div>
+                <p class="text-sm font-bold text-neutral-900 dark:text-white">
+                  $75
+                </p>
+              </div>
+            </div>
+            <!-- Product Card 6 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <div
+                  class="absolute top-3 left-3 z-10 rounded bg-white px-2 py-1 text-xs font-bold uppercase tracking-wider text-black shadow-sm"
+                >
+                  New
+                </div>
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Gold Hoop Earrings"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Gold plated hoop earrings"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBj6E06cvLBnXhP2aX4f-hYmmrdxx81kkOUU9V5wFE2KQWFAxSgUvy3EOXCFKwuYW4YWADrwDYonwQC6wIyp8trRJ37mqoYgF6nN8mPty6KtXDCKULVf71l4ONT8Ltlwb_esDRxneuwdb1BQZNYmlBYZthYzGbjLct2srvkY3YGDJn1AOUapA7c_pe0Y0f8ZIbLRZoNZ-OZbAudXpOKjV-6SM9ab44TMxgADMJvMsSVv5si1z2E1LEaDcnar4XiHuteKc4NyT4JUc"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Earrings worn by model"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuCxbdEleBnaSBTqCkxRv7wzH9iXK2N3nEqqGf9am50d7pkdejXJ7wDTMvkKcVlu-oLJ4mKDW82qyauSjj9FT2s875Xk7-Kc0JHnBaEWlspk0lxRHx40OGcIibNAaVuRoHKQHjpiyEdiAifIfriZnLMN4Ef7tMyZ47DP6fpm0Dgh7I0yARGe-jJNG_gzw48zF2PZj3SaLc7nv7FSotRZ1_wf97JODzE9P_i6Di-VN0G1Qri7FZtJ0WESK5DO84ernf3mFEmvIivSZI8&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Gold Hoop Earrings
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Gold Plated</p>
+                </div>
+                <p class="text-sm font-bold text-neutral-900 dark:text-white">
+                  $45
+                </p>
+              </div>
+            </div>
+            <!-- Product Card 7 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <div
+                  class="absolute top-3 left-3 z-10 rounded bg-red-500 px-2 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-sm"
+                >
+                  -50%
+                </div>
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Winter Puffer Jacket"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Man wearing puffer jacket"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAk-aqZaiyVst1l3ufXxXybyUjjv7qweVHsDRBSoREejHkxJoyG8OOgItpg8yahK6GOs8AzkX9zh25PaydAv5MmhhAmVy8RiyjpUPm61WoodhHSxb6ivGANa9k9Fsyp4N5b7qLabiDNS-eRYviswk5k462itYU8OtA79_1vr0U681cWSd9zCZVg7FwFQuc43rOC9dp7tjvG0rbjfVFycTkNQKg_4Mjs_O8QY5NwGA5-aT6mcJvM8K-sRkCDhObzPfNkY37IrEbXiVI"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Close up of puffer jacket details"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuArL5uPOqZOuNFHWFbH1g2Vi-FOjgE2hp2ZIsuJtQN7fyLB2fCCo2mh5jhUH_11iIzJmYzzb4-LvxO1oysNh-ImHEMYSJ1jdcTgxgRV8ACZONvcMHy43APeOCxUKf0kDHAz2qC205KIH4dI-XsTa9ebz-ydg4t9RetQNDged7Q6um6VdKd3X4__CBBYJCRLZZRFeGJzXQC65bqfMrLuG7lkuf_1FZZV4sb1Ub_EAxlScvWhPn9mMppuJ6RlVuiKksU6DJRzr72QC_8&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Winter Puffer Jacket
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Dark Navy</p>
+                </div>
+                <div class="flex flex-col items-end">
+                  <p class="text-sm font-bold text-red-500">$99</p>
+                  <p class="text-xs text-neutral-400 line-through">$199</p>
+                </div>
+              </div>
+            </div>
+            <!-- Product Card 8 -->
+            <div class="group relative flex flex-col">
+              <div
+                class="aspect-[3/4] w-full overflow-hidden rounded-xl bg-neutral-200 relative"
+              >
+                <button
+                  class="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100"
+                >
+                  <span class="material-symbols-outlined text-[20px]"
+                    >favorite</span
+                  >
+                </button>
+                <img
+                  alt="Essential Cotton Crew"
+                  class="h-full w-full object-cover object-center transition-opacity duration-300 group-hover:opacity-0"
+                  data-alt="Stack of folded colorful shirts"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3k2WAghbJpVoCPEIHdak3yihKjjwFvxN7RFQiH8izg8wjsfXvUfxSgGY4j1N_Lizn76-UvGgXIoWrc-KJoftlXGNHWbtSOT9QN_IvdE_MMZv01jqfStz4ajpANaQFowWCHAm7CzbpL-Ei8YQ6cp3kz8cnjqwyfp9UTlqopbGO0xUJ31evB0Je5xIX8eVxmB6oP8zrbdZSrg_GgT_KqiaNybBDs4nxVy3y10WCJCDFRHZPS1OYdfbiqzhvQMPIlRRbenUH9Drt-ko"
+                />
+                <div
+                  class="absolute inset-0 -z-10 bg-cover bg-center"
+                  data-alt="Man wearing white cotton t-shirt"
+                  style="
+                    background-image: url(&quot;https://lh3.googleusercontent.com/aida-public/AB6AXuCNFVrnKF3dLRc3N3nEKGA0JgeThJi45kFetuoctOzE3Nz5Jb8y-5XVchjxZbqHClh5DwsJIXTy5QeWClPrX0w7z6edzDz16n5oRcsw2uijNNEaPcb4sT46xFbxbl0bDvvTk2JBYiggqs1HmJ_-1zZsQFrTkdIhRd9DI5nDD5mW0cnjC70o0azU753SD2uKSrnj1wbm49ahptbuz31YUnzdw-0gJ836ArVugKhHsyd-ZJlo09UmJ1YWJTpdSEfqfBQg_-51y2DW-UI&quot;);
+                  "
+                ></div>
+              </div>
+              <div class="mt-4 flex justify-between">
+                <div>
+                  <h3
+                    class="text-sm font-medium text-neutral-700 dark:text-neutral-200"
+                  >
+                    <a href="#">
+                      <span aria-hidden="true" class="absolute inset-0"></span>
+                      Essential Cotton Crew
+                    </a>
+                  </h3>
+                  <p class="mt-1 text-sm text-neutral-500">Various Colors</p>
+                </div>
+                <p class="text-sm font-bold text-neutral-900 dark:text-white">
+                  $24
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-12 flex justify-center">
+            <button
+              class="rounded-full border border-neutral-300 bg-white px-8 py-3 text-sm font-bold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+            >
+              Load More Products
+            </button>
+          </div>
+        </section>
+        <!-- Newsletter / CTA Section -->
+        <section class="relative my-10 py-16">
+          <div
+            class="absolute inset-0 bg-primary/10 -skew-y-2 dark:bg-primary/5"
+          ></div>
+          <div
+            class="layout-container relative mx-auto flex max-w-[960px] flex-col items-center justify-center px-6 text-center"
+          >
+            <div
+              class="mb-4 flex size-12 items-center justify-center rounded-full bg-primary/20 text-primary"
+            >
+              <span class="material-symbols-outlined text-3xl">mail</span>
+            </div>
+            <h2
+              class="mb-4 text-3xl font-bold text-neutral-900 dark:text-white"
+            >
+              Join the VIBE Club
+            </h2>
+            <p class="mb-8 max-w-md text-neutral-600 dark:text-neutral-400">
+              Get 15% off your first order and be the first to know about new
+              drops and exclusive offers.
+            </p>
+            <form class="flex w-full max-w-md flex-col gap-3 sm:flex-row">
+              <input
+                class="flex-1 rounded-lg border-neutral-300 bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:border-primary focus:ring-primary dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
+                placeholder="Enter your email"
+                required=""
+                type="email"
+              />
+              <button
+                class="rounded-lg bg-primary px-6 py-3 font-bold text-white hover:bg-primary-dark transition-colors"
+                type="submit"
+              >
+                Subscribe
+              </button>
+            </form>
+          </div>
+        </section>
+      </main>
+      <!-- Footer -->
+      <footer
+        class="border-t border-neutral-200 bg-white pt-16 pb-8 text-neutral-600 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400"
+      >
+        <div class="container mx-auto px-6 lg:px-10">
+          <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5">
+            <div class="lg:col-span-2">
+              <div
+                class="mb-4 flex items-center gap-2 text-neutral-900 dark:text-white"
+              >
+                <div
+                  class="flex items-center justify-center size-8 rounded-lg bg-primary text-white"
+                >
+                  <span class="material-symbols-outlined text-xl">diamond</span>
+                </div>
+                <span class="text-xl font-bold">VIBE</span>
+              </div>
+              <p class="mb-6 max-w-xs text-sm">
+                Curating the modern urban lifestyle with bold choices and
+                sustainable practices. Fashion that speaks before you do.
+              </p>
+              <div class="flex gap-4">
+                <a
+                  class="flex size-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 hover:bg-primary hover:text-white dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-primary dark:hover:text-white transition-all"
+                  href="#"
+                >
+                  <!-- Facebook icon placeholder via material symbols -->
+                  <span class="material-symbols-outlined font-normal"
+                    >public</span
+                  >
+                </a>
+                <a
+                  class="flex size-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 hover:bg-primary hover:text-white dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-primary dark:hover:text-white transition-all"
+                  href="#"
+                >
+                  <!-- Instagram icon placeholder -->
+                  <span class="material-symbols-outlined font-normal"
+                    >photo_camera</span
+                  >
+                </a>
+                <a
+                  class="flex size-10 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 hover:bg-primary hover:text-white dark:bg-neutral-800 dark:text-neutral-400 dark:hover:bg-primary dark:hover:text-white transition-all"
+                  href="#"
+                >
+                  <!-- Twitter icon placeholder -->
+                  <span class="material-symbols-outlined font-normal"
+                    >alternate_email</span
+                  >
+                </a>
+              </div>
+            </div>
+            <div>
+              <h4 class="mb-4 font-bold text-neutral-900 dark:text-white">
+                Shop
+              </h4>
+              <ul class="space-y-2 text-sm">
+                <li><a class="hover:text-primary" href="#">New Arrivals</a></li>
+                <li><a class="hover:text-primary" href="#">Best Sellers</a></li>
+                <li><a class="hover:text-primary" href="#">Tops</a></li>
+                <li><a class="hover:text-primary" href="#">Bottoms</a></li>
+                <li><a class="hover:text-primary" href="#">Sale</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="mb-4 font-bold text-neutral-900 dark:text-white">
+                Support
+              </h4>
+              <ul class="space-y-2 text-sm">
+                <li><a class="hover:text-primary" href="#">Help Center</a></li>
+                <li><a class="hover:text-primary" href="#">Order Status</a></li>
+                <li>
+                  <a class="hover:text-primary" href="#"
+                    >Shipping &amp; Returns</a
+                  >
+                </li>
+                <li><a class="hover:text-primary" href="#">Size Guide</a></li>
+                <li><a class="hover:text-primary" href="#">Contact Us</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 class="mb-4 font-bold text-neutral-900 dark:text-white">
+                Company
+              </h4>
+              <ul class="space-y-2 text-sm">
+                <li><a class="hover:text-primary" href="#">About Us</a></li>
+                <li><a class="hover:text-primary" href="#">Careers</a></li>
+                <li>
+                  <a class="hover:text-primary" href="#">Sustainability</a>
+                </li>
+                <li>
+                  <a class="hover:text-primary" href="#">Terms of Service</a>
+                </li>
+                <li>
+                  <a class="hover:text-primary" href="#">Privacy Policy</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div
+            class="mt-16 border-t border-neutral-200 pt-8 text-center text-xs text-neutral-500 dark:border-neutral-700"
+          >
+            <p>© 2024 VIBE Fashion Store. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

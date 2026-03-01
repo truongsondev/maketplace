@@ -1,62 +1,45 @@
+"use client";
+
+import { Heart } from "lucide-react";
+import { ProductItem } from "@/types/product";
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&h=600&fit=crop";
+
 interface ProductCardProps {
-  title: string;
-  price: number;
-  discount: number;
-  rating: number;
-  sold: number;
-  location: string;
-  image: string;
-  preferred?: boolean;
+  product: ProductItem;
 }
 
-export function ProductCard({
-  title,
-  price,
-  discount,
-  rating,
-  sold,
-  location,
-  image,
-  preferred = false,
-}: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
+  const formattedPrice = new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(Number(product.minPrice));
+
   return (
-    <div className="bg-card dark:bg-background-dark/30 rounded shadow-sm hover:shadow-xl transition-all hover:-translate-y-1 cursor-pointer border border-transparent hover:border-primary/30 flex flex-col group overflow-hidden">
-      <div className="aspect-square relative overflow-hidden">
-        <div
-          className="w-full h-full bg-cover bg-center"
-          style={{ backgroundImage: `url("${image}")` }}
-        ></div>
-        {preferred && (
-          <div className="absolute top-1 left-1 bg-yellow-400 text-xs font-bold px-1.5 py-0.5 rounded-sm">
-            Preferred
-          </div>
-        )}
+    <div className="group relative flex flex-col">
+      <div className="aspect-3/4 w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800 relative">
+        <button className="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100">
+          <Heart className="size-5" />
+        </button>
+        <img
+          src={product.imageUrl ?? FALLBACK_IMAGE}
+          alt={product.name}
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
       </div>
-      <div className="p-2 flex-1 flex flex-col">
-        <h4 className="text-sm line-clamp-2 mb-2 group-hover:text-primary transition-colors">
-          {title}
-        </h4>
-        <div className="mt-auto">
-          <div className="flex items-center gap-1 mb-1">
-            <span className="text-primary font-bold">${price.toFixed(2)}</span>
-            {discount > 0 && (
-              <span className="text-[10px] bg-primary/10 text-primary px-1 rounded">
-                -{discount}%
-              </span>
-            )}
-          </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <div className="flex items-center">
-              <span className="material-symbols-outlined text-[10px] text-yellow-500 fill-yellow-500">
-                star
-              </span>
-              <span className="ml-0.5">
-                {rating} | {sold} sold
-              </span>
-            </div>
-            <span>{location}</span>
-          </div>
-        </div>
+      <div className="mt-4 flex flex-col gap-1">
+        <h3 className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+          <a
+            href={`/product/${product.id}`}
+            className="hover:text-primary transition-colors"
+          >
+            {product.name}
+          </a>
+        </h3>
+        <p className="text-sm font-bold text-neutral-900 dark:text-white">
+          {formattedPrice}
+        </p>
       </div>
     </div>
   );
