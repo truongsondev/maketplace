@@ -16,6 +16,7 @@ export class AuthAPI {
     this.router.post('/register', asyncHandler(this.register.bind(this)));
     this.router.get('/verify-email', asyncHandler(this.verifyEmail.bind(this)));
     this.router.post('/login', asyncHandler(this.login.bind(this)));
+    this.router.post('/logout', asyncHandler(this.logout.bind(this)));
     this.router.post('/forgot-password', asyncHandler(this.forgotPassword.bind(this)));
     this.router.post('/reset-password', asyncHandler(this.resetPassword.bind(this)));
   }
@@ -57,8 +58,9 @@ export class AuthAPI {
     const { email, password } = req.body;
 
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+    const deviceInfo = (req.headers['user-agent'] ?? 'unknown').slice(0, 500);
 
-    const result = await this.authController.login({ email, password }, ipAddress);
+    const result = await this.authController.login({ email, password, deviceInfo }, ipAddress);
     const response = ResponseFormatter.success(result, 'Login successful');
     res.status(200).json(response);
   }
@@ -93,6 +95,21 @@ export class AuthAPI {
     }
 
     const result = await this.authController.resetPassword({ token, newPassword });
+    const response = ResponseFormatter.success(result, result.message);
+    res.status(200).json(response);
+  }
+
+  private async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new BadRequestError('Authorization header is required');
+    }
+
+    const accessToken = authHeader.slice('Bearer '.length);
+    const { refreshToken } = req.body as { refreshToken?: string };
+
+    const result = await this.authController.logout({ accessToken, refreshToken });
     const response = ResponseFormatter.success(result, result.message);
     res.status(200).json(response);
   }

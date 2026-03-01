@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createAuthModule } from './module/auth/di';
+import { createProductModule } from './module/product/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -19,6 +20,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api/auth', createAuthModule());
+app.use('/api/products', createProductModule());
 
 app.use(errorHandlingMiddleware);
 

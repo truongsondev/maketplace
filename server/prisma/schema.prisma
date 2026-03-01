@@ -30,12 +30,6 @@ enum Gender {
   OTHER
 }
 
-enum ShopStatus {
-  PENDING
-  ACTIVE
-  SUSPENDED
-}
-
 enum OrderStatus {
   PENDING
   CONFIRMED
@@ -73,6 +67,11 @@ enum ReturnStatus {
   COMPLETED
 }
 
+enum DiscountType {
+  PERCENTAGE   // Giảm theo %
+  FIXED_AMOUNT // Giảm số tiền cố định
+}
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
@@ -98,7 +97,6 @@ model User {
   oauthAccounts              OAuthAccount[]
   emailVerificationTokens    EmailVerificationToken[]
   passwordResetTokens        PasswordResetToken[]
-  shops                      Shop[]
   userRoles                  UserRole[]
   cart                       Cart?
   orders                     Order[]
@@ -112,11 +110,12 @@ model User {
 
 /// Quản lý phiên đăng nhập với JWT
 model RefreshToken {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  userId    String   @map("user_id") @db.VarChar(36)
-  token     String   @unique @db.VarChar(500)
-  expiresAt DateTime @map("expires_at")
-  revoked   Boolean  @default(false)
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  userId     String   @map("user_id") @db.VarChar(36)
+  token      String   @unique @db.VarChar(500)
+  deviceInfo String?  @map("device_info") @db.VarChar(500)
+  expiresAt  DateTime @map("expires_at")
+  revoked    Boolean  @default(false)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -267,38 +266,48 @@ model UserAddress {
 }
 
 // ============================================================================
-// MARKETPLACE CORE
+// PRODUCTS (Soft delete + variants + images + categories)
 // ============================================================================
 
-/// Gian hàng người bán - đại diện cho shop trong marketplace
-model Shop {
-  id          String     @id @default(uuid()) @db.VarChar(36)
-  ownerId     String     @map("owner_id") @db.VarChar(36)
-  name        String     @db.VarChar(255)
-  description String?    @db.Text
-  status      ShopStatus @default(PENDING)
+/// Sản phẩm - thông tin cơ bản; tồn kho & giá thực tế nằm ở ProductVariant
+model Product {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+  /// Giá hiển thị / khởi điểm; giá bán thực tế lấy từ ProductVariant.price
+  basePrice   Decimal @map("base_price") @db.Decimal(10, 2)
+  isDeleted   Boolean @default(false) @map("is_deleted")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  products Product[]
+  variants         ProductVariant[]
+  images           ProductImage[]
+  categories       ProductCategory[]
+  tags             ProductTag[]
+  cartItems        CartItem[]
+  orderItems       OrderItem[]
+  wishlist         Wishlist[]
+  reviews          Review[]
+  priceHistory     ProductPriceHistory[]
+  campaignProducts CampaignProduct[]
 
-  @@index([ownerId])
-  @@map("shops")
+  @@fulltext([name])
+  @@map("products")
 }
 
 // ============================================================================
-// PRODUCTS (Soft delete + chống oversell)
+// PRODUCT VARIANTS & IMAGES
 // ============================================================================
 
-/// Sản phẩm - hỗ trợ soft delete và quản lý tồn kho
-model Product {
+/// Biến thể sản phẩm - quản lý SKU, size/màu, tồn kho
+model ProductVariant {
   id             String  @id @default(uuid()) @db.VarChar(36)
-  shopId         String  @map("shop_id") @db.VarChar(36)
-  name           String  @db.VarChar(255)
-  description    String? @db.Text
+  productId      String  @map("product_id") @db.VarChar(36)
+  sku            String  @unique @db.VarChar(100)
+  /// Thuộc tính biến thể: {"color": "đỏ", "size": "M"}
+  attributes     Json    @default("{}")
   price          Decimal @db.Decimal(10, 2)
   stockAvailable Int     @default(0) @map("stock_available")
   stockReserved  Int     @default(0) @map("stock_reserved")
@@ -309,16 +318,96 @@ model Product {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  shop          Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
   cartItems     CartItem[]
   orderItems    OrderItem[]
+  images        ProductImage[]
   inventoryLogs InventoryLog[]
-  wishlist      Wishlist[]
-  reviews       Review[]
+  priceHistory  ProductPriceHistory[]
 
-  @@index([shopId])
-  @@fulltext([name])
-  @@map("products")
+  @@index([productId])
+  @@map("product_variants")
+}
+
+/// Ảnh sản phẩm - ảnh chung hoặc riêng cho từng variant
+model ProductImage {
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  productId String  @map("product_id") @db.VarChar(36)
+  variantId String? @map("variant_id") @db.VarChar(36)
+  url       String  @db.VarChar(1000)
+  altText   String? @map("alt_text") @db.VarChar(255)
+  sortOrder Int     @default(0) @map("sort_order")
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+// ============================================================================
+// CATEGORIES & TAGS
+// ============================================================================
+
+/// Danh mục sản phẩm - hỗ trợ cây phân cấp đa cấp
+model Category {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  name        String  @db.VarChar(255)
+  slug        String  @unique @db.VarChar(255)
+  description String? @db.Text
+  imageUrl    String? @map("image_url") @db.VarChar(1000)
+  parentId    String? @map("parent_id") @db.VarChar(36)
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  parent   Category?         @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[]        @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+/// Bảng trung gian - sản phẩm thuộc nhiều danh mục
+model ProductCategory {
+  productId  String @map("product_id") @db.VarChar(36)
+  categoryId String @map("category_id") @db.VarChar(36)
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@map("product_categories")
+}
+
+/// Tag - nhãn tự do gắn vào sản phẩm
+model Tag {
+  id   String @id @default(uuid()) @db.VarChar(36)
+  name String @unique @db.VarChar(100)
+  slug String @unique @db.VarChar(100)
+
+  products ProductTag[]
+
+  @@map("tags")
+}
+
+/// Bảng trung gian - sản phẩm gắn nhiều tag
+model ProductTag {
+  productId String @map("product_id") @db.VarChar(36)
+  tagId     String @map("tag_id") @db.VarChar(36)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@map("product_tags")
 }
 
 // ============================================================================
@@ -341,17 +430,21 @@ model Cart {
 
 /// Chi tiết giỏ hàng
 model CartItem {
-  id        String @id @default(uuid()) @db.VarChar(36)
-  cartId    String @map("cart_id") @db.VarChar(36)
-  productId String @map("product_id") @db.VarChar(36)
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  cartId    String  @map("cart_id") @db.VarChar(36)
+  productId String  @map("product_id") @db.VarChar(36)
+  variantId String? @map("variant_id") @db.VarChar(36)
   quantity  Int
 
   // Relations
-  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
 
-  @@unique([cartId, productId])
+  /// Nếu variantId IS NULL, MySQL cho phép trùng (cartId, productId, NULL) → app phải enforce
+  @@unique([cartId, productId, variantId])
   @@index([productId])
+  @@index([variantId])
   @@map("cart_items")
 }
 
@@ -361,10 +454,12 @@ model CartItem {
 
 /// Đơn hàng
 model Order {
-  id         String      @id @default(uuid()) @db.VarChar(36)
-  userId     String      @map("user_id") @db.VarChar(36)
-  totalPrice Decimal     @map("total_price") @db.Decimal(10, 2)
-  status     OrderStatus @default(PENDING)
+  id             String      @id @default(uuid()) @db.VarChar(36)
+  userId         String      @map("user_id") @db.VarChar(36)
+  totalPrice     Decimal     @map("total_price") @db.Decimal(10, 2)
+  status         OrderStatus @default(PENDING)
+  discountId     String?     @map("discount_id") @db.VarChar(36)
+  discountAmount Decimal?    @map("discount_amount") @db.Decimal(10, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -375,6 +470,8 @@ model Order {
   payment       Payment?
   statusHistory OrderStatusHistory[]
   invoice       Invoice?
+  discount      Discount?            @relation(fields: [discountId], references: [id])
+  discountUsage DiscountUsage?
 
   @@index([status])
   @@index([userId])
@@ -386,16 +483,19 @@ model OrderItem {
   id        String  @id @default(uuid()) @db.VarChar(36)
   orderId   String  @map("order_id") @db.VarChar(36)
   productId String  @map("product_id") @db.VarChar(36)
+  variantId String? @map("variant_id") @db.VarChar(36)
   quantity  Int
   price     Decimal @db.Decimal(10, 2)
 
   // Relations
-  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product  @relation(fields: [productId], references: [id])
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id])
   returns Return[]
 
-  @@unique([orderId, productId])
+  @@unique([orderId, productId, variantId])
   @@index([productId])
+  @@index([variantId])
   @@map("order_items")
 }
 
@@ -422,13 +522,131 @@ model Payment {
 }
 
 // ============================================================================
+// PRICING HISTORY
+// ============================================================================
+
+/// Lịch sử thay đổi giá - phục vụ analytics và audit
+model ProductPriceHistory {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  productId String   @map("product_id") @db.VarChar(36)
+  variantId String?  @map("variant_id") @db.VarChar(36)
+  oldPrice  Decimal  @map("old_price") @db.Decimal(10, 2)
+  newPrice  Decimal  @map("new_price") @db.Decimal(10, 2)
+  changedBy String?  @map("changed_by") @db.VarChar(36)
+
+  changedAt DateTime @default(now()) @map("changed_at")
+
+  // Relations
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([variantId])
+  @@map("product_price_history")
+}
+
+// ============================================================================
+// PROMOTIONS
+// ============================================================================
+
+/// Mã giảm giá
+model Discount {
+  id             String       @id @default(uuid()) @db.VarChar(36)
+  code           String       @unique @db.VarChar(50)
+  description    String?      @db.VarChar(500)
+  type           DiscountType
+  value          Decimal      @db.Decimal(10, 2)
+  minOrderAmount Decimal?     @map("min_order_amount") @db.Decimal(10, 2)
+  maxUsage       Int?         @map("max_usage")
+  usedCount      Int          @default(0) @map("used_count")
+  startAt        DateTime     @map("start_at")
+  endAt          DateTime     @map("end_at")
+  isActive       Boolean      @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  usages    DiscountUsage[]
+  campaigns CampaignDiscount[]
+  orders    Order[]
+
+  @@map("discounts")
+}
+
+/// Lịch sử sử dụng mã giảm giá
+model DiscountUsage {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  discountId String   @map("discount_id") @db.VarChar(36)
+  userId     String   @map("user_id") @db.VarChar(36)
+  orderId    String   @unique @map("order_id") @db.VarChar(36)
+
+  usedAt DateTime @default(now()) @map("used_at")
+
+  // Relations
+  discount Discount @relation(fields: [discountId], references: [id])
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([discountId])
+  @@index([userId])
+  @@map("discount_usages")
+}
+
+/// Chiến dịch khuyến mãi - nhóm sản phẩm giảm giá theo thời gian
+model Campaign {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  startAt     DateTime @map("start_at")
+  endAt       DateTime @map("end_at")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  products  CampaignProduct[]
+  discounts CampaignDiscount[]
+
+  @@map("campaigns")
+}
+
+/// Sản phẩm tham gia chiến dịch khuyến mãi
+model CampaignProduct {
+  campaignId      String  @map("campaign_id") @db.VarChar(36)
+  productId       String  @map("product_id") @db.VarChar(36)
+  /// % giảm riêng cho sản phẩm trong chiến dịch (0.00 - 100.00)
+  discountPercent Decimal @map("discount_percent") @db.Decimal(5, 2)
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, productId])
+  @@map("campaign_products")
+}
+
+/// Mã giảm giá áp dụng trong chiến dịch
+model CampaignDiscount {
+  campaignId String @map("campaign_id") @db.VarChar(36)
+  discountId String @map("discount_id") @db.VarChar(36)
+
+  // Relations
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, discountId])
+  @@map("campaign_discounts")
+}
+
+// ============================================================================
 // INVENTORY LOG (Audit kho hàng)
 // ============================================================================
 
-/// Lịch sử nhập/xuất kho
+/// Lịch sử nhập/xuất kho - theo dõi ở cấpđộ variant
 model InventoryLog {
   id          String          @id @default(uuid()) @db.VarChar(36)
-  productId   String          @map("product_id") @db.VarChar(36)
+  variantId   String          @map("variant_id") @db.VarChar(36)
   action      InventoryAction
   quantity    Int
   referenceId String?         @map("reference_id") @db.VarChar(36)
@@ -436,9 +654,9 @@ model InventoryLog {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  product Product @relation(fields: [productId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
 
-  @@index([productId])
+  @@index([variantId])
   @@map("inventory_logs")
 }
 

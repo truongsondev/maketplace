@@ -1,167 +1,110 @@
 import axios, {
-  AxiosInstance,
-  AxiosError,
-  AxiosRequestConfig,
-  InternalAxiosRequestConfig,
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosError,
 } from "axios";
-import {
-  ApiResponse,
-  ApiErrorResponse,
-  ApiSuccessResponse,
-} from "@/types/api.types";
+import type { ApiResponse, ApiErrorResponse } from "@/types/api.types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
-/**
- * API Client with automatic response handling
- * Handles standardized ApiResponse format from server
- */
 class ApiClient {
-  private axiosInstance: AxiosInstance;
+  private readonly axios: AxiosInstance;
 
-  constructor(baseURL: string = API_BASE_URL) {
-    this.axiosInstance = axios.create({
-      baseURL,
+  constructor() {
+    this.axios = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: 10_000,
       headers: {
         "Content-Type": "application/json",
       },
-      timeout: 10000,
     });
 
-    this.setupInterceptors();
-  }
-
-  /**
-   * Setup axios interceptors for request and response handling
-   */
-  private setupInterceptors(): void {
-    // Request interceptor - add auth token if available
-    this.axiosInstance.interceptors.request.use(
-      (config: InternalAxiosRequestConfig) => {
-        const token = this.getAuthToken();
+    this.axios.interceptors.request.use((config) => {
+      if (typeof window !== "undefined") {
+        const token = localStorage.getItem("access_token");
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-        return config;
+      }
+      return config;
+    });
+
+    this.axios.interceptors.response.use(
+      (response) => response,
+      (error: AxiosError<ApiErrorResponse>) => {
+        const serverError = error.response?.data;
+        if (serverError && serverError.success === false) {
+          return Promise.reject(serverError);
+        }
+        // Network / timeout / unknown
+        const fallback: ApiErrorResponse = {
+          success: false,
+          error: {
+            code: "NETWORK_ERROR",
+            message: error.message ?? "Network error occurred",
+            timestamp: new Date().toISOString(),
+          },
+        };
+        return Promise.reject(fallback);
       },
-      (error) => Promise.reject(error),
     );
-
-    // Response interceptor - handle standardized responses
-    this.axiosInstance.interceptors.response.use(
-      (response) => response.data,
-      (error: AxiosError) => {
-        return this.handleError(error);
-      },
-    );
   }
 
-  /**
-   * Handle API errors uniformly
-   */
-  private handleError(error: AxiosError): Promise<ApiErrorResponse> {
-    const response = error.response?.data as any;
-
-    if (response && response.success === false) {
-      // Server returned error in standard format
-      return Promise.reject(response);
-    }
-
-    // Network or unexpected error - format as standard error
-    const errorResponse: ApiErrorResponse = {
-      success: false,
-      error: {
-        code: `HTTP_${error.response?.status || "ERROR"}`,
-        message:
-          response?.message || error.message || "An unexpected error occurred",
-        details: {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          url: error.config?.url,
-        },
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    return Promise.reject(errorResponse);
-  }
-
-  /**
-   * GET request
-   */
-  async get<T = any>(
+  async get<T>(
     url: string,
     config?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.axiosInstance.get(url, config);
+    const res = await this.axios.get<ApiResponse<T>>(url, config);
+    return res.data;
   }
 
-  /**
-   * POST request
-   */
-  async post<T = any>(
+  async post<T>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.axiosInstance.post(url, data, config);
+    const res = await this.axios.post<ApiResponse<T>>(url, data, config);
+    return res.data;
   }
 
-  /**
-   * PUT request
-   */
-  async put<T = any>(
+  async put<T>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.axiosInstance.put(url, data, config);
+    const res = await this.axios.put<ApiResponse<T>>(url, data, config);
+    return res.data;
   }
 
-  /**
-   * PATCH request
-   */
-  async patch<T = any>(
+  async patch<T>(
     url: string,
-    data?: any,
+    data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.axiosInstance.patch(url, data, config);
+    const res = await this.axios.patch<ApiResponse<T>>(url, data, config);
+    return res.data;
   }
 
-  /**
-   * DELETE request
-   */
-  async delete<T = any>(
+  async delete<T>(
     url: string,
     config?: AxiosRequestConfig,
   ): Promise<ApiResponse<T>> {
-    return this.axiosInstance.delete(url, config);
+    const res = await this.axios.delete<ApiResponse<T>>(url, config);
+    return res.data;
   }
 
-  /**
-   * Get auth token from storage
-   */
-  private getAuthToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("authToken");
-  }
-
-  /**
-   * Set auth token
-   */
-  setAuthToken(token: string): void {
+  setAuthToken(token: string) {
+    this.axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     if (typeof window !== "undefined") {
-      localStorage.setItem("authToken", token);
+      localStorage.setItem("access_token", token);
     }
   }
 
-  /**
-   * Clear auth token
-   */
-  clearAuthToken(): void {
+  clearAuthToken() {
+    delete this.axios.defaults.headers.common["Authorization"];
     if (typeof window !== "undefined") {
-      localStorage.removeItem("authToken");
+      localStorage.removeItem("access_token");
     }
   }
 }

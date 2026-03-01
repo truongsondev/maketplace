@@ -3,6 +3,7 @@ import { prisma, redis } from '../../infrastructure/database';
 
 import { VerifyEmailUseCase } from './applications/usecases/verify-email.usecase';
 import { ResetPasswordUseCase } from './applications/usecases/reset-password.usecase';
+import { LogoutUseCase } from './applications/usecases/logout.usecase';
 
 import { PrismaUserRepository } from './infrastructure/repositories/prisma-user.repository';
 import { PrismaEmailVerificationTokenRepository } from './infrastructure/repositories/prisma-email-verification-token.repository';
@@ -71,12 +72,15 @@ export function createAuthModule(): Router {
     rateLimiter,
   );
 
+  const logoutUseCase = new LogoutUseCase(redisCache, tokenRepository, tokenGenerator);
+
   const controller = new AuthController(
     registerUseCaseFactory,
     verifyEmailUseCase,
     loginUseCaseFactory,
     forgotPasswordUseCaseFactory,
     resetPasswordUseCase,
+    logoutUseCase,
   );
 
   const authAPI = new AuthAPI(controller);

@@ -32,7 +32,7 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendEmailVerification(email: string, token: string): Promise<void> {
-    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth/verify-email?token=${token}`;
+    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/api/auth/verify-email?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Verify Your Email Address</h2>
