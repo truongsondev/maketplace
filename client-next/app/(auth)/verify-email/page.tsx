@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
@@ -9,7 +9,7 @@ import { useAuthStore } from "@/stores/auth.store";
 
 type Status = "loading" | "success" | "error" | "missing-token";
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const token = searchParams.get("token");
@@ -122,5 +122,23 @@ export default function VerifyEmailPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-border-color overflow-hidden relative z-10">
+          <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-primary to-orange-400" />
+          <div className="px-8 py-14 flex flex-col items-center gap-5 text-center">
+            <Loader2 className="size-14 text-primary animate-spin" />
+            <h2 className="text-2xl font-black text-text-main">Đang tải...</h2>
+          </div>
+        </div>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
