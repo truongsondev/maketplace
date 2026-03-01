@@ -30,7 +30,7 @@ export class LoginUseCase implements ILoginUseCase {
   }
 
   async execute(command: LoginCommand): Promise<LoginResult> {
-    const { email, password } = command;
+    const { email, password, deviceInfo } = command;
 
     await this.rateLimitHelper.checkRateLimit(email, this.ipAddress);
 
@@ -56,7 +56,7 @@ export class LoginUseCase implements ILoginUseCase {
 
     await Promise.all([
       this.redisCache.set(`session:${accessToken}`, user.id!, ACCESS_TOKEN_TTL_SECONDS),
-      this.tokenRepo.saveToken(user.id!, hashedRefreshToken),
+      this.tokenRepo.saveToken(user.id!, hashedRefreshToken, deviceInfo),
     ]);
 
     return {

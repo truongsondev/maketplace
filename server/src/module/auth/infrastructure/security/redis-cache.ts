@@ -15,4 +15,8 @@ export class RedisCache implements IRedisCache {
   async get(key: string): Promise<string | null> {
     return this.redisClient.get(key);
   }
+
+  async delete(key: string): Promise<void> {
+    await this.redisClient.del(key);
+  }
 }

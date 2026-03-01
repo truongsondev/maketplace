@@ -4,11 +4,13 @@ import {
   VerifyEmailCommand,
   ForgotPasswordCommand,
   ResetPasswordCommand,
+  LogoutCommand,
 } from '../../applications/dto/command';
 import {
   IVerifyEmailUseCase,
   IForgotPasswordUseCase,
   IResetPasswordUseCase,
+  ILogoutUseCase,
 } from '../../applications/ports/input';
 import { ILoginUseCaseFactory } from '../pattern/login-usecase.factory';
 import { IRegisterUseCaseFactory } from '../pattern/register-usecase.factory';
@@ -29,6 +31,7 @@ export class AuthController {
     private readonly loginUseCaseFactory: ILoginUseCaseFactory,
     private readonly forgotPasswordUseCaseFactory: IForgotPasswordUseCaseFactory,
     private readonly resetPasswordUseCase: IResetPasswordUseCase,
+    private readonly logoutUseCase: ILogoutUseCase,
   ) {}
 
   async register(command: RegisterCommand, ipAddress?: string): Promise<RegisterHttpResponse> {
@@ -55,5 +58,9 @@ export class AuthController {
 
   async resetPassword(command: ResetPasswordCommand) {
     return this.resetPasswordUseCase.execute(command);
+  }
+
+  async logout(command: LogoutCommand) {
+    return this.logoutUseCase.execute(command);
   }
 }

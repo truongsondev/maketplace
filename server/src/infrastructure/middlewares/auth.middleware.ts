@@ -5,7 +5,7 @@ import { ErrorCode } from '../../shared/server/error-codes';
 
 export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    if (req.path.startsWith('/api/auth')) {
+    if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/products')) {
       return next();
     }
 

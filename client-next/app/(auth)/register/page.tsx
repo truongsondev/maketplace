@@ -1,21 +1,17 @@
-"use client";
-import Header from "@/components/auth/register-header";
-import { MarketplaceFooter } from "@/components/auth/marketplace-footer";
-import RegistrationForm from "@/components/auth/registration-form";
-import TrustBadges from "@/components/auth/trust-badges";
+import type { Metadata } from "next";
+import { RegisterForm } from "@/components/auth/register-form";
+
+export const metadata: Metadata = {
+  title: "Đăng ký – VibeFashion",
+  description: "Tạo tài khoản VibeFashion của bạn.",
+};
 
 export default function RegisterPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-background-light dark:bg-background-dark">
-      <Header />
-
-      <main className="flex flex-col items-center justify-center flex-1 py-12 px-4 bg-[#F6F7F8]">
-        <RegistrationForm />
-      </main>
-
-      <TrustBadges />
-
-      <MarketplaceFooter />
+    <div className="w-full max-w-120 bg-white rounded-2xl shadow-xl border border-border-color overflow-hidden relative z-10">
+      {/* Gradient top border */}
+      <div className="absolute top-0 left-0 w-full h-1.5 bg-linear-to-r from-primary to-orange-400" />
+      <RegisterForm />
     </div>
   );
 }
