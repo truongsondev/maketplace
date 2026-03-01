@@ -6,7 +6,7 @@ import axios, {
 import type { ApiResponse, ApiErrorResponse } from "@/types/api.types";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://160.187.229.142:8080";
 
 class ApiClient {
   private readonly axios: AxiosInstance;
