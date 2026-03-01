@@ -1,0 +1,14 @@
+{
+  "name": "Basic T-Shirt",
+  "basePrice": 29.99,
+  "variants": [
+    {
+      "sku": "TSHIRT-001-M",
+      "attributes": {
+        "size": "M"
+      },
+      "price": 29.99,
+      "stockAvailable": 100
+    }
+  ]
+}

@@ -1,5 +1,8 @@
 import app from './app';
 import dotenv from 'dotenv';
+import { createLogger } from './shared/util/logger';
+
+const logger = createLogger('Server');
 
 const env = process.env.NODE_ENV || 'development';
 dotenv.config({
@@ -8,5 +11,8 @@ dotenv.config({
 const PORT = process.env.PORT || 8000;
 
 app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
+  logger.info(`Server listening on port ${PORT}`, {
+    environment: env,
+    port: PORT,
+  });
 });

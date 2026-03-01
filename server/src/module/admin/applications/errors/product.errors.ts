@@ -18,3 +18,24 @@ export class InvalidProductDataError extends Error {
     this.name = 'InvalidProductDataError';
   }
 }
+
+export class CategoryNotFoundError extends Error {
+  constructor(categoryIds: string[]) {
+    super(`Categories not found: ${categoryIds.join(', ')}`);
+    this.name = 'CategoryNotFoundError';
+  }
+}
+
+export class TagNotFoundError extends Error {
+  constructor(tagIds: string[]) {
+    super(`Tags not found: ${tagIds.join(', ')}`);
+    this.name = 'TagNotFoundError';
+  }
+}
+
+export class ImageNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Image with id "${id}" not found`);
+    this.name = 'ImageNotFoundError';
+  }
+}

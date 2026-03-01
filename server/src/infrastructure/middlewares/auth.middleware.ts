@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ISessionVerifier } from '../../shared/server/session-verifier';
 import { ResponseFormatter } from '../../shared/server/api-response';
 import { ErrorCode } from '../../shared/server/error-codes';
+import { prisma } from '../database';
 
 export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -38,6 +39,34 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
         );
       return;
     }
+
+    // Query user with roles from database
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        userRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      res
+        .status(401)
+        .json(
+          ResponseFormatter.error(ErrorCode.UNAUTHORIZED, 'User not found or has been deleted'),
+        );
+      return;
+    }
+
+    (req as any).user = {
+      id: user.id,
+      email: user.email,
+      status: user.status,
+      roles: user.userRoles,
+    };
 
     req.userId = userId;
 

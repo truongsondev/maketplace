@@ -1,0 +1,285 @@
+### Create Product - Minimal Example
+POST http://localhost:8080/api/admin/products
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "name": "Basic T-Shirt",
+  "basePrice": 29.99,
+  "variants": [
+    {
+      "sku": "TSHIRT-001-M",
+      "attributes": {
+        "size": "M"
+      },
+      "price": 29.99,
+      "stockAvailable": 100
+    }
+  ]
+}
+
+### Create Product - Complete Example
+POST http://localhost:8080/api/admin/products
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "name": "Premium Cotton T-Shirt",
+  "description": "Comfortable premium cotton t-shirt with modern fit",
+  "basePrice": 39.99,
+  "variants": [
+    {
+      "sku": "TSHIRT-PREM-001-RED-M",
+      "attributes": {
+        "color": "Red",
+        "size": "M"
+      },
+      "price": 39.99,
+      "stockAvailable": 50,
+      "minStock": 10
+    },
+    {
+      "sku": "TSHIRT-PREM-001-RED-L",
+      "attributes": {
+        "color": "Red",
+        "size": "L"
+      },
+      "price": 42.99,
+      "stockAvailable": 45,
+      "minStock": 10
+    },
+    {
+      "sku": "TSHIRT-PREM-001-BLUE-M",
+      "attributes": {
+        "color": "Blue",
+        "size": "M"
+      },
+      "price": 39.99,
+      "stockAvailable": 40,
+      "minStock": 10
+    },
+    {
+      "sku": "TSHIRT-PREM-001-BLUE-L",
+      "attributes": {
+        "color": "Blue",
+        "size": "L"
+      },
+      "price": 42.99,
+      "stockAvailable": 35,
+      "minStock": 10
+    }
+  ],
+  "images": [
+    {
+      "url": "https://cdn.example.com/tshirt-main.jpg",
+      "altText": "Premium T-Shirt Main View",
+      "sortOrder": 0,
+      "isPrimary": true
+    },
+    {
+      "url": "https://cdn.example.com/tshirt-red-front.jpg",
+      "altText": "Red Color Variant - Front",
+      "sortOrder": 1,
+      "isPrimary": false,
+      "variantId": "TSHIRT-PREM-001-RED-M"
+    },
+    {
+      "url": "https://cdn.example.com/tshirt-red-back.jpg",
+      "altText": "Red Color Variant - Back",
+      "sortOrder": 2,
+      "isPrimary": false,
+      "variantId": "TSHIRT-PREM-001-RED-M"
+    },
+    {
+      "url": "https://cdn.example.com/tshirt-blue-front.jpg",
+      "altText": "Blue Color Variant - Front",
+      "sortOrder": 3,
+      "isPrimary": false,
+      "variantId": "TSHIRT-PREM-001-BLUE-M"
+    },
+    {
+      "url": "https://cdn.example.com/tshirt-blue-back.jpg",
+      "altText": "Blue Color Variant - Back",
+      "sortOrder": 4,
+      "isPrimary": false,
+      "variantId": "TSHIRT-PREM-001-BLUE-M"
+    }
+  ],
+  "categoryIds": [
+    "e8f91c4a-1234-5678-9abc-def012345678",
+    "f9a82d5b-2345-6789-abcd-ef0123456789"
+  ],
+  "tagIds": [
+    "a1b2c3d4-3456-7890-bcde-f01234567890",
+    "b2c3d4e5-4567-8901-cdef-012345678901"
+  ]
+}
+
+### Create Product - With Multiple Variants and Colors
+POST http://localhost:8080/api/admin/products
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "name": "Athletic Running Shoes",
+  "description": "High-performance running shoes with advanced cushioning",
+  "basePrice": 89.99,
+  "variants": [
+    {
+      "sku": "SHOE-RUN-001-BLK-8",
+      "attributes": {
+        "color": "Black",
+        "size": "8"
+      },
+      "price": 89.99,
+      "stockAvailable": 25,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-BLK-9",
+      "attributes": {
+        "color": "Black",
+        "size": "9"
+      },
+      "price": 89.99,
+      "stockAvailable": 30,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-BLK-10",
+      "attributes": {
+        "color": "Black",
+        "size": "10"
+      },
+      "price": 89.99,
+      "stockAvailable": 28,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-WHT-8",
+      "attributes": {
+        "color": "White",
+        "size": "8"
+      },
+      "price": 89.99,
+      "stockAvailable": 20,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-WHT-9",
+      "attributes": {
+        "color": "White",
+        "size": "9"
+      },
+      "price": 89.99,
+      "stockAvailable": 22,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-WHT-10",
+      "attributes": {
+        "color": "White",
+        "size": "10"
+      },
+      "price": 89.99,
+      "stockAvailable": 18,
+      "minStock": 5
+    }
+  ],
+  "images": [
+    {
+      "url": "https://cdn.example.com/shoe-main.jpg",
+      "altText": "Running Shoe Main View",
+      "sortOrder": 0,
+      "isPrimary": true
+    },
+    {
+      "url": "https://cdn.example.com/shoe-black.jpg",
+      "altText": "Black Color Option",
+      "sortOrder": 1,
+      "variantId": "SHOE-RUN-001-BLK-9"
+    },
+    {
+      "url": "https://cdn.example.com/shoe-white.jpg",
+      "altText": "White Color Option",
+      "sortOrder": 2,
+      "variantId": "SHOE-RUN-001-WHT-9"
+    }
+  ],
+  "categoryIds": [
+    "cat-shoes-uuid",
+    "cat-athletic-uuid"
+  ],
+  "tagIds": [
+    "tag-running-uuid",
+    "tag-sports-uuid",
+    "tag-new-uuid"
+  ]
+}
+
+### Create Product - Electronics Example
+POST http://localhost:8080/api/admin/products
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN_HERE
+
+{
+  "name": "Wireless Bluetooth Headphones",
+  "description": "Premium noise-cancelling wireless headphones with 30-hour battery life",
+  "basePrice": 199.99,
+  "variants": [
+    {
+      "sku": "HEAD-BT-001-BLK",
+      "attributes": {
+        "color": "Black"
+      },
+      "price": 199.99,
+      "stockAvailable": 75,
+      "minStock": 15
+    },
+    {
+      "sku": "HEAD-BT-001-SLV",
+      "attributes": {
+        "color": "Silver"
+      },
+      "price": 199.99,
+      "stockAvailable": 60,
+      "minStock": 15
+    },
+    {
+      "sku": "HEAD-BT-001-BLU",
+      "attributes": {
+        "color": "Blue"
+      },
+      "price": 209.99,
+      "stockAvailable": 45,
+      "minStock": 10
+    }
+  ],
+  "images": [
+    {
+      "url": "https://cdn.example.com/headphones-main.jpg",
+      "altText": "Wireless Headphones Main View",
+      "sortOrder": 0,
+      "isPrimary": true
+    },
+    {
+      "url": "https://cdn.example.com/headphones-side.jpg",
+      "altText": "Side View",
+      "sortOrder": 1
+    },
+    {
+      "url": "https://cdn.example.com/headphones-folded.jpg",
+      "altText": "Folded View",
+      "sortOrder": 2
+    }
+  ],
+  "categoryIds": [
+    "cat-electronics-uuid",
+    "cat-audio-uuid"
+  ],
+  "tagIds": [
+    "tag-wireless-uuid",
+    "tag-bluetooth-uuid",
+    "tag-premium-uuid"
+  ]
+}
