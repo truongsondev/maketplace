@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { HttpErrorHandler } from './http-error-handler';
+import { createLogger } from '../util/logger';
+
+const logger = createLogger('ErrorMiddleware');
 
 export function errorHandlingMiddleware(
   err: Error,
@@ -7,14 +10,15 @@ export function errorHandlingMiddleware(
   res: Response,
   next: NextFunction,
 ): void {
-  console.error('Global Error Handler:', {
-    message: err.message,
-    stack: err.stack,
+  logger.error('Request error occurred', err, {
     path: req.path,
     method: req.method,
+    query: req.query,
+    body: req.body,
+    userId: (req as any).userId || 'anonymous',
   });
 
-  HttpErrorHandler.handle(err, res, console);
+  HttpErrorHandler.handle(err, res, logger);
 }
 
 export function asyncHandler(
@@ -22,7 +26,11 @@ export function asyncHandler(
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
     fn(req, res, next).catch((error) => {
-      HttpErrorHandler.handle(error, res, console);
+      logger.error('Async handler caught error', error, {
+        path: req.path,
+        method: req.method,
+      });
+      HttpErrorHandler.handle(error, res, logger);
     });
   };
 }

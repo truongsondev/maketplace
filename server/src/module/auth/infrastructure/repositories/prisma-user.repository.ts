@@ -51,8 +51,31 @@ export class PrismaUserRepository implements IUserRepository {
       return this.toDomain(updated);
     }
 
-    const created = await this.prisma.user.create({
-      data,
+    // Create new user with default BUYER role
+    const created = await this.prisma.$transaction(async (tx) => {
+      // 1. Create user
+      const newUser = await tx.user.create({
+        data,
+      });
+
+      // 2. Find BUYER role
+      const buyerRole = await tx.role.findUnique({
+        where: { code: 'BUYER' },
+      });
+
+      if (!buyerRole) {
+        throw new Error('BUYER role not found in database');
+      }
+
+      // 3. Assign BUYER role to new user
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: buyerRole.id,
+        },
+      });
+
+      return newUser;
     });
 
     return this.toDomain(created);

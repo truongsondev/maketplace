@@ -121,10 +121,7 @@ export class PrismaProductRepository implements IProductRepository {
 
   private toDomain(row: any): Product {
     const minPrice = row.variants[0]?.price ?? row.basePrice ?? 0;
-    const imageUrl = row.images[0]?.imageUrl ?? null;
-
-    // TODO: Calculate discount from Discount table if needed
-    // For now, return without discount info
+    const imageUrl = row.images[0]?.url ?? null;
 
     return Product.fromPersistence({
       id: row.id,

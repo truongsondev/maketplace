@@ -31,7 +31,7 @@ export const productService = {
 
   async getProductDetail(id: string): Promise<ProductDetail> {
     const response = await apiClient.get<ProductDetail>(`api/products/${id}`);
-
+    console.log("Product detail response:", response);
     if (response.success) {
       return (response as ApiSuccessResponse<ProductDetail>).data;
     }

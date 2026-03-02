@@ -42,6 +42,36 @@ export class PrismaProductRepository implements IProductRepository {
     tagIds: string[],
   ): Promise<Product> {
     const result = await this.prisma.$transaction(async (tx) => {
+      // Validate categoryIds exist in database
+      if (categoryIds.length > 0) {
+        const existingCategories = await tx.category.findMany({
+          where: { id: { in: categoryIds } },
+          select: { id: true },
+        });
+
+        const existingCategoryIds = existingCategories.map((c) => c.id);
+        const notFoundCategoryIds = categoryIds.filter((id) => !existingCategoryIds.includes(id));
+
+        if (notFoundCategoryIds.length > 0) {
+          throw new Error(`Categories not found: ${notFoundCategoryIds.join(', ')}`);
+        }
+      }
+
+      // Validate tagIds exist in database
+      if (tagIds.length > 0) {
+        const existingTags = await tx.tag.findMany({
+          where: { id: { in: tagIds } },
+          select: { id: true },
+        });
+
+        const existingTagIds = existingTags.map((t) => t.id);
+        const notFoundTagIds = tagIds.filter((id) => !existingTagIds.includes(id));
+
+        if (notFoundTagIds.length > 0) {
+          throw new Error(`Tags not found: ${notFoundTagIds.join(', ')}`);
+        }
+      }
+
       // 1. Create product
       const savedProduct = await tx.product.create({
         data: {
