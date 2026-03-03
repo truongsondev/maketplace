@@ -1,0 +1,9 @@
+version: "3.8"
+
+services:
+  client-seller:
+    build: .
+    ports:
+      - "5173:5173"
+    restart: unless-stopped
+    container_name: client-seller-app
