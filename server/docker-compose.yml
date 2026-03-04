@@ -17,10 +17,10 @@ services:
       - graduation-network
     healthcheck:
       test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-proot']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 60s
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
 
   # ====================================
@@ -39,10 +39,10 @@ services:
       - graduation-network
     healthcheck:
       test: ['CMD', 'redis-cli', '-a', 'root', 'ping']
-      interval: 10s
+      interval: 5s
       timeout: 3s
-      retries: 5
-      start_period: 10s
+      retries: 6
+      start_period: 20s
 
   # ====================================
   # Node.js Application Service
@@ -58,7 +58,7 @@ services:
       PORT: 8080
       ENABLE_FILE_LOGGING: 'true'
       # Database configuration
-      DATABASE_URL: 'mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true&waitForConnections=true&connectionLimit=10&queueLimit=0'
+      DATABASE_URL: 'mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true&useSSL=false&waitForConnections=true&connectionLimit=10&queueLimit=0&reconnect=true&acquireTimeout=60000&timeout=60000'
       DATABASE_USER: root
       DATABASE_PASSWORD: root
       DATABASE_NAME: app_db
@@ -88,7 +88,7 @@ services:
     volumes:
       - ./prisma:/app/prisma
       - app_logs:/app/logs
-    command: sh -c "npx prisma migrate deploy && node dist/server.js"
+    command: sh -c "sleep 15 && for i in 1 2 3 4 5; do npx prisma migrate deploy && break || sleep 10; done && node dist/server.js"
 
 # ====================================
 # Networks
