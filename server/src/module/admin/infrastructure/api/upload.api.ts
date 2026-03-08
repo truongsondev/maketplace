@@ -81,15 +81,9 @@ export class UploadAPI {
     const command: SaveProductImageCommand = {
       productId: req.params.id as string,
       url: req.body.url,
-      publicId: req.body.publicId,
-      width: req.body.width,
-      height: req.body.height,
-      bytes: req.body.bytes,
-      format: req.body.format,
       altText: req.body.altText,
       isPrimary: req.body.isPrimary,
       sortOrder: req.body.sortOrder,
-      variantId: req.body.variantId,
     };
 
     const result = await this.uploadController.saveProductImage(command);

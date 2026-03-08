@@ -1,4 +1,8 @@
-import { Product, ProductVariant } from '../../../entities/product/product.entity';
+import {
+  Product,
+  ProductVariant,
+  ProductImageProps,
+} from '../../../entities/product/product.entity';
 
 export interface IProductRepository {
   save(product: Product): Promise<Product>;
@@ -6,15 +10,9 @@ export interface IProductRepository {
   saveWithDetails(
     product: Product,
     variants: ProductVariant[],
-    images: Array<{
-      url: string;
-      altText?: string;
-      sortOrder?: number;
-      isPrimary?: boolean;
-      variantId?: string;
-    }>,
     categoryIds: string[],
     tagIds: string[],
+    images: ProductImageProps[],
   ): Promise<Product>;
 
   findById(id: string): Promise<Product | null>;

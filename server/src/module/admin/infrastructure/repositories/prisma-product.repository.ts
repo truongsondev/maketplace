@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma } from '../../../../../generated/prisma/client';
-import { Product, ProductVariant } from '../../entities/product/product.entity';
+import { Product, ProductVariant, ProductImageProps } from '../../entities/product/product.entity';
 import { IProductRepository } from '../../applications/ports/output/product.repository';
 
 export class PrismaProductRepository implements IProductRepository {
@@ -29,20 +29,17 @@ export class PrismaProductRepository implements IProductRepository {
   }
 
   async saveWithDetails(
-    product: Product,
+    productData: {
+      name: string;
+      description?: string;
+      basePrice: number;
+    },
     variants: ProductVariant[],
-    images: Array<{
-      url: string;
-      altText?: string;
-      sortOrder?: number;
-      isPrimary?: boolean;
-      variantId?: string;
-    }>,
     categoryIds: string[],
     tagIds: string[],
+    images: ProductImageProps[],
   ): Promise<Product> {
     const result = await this.prisma.$transaction(async (tx) => {
-      // Validate categoryIds exist in database
       if (categoryIds.length > 0) {
         const existingCategories = await tx.category.findMany({
           where: { id: { in: categoryIds } },
@@ -57,7 +54,6 @@ export class PrismaProductRepository implements IProductRepository {
         }
       }
 
-      // Validate tagIds exist in database
       if (tagIds.length > 0) {
         const existingTags = await tx.tag.findMany({
           where: { id: { in: tagIds } },
@@ -75,10 +71,10 @@ export class PrismaProductRepository implements IProductRepository {
       // 1. Create product
       const savedProduct = await tx.product.create({
         data: {
-          name: product.name,
-          description: product.description,
-          basePrice: product.basePrice,
-          isDeleted: product.isDeleted,
+          name: productData.name,
+          description: productData.description,
+          basePrice: productData.basePrice,
+          isDeleted: false,
         },
       });
 
@@ -104,51 +100,62 @@ export class PrismaProductRepository implements IProductRepository {
       });
 
       // 3. Create images
-      if (images.length > 0) {
-        const imageData = images.map((img) => {
-          // Find variant by SKU if variantId is provided (assuming variantId is SKU for now)
-          let variantId = null;
-          if (img.variantId) {
-            const variant = createdVariants.find((v) => v.sku === img.variantId);
-            variantId = variant?.id || null;
-          }
+      const imageData = [];
 
-          return {
+      // 3a. Ảnh chung của sản phẩm (từ product.images - không có variantId)
+      if (images && images.length > 0) {
+        const productImages = images.map((img) => ({
+          productId: savedProduct.id,
+          url: img.url,
+          altText: img.altText,
+          sortOrder: img.sortOrder ?? 0,
+          isPrimary: img.isPrimary ?? true,
+        }));
+        imageData.push(...productImages);
+      }
+
+      // 3b. Ảnh của từng variant (từ variant.images - có variantId)
+      const variantImages = variants
+        .map((v) =>
+          v.images.map((img) => ({
             productId: savedProduct.id,
-            variantId,
+            variantId: createdVariants.find((cv) => cv.sku === v.sku)?.id || null,
             url: img.url,
             altText: img.altText,
             sortOrder: img.sortOrder ?? 0,
-            isPrimary: img.isPrimary ?? false,
-          };
-        });
+            isPrimary: img.isPrimary ?? false, // Ảnh variant mặc định không phải primary
+          })),
+        )
+        .flat();
+      imageData.push(...variantImages);
 
+      if (imageData.length > 0) {
         await tx.productImage.createMany({
           data: imageData,
         });
       }
 
-      // 4. Link categories
+      // 4. Create product-category relationships (linking existing categories)
       if (categoryIds.length > 0) {
-        const categoryData = categoryIds.map((categoryId) => ({
+        const categoryLinkData = categoryIds.map((categoryId) => ({
           productId: savedProduct.id,
           categoryId,
         }));
 
         await tx.productCategory.createMany({
-          data: categoryData,
+          data: categoryLinkData,
         });
       }
 
-      // 5. Link tags
+      // 5. Create product-tag relationships (linking existing tags)
       if (tagIds.length > 0) {
-        const tagData = tagIds.map((tagId) => ({
+        const tagLinkData = tagIds.map((tagId) => ({
           productId: savedProduct.id,
           tagId,
         }));
 
         await tx.productTag.createMany({
-          data: tagData,
+          data: tagLinkData,
         });
       }
 
@@ -196,7 +203,11 @@ export class PrismaProductRepository implements IProductRepository {
     const result = await this.prisma.product.findUnique({
       where: { id },
       include: {
-        variants: true,
+        variants: {
+          include: {
+            images: true,
+          },
+        },
         images: true,
         categories: {
           include: {
@@ -236,6 +247,15 @@ export class PrismaProductRepository implements IProductRepository {
         stockReserved: v.stockReserved,
         minStock: v.minStock,
         isDeleted: v.isDeleted,
+        images: v.images.map((img) => ({
+          id: img.id,
+          productId: img.productId,
+          variantId: img.variantId ?? undefined,
+          url: img.url,
+          altText: img.altText ?? undefined,
+          sortOrder: img.sortOrder,
+          isPrimary: img.isPrimary,
+        })),
       }),
     );
 

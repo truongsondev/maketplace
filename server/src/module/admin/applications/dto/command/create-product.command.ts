@@ -3,9 +3,9 @@ export interface CreateProductCommand {
   description?: string;
   basePrice: number;
   variants: CreateProductVariantDto[];
-  images?: CreateProductImageDto[];
   categoryIds?: string[];
   tagIds?: string[];
+  images: CreateProductImageDto[];
 }
 
 export interface CreateProductVariantDto {
@@ -14,6 +14,7 @@ export interface CreateProductVariantDto {
   price: number;
   stockAvailable: number;
   minStock?: number;
+  images: CreateProductImageDto[];
 }
 
 export interface CreateProductImageDto {
@@ -21,7 +22,6 @@ export interface CreateProductImageDto {
   altText?: string;
   sortOrder?: number;
   isPrimary?: boolean;
-  variantId?: string;
 }
 
 export interface CreateProductResult {

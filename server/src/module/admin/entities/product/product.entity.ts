@@ -18,6 +18,7 @@ export interface ProductVariantProps {
   stockReserved?: number;
   minStock?: number;
   isDeleted?: boolean;
+  images: ProductImageProps[];
 }
 
 export interface ProductImageProps {
@@ -138,6 +139,7 @@ export class ProductVariant {
   private _stockReserved: number;
   private _minStock: number;
   private _isDeleted: boolean;
+  private _images: ProductImageProps[] = [];
 
   private constructor(props: ProductVariantProps) {
     this._id = props.id;
@@ -149,6 +151,7 @@ export class ProductVariant {
     this._stockReserved = props.stockReserved ?? 0;
     this._minStock = props.minStock ?? 5;
     this._isDeleted = props.isDeleted ?? false;
+    this._images = props.images || [];
   }
 
   static create(props: ProductVariantProps): ProductVariant {
@@ -178,6 +181,10 @@ export class ProductVariant {
 
   get sku(): string {
     return this._sku;
+  }
+
+  get images(): ProductImageProps[] {
+    return this._images;
   }
 
   get attributes(): Record<string, any> {
