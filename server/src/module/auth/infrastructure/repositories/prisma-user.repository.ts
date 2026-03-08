@@ -1,10 +1,13 @@
 import {
   PrismaClient,
   User as PrismaUser,
+  UserProfile as PrismaUserProfile,
   UserStatus as PrismaUserStatus,
+  Gender as PrismaGender,
 } from '@/generated/prisma/client';
 import { IUserRepository } from '../../applications/ports/output/user.repository';
 import { User, UserStatus } from '../../entities/user/user.entity';
+import { UserProfile, Gender } from '../../entities/user/user-profile.entity';
 import { Email } from '../../entities/value-object/email.vo';
 
 export class PrismaUserRepository implements IUserRepository {
@@ -13,6 +16,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      include: { profile: true },
     });
 
     return user ? this.toDomain(user) : null;
@@ -21,6 +25,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findByPhone(phone: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { phone },
+      include: { profile: true },
     });
 
     return user ? this.toDomain(user) : null;
@@ -29,6 +34,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findById(id: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
+      include: { profile: true },
     });
 
     return user ? this.toDomain(user) : null;
@@ -42,7 +48,6 @@ export class PrismaUserRepository implements IUserRepository {
       status: user.status as PrismaUserStatus,
     };
 
-    // If user has ID, update; otherwise create
     if (user.id) {
       const updated = await this.prisma.user.update({
         where: { id: user.id },
@@ -51,14 +56,11 @@ export class PrismaUserRepository implements IUserRepository {
       return this.toDomain(updated);
     }
 
-    // Create new user with default BUYER role
     const created = await this.prisma.$transaction(async (tx) => {
-      // 1. Create user
       const newUser = await tx.user.create({
         data,
       });
 
-      // 2. Find BUYER role
       const buyerRole = await tx.role.findUnique({
         where: { code: 'BUYER' },
       });
@@ -98,15 +100,31 @@ export class PrismaUserRepository implements IUserRepository {
   /**
    * Map Prisma User to Domain User
    */
-  private toDomain(prismaUser: PrismaUser): User {
+  private toDomain(prismaUser: PrismaUser & { profile?: PrismaUserProfile | null }): User {
     return User.fromPersistence({
       id: prismaUser.id,
       email: prismaUser.email ? new Email(prismaUser.email) : undefined,
       passwordHash: prismaUser.passwordHash ?? undefined,
       emailVerified: prismaUser.emailVerified,
       status: prismaUser.status as UserStatus,
+      profile: prismaUser.profile ? this.toProfileDomain(prismaUser.profile) : undefined,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,
+    });
+  }
+
+  /**
+   * Map Prisma UserProfile to Domain UserProfile
+   */
+  private toProfileDomain(prismaProfile: PrismaUserProfile): UserProfile {
+    return UserProfile.fromPersistence({
+      userId: prismaProfile.userId,
+      fullName: prismaProfile.fullName ?? undefined,
+      avatarUrl: prismaProfile.avatarUrl ?? undefined,
+      gender: prismaProfile.gender ? (prismaProfile.gender as Gender) : undefined,
+      birthday: prismaProfile.birthday ?? undefined,
+      createdAt: prismaProfile.createdAt,
+      updatedAt: prismaProfile.updatedAt,
     });
   }
 }

@@ -1,0 +1,38 @@
+# Docker & Environment Files - Add to your .gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
+server/.env
+server/.env.development
+server/.env.staging
+client-seller/.env
+client-next/.env
+client-next/.env.local
+
+# SSL Certificates
+nginx/ssl/*.crt
+nginx/ssl/*.key
+nginx/ssl/*.pem
+
+# Docker volumes (if using local bind mounts)
+data/
+mysql-data/
+redis-data/
+
+# Docker compose override
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Keep these files:
+# !.env.example
+# !server/.env.example

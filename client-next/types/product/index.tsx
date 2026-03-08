@@ -72,6 +72,12 @@ export interface ProductCategory {
   slug: string;
 }
 
+export interface ProductTag {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export interface ProductReviews {
   averageRating: number;
   totalReviews: number;
@@ -86,7 +92,7 @@ export interface ProductDetail {
   images: ProductImage[];
   variants: ProductVariant[];
   categories: ProductCategory[];
-  tags: string[];
+  tags: ProductTag[];
   reviews: ProductReviews;
   createdAt: string;
   updatedAt: string;

@@ -1,0 +1,54 @@
+{
+  "success": true,
+  "data": {
+    "categories": [
+      {
+        "id": "0f8c0ae5-1ac2-11f1-8d94-c6ef452c3f37",
+        "name": "Áo",
+        "slug": "ao",
+        "description": "Danh mục sản phẩm Áo",
+        "imageUrl": null,
+        "parentId": null,
+        "sortOrder": 1,
+        "createdAt": "2026-03-08T07:40:21.000Z",
+        "updatedAt": "2026-03-08T07:40:21.000Z"
+      },
+      {
+        "id": "0f8d98b8-1ac2-11f1-8d94-c6ef452c3f37",
+        "name": "Quần",
+        "slug": "quan",
+        "description": "Danh mục sản phẩm Quần",
+        "imageUrl": null,
+        "parentId": null,
+        "sortOrder": 2,
+        "createdAt": "2026-03-08T07:40:21.000Z",
+        "updatedAt": "2026-03-08T07:40:21.000Z"
+      },
+      {
+        "id": "0f8d9e91-1ac2-11f1-8d94-c6ef452c3f37",
+        "name": "Giày",
+        "slug": "giay",
+        "description": "Danh mục sản phẩm Giày",
+        "imageUrl": null,
+        "parentId": null,
+        "sortOrder": 3,
+        "createdAt": "2026-03-08T07:40:21.000Z",
+        "updatedAt": "2026-03-08T07:40:21.000Z"
+      },
+      {
+        "id": "0f8da9af-1ac2-11f1-8d94-c6ef452c3f37",
+        "name": "Phụ kiện",
+        "slug": "phu-kien",
+        "description": "Danh mục sản phẩm Phụ kiện",
+        "imageUrl": null,
+        "parentId": null,
+        "sortOrder": 4,
+        "createdAt": "2026-03-08T07:40:21.000Z",
+        "updatedAt": "2026-03-08T07:40:21.000Z"
+      }
+    ],
+    "total": 4
+  },
+  "message": "Categories retrieved successfully",
+  "timestamp": "2026-03-08T07:52:41.444Z"
+}

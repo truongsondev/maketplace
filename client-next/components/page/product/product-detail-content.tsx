@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Heart,
   ShoppingBag,
@@ -23,18 +24,9 @@ interface ProductDetailContentProps {
 export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
-
-  const productImages = useMemo(
-    () =>
-      product.images.length > 0
-        ? product.images
-            .sort((a, b) => a.sortOrder - b.sortOrder)
-            .map((img) => img.url)
-        : [FALLBACK_IMAGE],
-    [product.images],
-  );
 
   const availableSizes = useMemo(
     () =>
@@ -44,22 +36,83 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     [product.variants],
   );
 
+  const availableColors = useMemo(
+    () =>
+      [...new Set(product.variants.map((v) => v.attributes.color))].filter(
+        Boolean,
+      ),
+    [product.variants],
+  );
+
   const currentSelectedSize =
     selectedSize || (availableSizes.length > 0 ? availableSizes[0] : "");
 
+  const currentSelectedColor =
+    selectedColor || (availableColors.length > 0 ? availableColors[0] : "");
+
   const selectedVariant = useMemo(
     () =>
-      product.variants.find((v) => v.attributes.size === currentSelectedSize),
-    [product.variants, currentSelectedSize],
+      product.variants.find(
+        (v) =>
+          v.attributes.size === currentSelectedSize &&
+          v.attributes.color === currentSelectedColor,
+      ) ||
+      product.variants.find((v) => v.attributes.size === currentSelectedSize) ||
+      product.variants[0],
+    [product.variants, currentSelectedSize, currentSelectedColor],
   );
+
+  const productImages = useMemo(() => {
+    // If a variant is selected and has images, show variant images first
+    if (selectedVariant && selectedVariant.images.length > 0) {
+      const variantImages = selectedVariant.images
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((img) => img.url);
+
+      // Also include main product images
+      const mainImages = product.images
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((img) => img.url);
+
+      // Combine variant images first, then main images (avoiding duplicates)
+      const uniqueImages = [...variantImages];
+      mainImages.forEach((img) => {
+        if (!uniqueImages.includes(img)) {
+          uniqueImages.push(img);
+        }
+      });
+
+      return uniqueImages.length > 0 ? uniqueImages : [FALLBACK_IMAGE];
+    }
+
+    // Otherwise show main product images
+    return product.images.length > 0
+      ? product.images
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((img) => img.url)
+      : [FALLBACK_IMAGE];
+  }, [product.images, selectedVariant]);
 
   const currentPrice = selectedVariant
     ? selectedVariant.price
     : product.basePrice;
   const stockAvailable = selectedVariant ? selectedVariant.stockAvailable : 0;
 
+  // Ensure selected image is within bounds
+  const safeSelectedImage = Math.min(selectedImage, productImages.length - 1);
+
   const handleQuantityChange = (delta: number) => {
     setQuantity(Math.max(1, quantity + delta));
+  };
+
+  const handleColorChange = (color: string) => {
+    setSelectedColor(color);
+    setSelectedImage(0);
+  };
+
+  const handleSizeChange = (size: string) => {
+    setSelectedSize(size);
+    setSelectedImage(0);
   };
 
   const formatPrice = (price: number) => {
@@ -110,21 +163,26 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
               <button
                 key={index}
                 onClick={() => setSelectedImage(index)}
-                className={`relative flex-shrink-0 w-20 h-24 md:w-full md:h-24 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index ? "border-primary" : "border-transparent hover:border-slate-300 dark:hover:border-slate-600"}`}
+                className={`relative flex-shrink-0 w-20 h-24 md:w-full md:h-24 rounded-lg overflow-hidden border-2 transition-all ${safeSelectedImage === index ? "border-primary" : "border-transparent hover:border-slate-300 dark:hover:border-slate-600"}`}
               >
-                <img
+                <Image
                   alt={`Ảnh thu nhỏ ${index + 1}`}
-                  className="w-full h-full object-center object-cover"
+                  className="object-center object-cover"
                   src={image}
+                  fill
+                  sizes="(max-width: 768px) 80px, 96px"
                 />
               </button>
             ))}
           </div>
           <div className="flex-1 relative bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden aspect-[4/5] md:aspect-auto md:h-[600px] group">
-            <img
+            <Image
               alt="Ảnh sản phẩm chính"
-              className="w-full h-full object-center object-cover"
-              src={productImages[selectedImage]}
+              className="object-center object-cover"
+              src={productImages[safeSelectedImage]}
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 40vw"
             />
             <button className="absolute bottom-4 right-4 bg-white/90 dark:bg-slate-900/90 p-2 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
               <ZoomIn className="w-6 h-6 text-slate-900 dark:text-white" />
@@ -137,6 +195,18 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-2">
               {product.name}
             </h1>
+            {product.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {product.tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="px-3 py-1 text-xs font-semibold bg-primary/10 text-primary rounded-full"
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-4 mb-4">
               <div className="flex items-center text-yellow-400 gap-0.5">
                 {[...Array(5)].map((_, i) => (
@@ -165,6 +235,30 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
 
           <div className="h-px bg-slate-200 dark:bg-slate-700 w-full"></div>
 
+          {availableColors.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                  Màu sắc:{" "}
+                  <span className="text-slate-500 font-normal">
+                    {currentSelectedColor}
+                  </span>
+                </h3>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {availableColors.map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => handleColorChange(color)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentSelectedColor === color ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border border-transparent font-bold shadow-lg shadow-slate-200 dark:shadow-none" : "border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500"}`}
+                  >
+                    {color}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {availableSizes.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -179,7 +273,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                 {availableSizes.map((size) => (
                   <button
                     key={size}
-                    onClick={() => setSelectedSize(size)}
+                    onClick={() => handleSizeChange(size)}
                     className={`h-12 rounded-lg font-medium transition-colors ${currentSelectedSize === size ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border border-transparent font-bold shadow-lg shadow-slate-200 dark:shadow-none" : "border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white hover:border-slate-400 dark:hover:border-slate-500"}`}
                   >
                     {size}

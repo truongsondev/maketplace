@@ -13,15 +13,9 @@ export interface GenerateSignatureResult {
 export interface SaveProductImageCommand {
   productId: string;
   url: string;
-  publicId: string;
-  width?: number;
-  height?: number;
-  bytes?: number;
-  format?: string;
   altText?: string;
   isPrimary?: boolean;
   sortOrder?: number;
-  variantId?: string;
 }
 
 export interface SaveProductImageResult {

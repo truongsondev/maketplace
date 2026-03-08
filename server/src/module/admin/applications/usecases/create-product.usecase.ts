@@ -40,6 +40,7 @@ export class CreateProductUseCase implements ICreateProductUseCase {
         price: v.price,
         stockAvailable: v.stockAvailable,
         minStock: v.minStock,
+        images: v.images,
       }),
     );
 
@@ -47,9 +48,9 @@ export class CreateProductUseCase implements ICreateProductUseCase {
     const savedProduct = await this.productRepository.saveWithDetails(
       product,
       variants,
-      command.images || [],
       command.categoryIds || [],
       command.tagIds || [],
+      command.images || [],
     );
 
     this.logger.info('Product created successfully', {
@@ -98,15 +99,6 @@ export class CreateProductUseCase implements ICreateProductUseCase {
         throw new InvalidProductDataError(
           `Variant stock must be non-negative for SKU: ${variant.sku}`,
         );
-      }
-    }
-
-    // Validate images if provided
-    if (command.images) {
-      for (const image of command.images) {
-        if (!image.url || image.url.trim().length === 0) {
-          throw new InvalidProductDataError('Image URL is required');
-        }
       }
     }
   }

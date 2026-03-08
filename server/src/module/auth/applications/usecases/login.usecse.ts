@@ -78,6 +78,7 @@ export class LoginUseCase implements ILoginUseCase {
         refreshToken,
       },
       user,
+      profile: user.profile || undefined,
     };
   }
 }

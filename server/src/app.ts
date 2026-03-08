@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createAuthModule } from './module/auth/di';
 import { createProductModule } from './module/product/di';
 import { createAdminModule } from './module/admin/di';
+import { createCommonModule } from './module/common/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -18,20 +19,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(requestLoggingMiddleware);
-
-app.get('/', (req, res) => {
+app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// Public routes (không cần authentication)
+app.use(requestLoggingMiddleware);
+
+app.use('/api/common', createCommonModule());
+
 app.use('/api/auth', createAuthModule());
 
-// Protected routes (cần authentication)
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
 app.use('/api/products', createProductModule());
 
-// Admin routes (cần authentication + ADMIN role)
 app.use('/api/admin', requireAdmin, createAdminModule());
 
 app.use((req, res) => {
