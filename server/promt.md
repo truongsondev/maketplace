@@ -5,17 +5,18 @@
 
 # SCOPE
 
-trong module auth
+trong module admin/products
 
 # CONTEXT
 
-Usecase login đant trả yêu thông tin sau khi login thành công
-Tôi cần thêm thông tin từ bảng UserProfile
+Thực hiện code các API trong file
 
 # INSTRUCTION
 
 1.  **Phân tích CONTEXT**:
-2.  Chỉnh sửa code để trả về thêm thông tin trong bảng UserProfile
+2.  Phân tích file
+3.  Đọc hiểu module admin/products
+4.  Triển khai theo khung Clean Architecture đã thiết kế sẵn trong admin/products
 
 # NOTE
 

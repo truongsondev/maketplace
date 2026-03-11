@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { createAuthModule } from './module/auth/di';
 import { createProductModule } from './module/product/di';
-import { createAdminModule } from './module/admin/di';
+import { createAdminModule } from './module/admin/products/di';
 import { createCommonModule } from './module/common/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
@@ -15,7 +15,27 @@ import { createLogger } from './shared/util/logger';
 const logger = createLogger('App');
 const app = express();
 
-app.use(cors());
+// CORS configuration - cho phép truy cập từ frontend
+app.use(
+  cors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://160.187.229.142:3000', // Frontend public IP
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+);
+
+// Thêm headers cho Private Network Access
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -6,6 +6,15 @@ import type {
   CreateProductResult,
   CloudinarySignature,
   CloudinarySignatureResponse,
+  ProductListResponse,
+  ProductDetailResponse,
+  ProductListFilters,
+  UpdateProductCommand,
+  BulkDeleteRequest,
+  BulkAssignCategoriesRequest,
+  BulkAssignTagsRequest,
+  AdjustStockRequest,
+  InventoryLogsResponse,
 } from "@/types/api";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
 
@@ -35,10 +44,80 @@ export const tagService = {
 };
 
 export const productService = {
+  getProducts: async (
+    filters: ProductListFilters,
+  ): Promise<ProductListResponse> => {
+    const response = await apiClient.get("/admin/products", {
+      params: filters,
+    });
+    return response.data;
+  },
+
+  getProduct: async (id: string): Promise<ProductDetailResponse> => {
+    const response = await apiClient.get(`/admin/products/${id}`);
+    return response.data;
+  },
+
   createProduct: async (
     data: CreateProductCommand,
   ): Promise<CreateProductResult> => {
     const response = await apiClient.post("/admin/products", data);
+    return response.data;
+  },
+
+  updateProduct: async (
+    id: string,
+    data: UpdateProductCommand,
+  ): Promise<ProductDetailResponse> => {
+    const response = await apiClient.put(`/admin/products/${id}`, data);
+    return response.data;
+  },
+
+  deleteProduct: async (id: string): Promise<void> => {
+    await apiClient.delete(`/admin/products/${id}`);
+  },
+
+  restoreProduct: async (id: string): Promise<ProductDetailResponse> => {
+    const response = await apiClient.post(`/admin/products/${id}/restore`);
+    return response.data;
+  },
+
+  bulkDelete: async (data: BulkDeleteRequest): Promise<void> => {
+    await apiClient.post("/admin/products/bulk-delete", data);
+  },
+
+  bulkAssignCategories: async (
+    data: BulkAssignCategoriesRequest,
+  ): Promise<void> => {
+    await apiClient.post("/admin/products/bulk-assign-categories", data);
+  },
+
+  bulkAssignTags: async (data: BulkAssignTagsRequest): Promise<void> => {
+    await apiClient.post("/admin/products/bulk-assign-tags", data);
+  },
+
+  exportProducts: async (filters: ProductListFilters): Promise<Blob> => {
+    const response = await apiClient.get("/admin/products/export", {
+      params: filters,
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  adjustStock: async (
+    variantId: string,
+    data: AdjustStockRequest,
+  ): Promise<void> => {
+    await apiClient.post(`/admin/variants/${variantId}/adjust-stock`, data);
+  },
+
+  getInventoryLogs: async (params: {
+    page?: number;
+    limit?: number;
+    variantId?: string;
+    productId?: string;
+  }): Promise<InventoryLogsResponse> => {
+    const response = await apiClient.get("/admin/inventory/logs", { params });
     return response.data;
   },
 };

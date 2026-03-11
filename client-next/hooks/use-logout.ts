@@ -13,7 +13,11 @@ export function useLogout() {
   }));
 
   return useMutation({
-    mutationFn: () => authService.logout({ refreshToken: token.refreshToken }),
+    mutationFn: () =>
+      authService.logout({
+        refreshToken: token.refreshToken,
+        accessToken: token.accessToken,
+      }),
 
     onSuccess: () => {
       clearSession();
