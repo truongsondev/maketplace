@@ -1,0 +1,32 @@
+import {
+  IAddToCartUseCase,
+  IGetCartUseCase,
+  IUpdateCartItemUseCase,
+  IRemoveCartItemUseCase,
+} from '../../applications/ports/input';
+import { AddToCartCommand, CartDetailResult, UpdateCartItemCommand } from '../../applications/dto';
+
+export class CartController {
+  constructor(
+    private readonly addToCartUseCase: IAddToCartUseCase,
+    private readonly getCartUseCase: IGetCartUseCase,
+    private readonly updateCartItemUseCase: IUpdateCartItemUseCase,
+    private readonly removeCartItemUseCase: IRemoveCartItemUseCase,
+  ) {}
+
+  async addToCart(userId: string, command: AddToCartCommand): Promise<CartDetailResult> {
+    return this.addToCartUseCase.execute(userId, command);
+  }
+
+  async getCart(userId: string): Promise<CartDetailResult> {
+    return this.getCartUseCase.execute(userId);
+  }
+
+  async updateCartItem(userId: string, command: UpdateCartItemCommand): Promise<CartDetailResult> {
+    return this.updateCartItemUseCase.execute(userId, command);
+  }
+
+  async removeCartItem(userId: string, itemId: string): Promise<CartDetailResult> {
+    return this.removeCartItemUseCase.execute(userId, itemId);
+  }
+}

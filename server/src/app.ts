@@ -4,6 +4,7 @@ import { createAuthModule } from './module/auth/di';
 import { createProductModule } from './module/product/di';
 import { createAdminModule } from './module/admin/products/di';
 import { createCommonModule } from './module/common/di';
+import { createCartModule } from './module/cart/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -22,7 +23,7 @@ app.use(
       'http://localhost:3000',
       'http://localhost:5173',
       'http://127.0.0.1:3000',
-      'http://160.187.229.142:3000', // Frontend public IP
+      'http://160.187.229.142:3000',
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -50,6 +51,7 @@ app.use('/api/common', createCommonModule());
 app.use('/api/auth', createAuthModule());
 
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
+app.use('/api/cart', createCartModule());
 app.use('/api/products', createProductModule());
 
 app.use('/api/admin', requireAdmin, createAdminModule());

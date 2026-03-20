@@ -6,7 +6,16 @@ import { prisma } from '../database';
 
 export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    if (req.path.startsWith('/api/auth') || req.path.startsWith('/api/products')) {
+    // Public endpoints (không yêu cầu access token)
+    const requestPath = req.originalUrl || req.path;
+    const isPublicEndpoint =
+      requestPath.startsWith('/api/auth') ||
+      requestPath.startsWith('/api/products') ||
+      req.path.startsWith('/api/auth') ||
+      req.path.startsWith('/api/products');
+
+    // Bỏ qua preflight request
+    if (req.method === 'OPTIONS' || isPublicEndpoint) {
       return next();
     }
 

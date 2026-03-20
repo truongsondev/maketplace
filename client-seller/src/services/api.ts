@@ -27,6 +27,13 @@ export const authService = {
   logout: async (): Promise<void> => {
     await apiClient.post("/auth/logout");
   },
+
+  refreshToken: async (refreshToken: string): Promise<LoginResponse> => {
+    const response = await apiClient.post("/auth/refresh-token", {
+      refreshToken,
+    });
+    return response.data;
+  },
 };
 
 export const categoryService = {

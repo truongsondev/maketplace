@@ -4,6 +4,7 @@ import { prisma, redis } from '../../infrastructure/database';
 import { VerifyEmailUseCase } from './applications/usecases/verify-email.usecase';
 import { ResetPasswordUseCase } from './applications/usecases/reset-password.usecase';
 import { LogoutUseCase } from './applications/usecases/logout.usecase';
+import { RefreshTokenUseCase } from './applications/usecases/refresh-token.usecase';
 
 import { PrismaUserRepository } from './infrastructure/repositories/prisma-user.repository';
 import { PrismaEmailVerificationTokenRepository } from './infrastructure/repositories/prisma-email-verification-token.repository';
@@ -74,6 +75,14 @@ export function createAuthModule(): Router {
 
   const logoutUseCase = new LogoutUseCase(redisCache, tokenRepository, tokenGenerator);
 
+  const refreshTokenUseCase = new RefreshTokenUseCase(
+    userRepository,
+    tokenGenerator,
+    tokenRepository,
+    redisCache,
+    prisma,
+  );
+
   const controller = new AuthController(
     registerUseCaseFactory,
     verifyEmailUseCase,
@@ -81,6 +90,7 @@ export function createAuthModule(): Router {
     forgotPasswordUseCaseFactory,
     resetPasswordUseCase,
     logoutUseCase,
+    refreshTokenUseCase,
   );
 
   const authAPI = new AuthAPI(controller);

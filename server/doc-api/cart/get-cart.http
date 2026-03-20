@@ -1,0 +1,10 @@
+### Get Cart - Success
+GET http://localhost:5000/api/cart
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Get Cart - Without Auth
+GET http://localhost:5000/api/cart
+
+###

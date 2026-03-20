@@ -306,6 +306,10 @@ model ProductVariant {
   id             String  @id @default(uuid()) @db.VarChar(36)
   productId      String  @map("product_id") @db.VarChar(36)
   sku            String  @unique @db.VarChar(100)
+  /// Thuộc tính chuẩn để truy vấn/filter nhanh
+  color          String  @default("DEFAULT") @db.VarChar(100)
+  /// Dùng ONE_SIZE cho sản phẩm không có size
+  size           String  @default("ONE_SIZE") @db.VarChar(50)
   /// Thuộc tính biến thể: {"color": "đỏ", "size": "M"}
   attributes     Json    @default("{}")
   price          Decimal @db.Decimal(10, 2)
@@ -326,6 +330,9 @@ model ProductVariant {
   priceHistory  ProductPriceHistory[]
 
   @@index([productId])
+  @@index([productId, color])
+  @@index([productId, size])
+  @@unique([productId, color, size])
   @@map("product_variants")
 }
 

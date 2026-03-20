@@ -19,6 +19,7 @@ export class AuthAPI {
     this.router.post('/logout', asyncHandler(this.logout.bind(this)));
     this.router.post('/forgot-password', asyncHandler(this.forgotPassword.bind(this)));
     this.router.post('/reset-password', asyncHandler(this.resetPassword.bind(this)));
+    this.router.post('/refresh-token', asyncHandler(this.refreshToken.bind(this)));
   }
 
   private validateRegisterInput(email: string, password: string): void {
@@ -111,6 +112,18 @@ export class AuthAPI {
 
     const result = await this.authController.logout({ accessToken, refreshToken });
     const response = ResponseFormatter.success(result, result.message);
+    res.status(200).json(response);
+  }
+
+  private async refreshToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken || typeof refreshToken !== 'string') {
+      throw new BadRequestError('Refresh token is required');
+    }
+
+    const result = await this.authController.refreshToken({ refreshToken });
+    const response = ResponseFormatter.success(result, 'Token refreshed successfully');
     res.status(200).json(response);
   }
 }
