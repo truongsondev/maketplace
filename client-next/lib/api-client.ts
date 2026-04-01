@@ -4,12 +4,33 @@ import axios, {
   type AxiosError,
 } from "axios";
 import type { ApiResponse, ApiErrorResponse } from "@/types/api.types";
+import type { RefreshTokenResponseData } from "@/types/auth.types";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://160.187.229.142:8080";
+const ACCESS_TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+const AUTH_SESSION_KEY = "auth-session";
+const REFRESH_ENDPOINT = "api/auth/refresh-token";
+
+type AuthEventHandlers = {
+  onSessionUpdated?: (params: {
+    token: { accessToken: string; refreshToken: string };
+    user?: unknown;
+    profile?: unknown;
+  }) => void;
+  onSessionCleared?: () => void;
+};
+
+interface RetryableAxiosRequestConfig extends AxiosRequestConfig {
+  _retry?: boolean;
+  skipAuthRefresh?: boolean;
+}
 
 class ApiClient {
   private readonly axios: AxiosInstance;
+  private refreshPromise: Promise<string | null> | null = null;
+  private authEventHandlers: AuthEventHandlers = {};
 
   constructor() {
     this.axios = axios.create({
@@ -21,8 +42,14 @@ class ApiClient {
     });
 
     this.axios.interceptors.request.use((config) => {
-      if (typeof window !== "undefined") {
-        const token = localStorage.getItem("access_token");
+      const requestConfig = config as RetryableAxiosRequestConfig;
+
+      if (
+        typeof window !== "undefined" &&
+        !requestConfig.skipAuthRefresh &&
+        !this.isRefreshRequest(requestConfig.url)
+      ) {
+        const token = localStorage.getItem(ACCESS_TOKEN_KEY);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -32,11 +59,40 @@ class ApiClient {
 
     this.axios.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<ApiErrorResponse>) => {
+      async (error: AxiosError<ApiErrorResponse>) => {
+        const originalRequest =
+          (error.config as RetryableAxiosRequestConfig | undefined) ?? {};
+        const statusCode = error.response?.status;
+
+        const shouldRefreshToken =
+          typeof window !== "undefined" &&
+          statusCode === 401 &&
+          !originalRequest._retry &&
+          !originalRequest.skipAuthRefresh &&
+          !this.isRefreshRequest(originalRequest.url);
+
+        if (shouldRefreshToken) {
+          originalRequest._retry = true;
+
+          const newAccessToken = await this.refreshAccessToken();
+
+          if (newAccessToken) {
+            originalRequest.headers = {
+              ...originalRequest.headers,
+              Authorization: `Bearer ${newAccessToken}`,
+            };
+
+            return this.axios(originalRequest);
+          }
+
+          this.clearAuthToken({ notify: true });
+        }
+
         const serverError = error.response?.data;
         if (serverError && serverError.success === false) {
           return Promise.reject(serverError);
         }
+
         // Network / timeout / unknown
         const fallback: ApiErrorResponse = {
           success: false,
@@ -49,6 +105,222 @@ class ApiClient {
         return Promise.reject(fallback);
       },
     );
+  }
+
+  private isRefreshRequest(url?: string): boolean {
+    if (!url) return false;
+    return url.includes(REFRESH_ENDPOINT);
+  }
+
+  private getStoredRefreshToken(): string | null {
+    if (typeof window === "undefined") return null;
+
+    const directToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (directToken) return directToken;
+
+    const authSessionRaw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!authSessionRaw) return null;
+
+    try {
+      const parsed = JSON.parse(authSessionRaw) as {
+        state?: {
+          token?: {
+            refreshToken?: string | null;
+          };
+        };
+      };
+
+      return parsed.state?.token?.refreshToken ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private updatePersistedSessionTokens(
+    accessToken: string,
+    refreshToken: string,
+  ) {
+    if (typeof window === "undefined") return;
+
+    localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+
+    const authSessionRaw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!authSessionRaw) return;
+
+    try {
+      const parsed = JSON.parse(authSessionRaw) as {
+        state?: {
+          user?: unknown;
+          profile?: unknown;
+          token?: {
+            accessToken?: string | null;
+            refreshToken?: string | null;
+          };
+          isAuthenticated?: boolean;
+        };
+        version?: number;
+      };
+
+      if (!parsed.state) return;
+
+      parsed.state.token = {
+        ...parsed.state.token,
+        accessToken,
+        refreshToken,
+      };
+      parsed.state.isAuthenticated = true;
+
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(parsed));
+    } catch {
+      // Ignore invalid persisted state and keep in-memory auth flow alive.
+    }
+  }
+
+  private updatePersistedSessionAuthData(params: {
+    accessToken: string;
+    refreshToken: string;
+    user?: unknown;
+    profile?: unknown;
+  }) {
+    if (typeof window === "undefined") return;
+
+    localStorage.setItem(ACCESS_TOKEN_KEY, params.accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, params.refreshToken);
+
+    const authSessionRaw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!authSessionRaw) return;
+
+    try {
+      const parsed = JSON.parse(authSessionRaw) as {
+        state?: {
+          user?: unknown;
+          profile?: unknown;
+          token?: {
+            accessToken?: string | null;
+            refreshToken?: string | null;
+          };
+          isAuthenticated?: boolean;
+        };
+        version?: number;
+      };
+
+      if (!parsed.state) return;
+
+      parsed.state.token = {
+        ...parsed.state.token,
+        accessToken: params.accessToken,
+        refreshToken: params.refreshToken,
+      };
+      parsed.state.isAuthenticated = true;
+
+      if (typeof params.user !== "undefined") {
+        parsed.state.user = params.user;
+      }
+
+      if (typeof params.profile !== "undefined") {
+        parsed.state.profile = params.profile;
+      }
+
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(parsed));
+    } catch {
+      // Ignore invalid persisted state and keep in-memory auth flow alive.
+    }
+  }
+
+  private clearPersistedSession() {
+    if (typeof window === "undefined") return;
+
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+
+    const authSessionRaw = localStorage.getItem(AUTH_SESSION_KEY);
+    if (!authSessionRaw) return;
+
+    try {
+      const parsed = JSON.parse(authSessionRaw) as {
+        state?: {
+          user?: unknown;
+          token?: {
+            accessToken?: string | null;
+            refreshToken?: string | null;
+          };
+          isAuthenticated?: boolean;
+        };
+        version?: number;
+      };
+
+      if (!parsed.state) return;
+
+      parsed.state.token = {
+        accessToken: null,
+        refreshToken: null,
+      };
+      parsed.state.user = null;
+      parsed.state.profile = null;
+      parsed.state.isAuthenticated = false;
+
+      localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(parsed));
+    } catch {
+      // Ignore invalid persisted state and continue cleanup.
+    }
+  }
+
+  private async performTokenRefresh(): Promise<string | null> {
+    const refreshToken = this.getStoredRefreshToken();
+    if (!refreshToken) return null;
+
+    try {
+      const refreshConfig: RetryableAxiosRequestConfig = {
+        skipAuthRefresh: true,
+      };
+
+      const response = await this.axios.post<
+        ApiResponse<RefreshTokenResponseData>
+      >(
+        REFRESH_ENDPOINT,
+        { refreshToken },
+        refreshConfig,
+      );
+
+      const payload = response.data;
+      if (!payload.success) return null;
+
+      const nextAccessToken = payload.data.token.accessToken;
+      const nextRefreshToken = payload.data.token.refreshToken;
+
+      this.setAuthToken(nextAccessToken, nextRefreshToken);
+      this.updatePersistedSessionAuthData({
+        accessToken: nextAccessToken,
+        refreshToken: nextRefreshToken,
+        user: payload.data.user,
+        profile: payload.data.profile,
+      });
+      this.authEventHandlers.onSessionUpdated?.({
+        token: {
+          accessToken: nextAccessToken,
+          refreshToken: nextRefreshToken,
+        },
+        user: payload.data.user,
+        profile: payload.data.profile,
+      });
+
+      return nextAccessToken;
+    } catch {
+      return null;
+    }
+  }
+
+  private async refreshAccessToken(): Promise<string | null> {
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.refreshPromise = this.performTokenRefresh().finally(() => {
+      this.refreshPromise = null;
+    });
+
+    return this.refreshPromise;
   }
 
   async get<T>(
@@ -94,18 +366,26 @@ class ApiClient {
     return res.data;
   }
 
-  setAuthToken(token: string) {
+  setAuthToken(token: string, refreshToken?: string) {
     this.axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
     if (typeof window !== "undefined") {
-      localStorage.setItem("access_token", token);
+      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      if (refreshToken) {
+        this.updatePersistedSessionTokens(token, refreshToken);
+      }
     }
   }
 
-  clearAuthToken() {
+  clearAuthToken(options?: { notify?: boolean }) {
     delete this.axios.defaults.headers.common["Authorization"];
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("access_token");
+    this.clearPersistedSession();
+    if (options?.notify) {
+      this.authEventHandlers.onSessionCleared?.();
     }
+  }
+
+  setAuthEventHandlers(handlers: AuthEventHandlers) {
+    this.authEventHandlers = handlers;
   }
 }
 

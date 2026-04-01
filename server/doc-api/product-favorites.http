@@ -1,0 +1,16 @@
+### Add product to favorites
+POST http://localhost:8080/api/products/{{productId}}/favorite
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+### Remove product from favorites
+DELETE http://localhost:8080/api/products/{{productId}}/favorite
+Authorization: Bearer {{accessToken}}
+
+### Get favorite products (default pagination)
+GET http://localhost:8080/api/products/favorites
+Authorization: Bearer {{accessToken}}
+
+### Get favorite products (custom pagination)
+GET http://localhost:8080/api/products/favorites?page=1&limit=20
+Authorization: Bearer {{accessToken}}

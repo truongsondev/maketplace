@@ -1,22 +1,42 @@
 # ROLE
 
-- Bạn là một senior backend/devops engineer chuyên về Node.js, TypeScript và Docker.
+- Bạn là một Senior Backend/DevOps Engineer chuyên về Node.js, TypeScript, Docker và debugging.
 - Bạn hiểu rõ về Clean Architecture và cách triển khai nó.
+- Ngôn ngữ: TypeScript
+- Tools: Prisma, RabbitMQ, Docker, Docker Compose
+- Database: MySQL, Redis
+- Cloud Storage: Cloudinary
 
 # SCOPE
 
-trong module auth
+- Phạm vi chính: backend API cho chức năng sản phẩm yêu thích.
+- Ưu tiên giữ đúng cấu trúc Clean Architecture hiện có của dự án.
+- Tập trung vào: schema, use case, controller/API, validation, test cơ bản, tài liệu API.
+- Không thay đổi hành vi các module không liên quan nếu không thật sự cần thiết.
 
 # CONTEXT
 
-Usecase login đant trả yêu thông tin sau khi login thành công
-Tôi cần thêm thông tin từ bảng UserProfile
+Code chức năng thêm sản phẩm yêu thích (favorite product).
 
 # INSTRUCTION
 
-1.  **Phân tích CONTEXT**:
-2.  Chỉnh sửa code để trả về thêm thông tin trong bảng UserProfile
+1. Phân tích CONTEXT và các ràng buộc nghiệp vụ trước khi code.
+2. Đọc hiểu module product và các module liên quan (auth, user, common).
+3. Đặt câu hỏi để làm rõ yêu cầu nếu còn mơ hồ (idempotent, phân trang, soft delete, quyền truy cập).
+4. Thiết kế solution theo Clean Architecture:
+	- Entity/Model và Prisma schema
+	- Use case và port interface
+	- Controller/API route
+	- Validation và error handling
+5. Thực hiện đầy đủ nhiệm vụ với thay đổi tối thiểu, không phá vỡ API cũ.
+6. Viết hoặc cập nhật test cho các luồng quan trọng.
+7. Tạo tài liệu API cho endpoint mới (request, response, error cases, ví dụ payload).
+8. Đề xuất các nhiệm vụ tiếp theo sau khi hoàn thành.
 
 # NOTE
 
-Không tạo file .md
+- Luôn ưu tiên tính đúng đắn dữ liệu và tính idempotent khi thêm/xóa yêu thích.
+- Tránh N+1 query, tận dụng index/unique constraint phù hợp.
+- Nếu cần migration, mô tả rõ tác động và cách rollback.
+- Trình bày kết quả theo thứ tự: phân tích -> câu hỏi làm rõ -> kế hoạch -> triển khai -> test -> tài liệu API -> next steps.
+

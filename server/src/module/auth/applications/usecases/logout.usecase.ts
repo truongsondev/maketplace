@@ -15,10 +15,8 @@ export class LogoutUseCase implements ILogoutUseCase {
   async execute(command: LogoutCommand): Promise<LogoutResult> {
     const { accessToken, refreshToken } = command;
 
-    // 1. Xoá session access token khỏi Redis (idempotent — không lỗi nếu đã xoá)
     await this.redisCache.delete(`session:${accessToken}`);
 
-    // 2. Thu hồi refresh token trong DB nếu client gửi lên
     if (refreshToken) {
       const hashedRefreshToken = this.tokenGenerator.hashToken(refreshToken);
       await this.tokenRepository.revokeTokenByHash(hashedRefreshToken);

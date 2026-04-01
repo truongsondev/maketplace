@@ -1,23 +1,30 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/auth/ProtectedRoute";
-import AdminPanel from "../page/home";
+import ProductsPage from "../page/product/products";
+import ProductDetailPage from "../page/product/product-detail";
 import AddProductPage from "../page/product/create-product";
-import TestPage from "../page/test";
 import LoginPage from "../page/auth/login";
+import Dashboard from "../page/dashboard";
+import NotFound from "../page/not-found";
 
 export default function AppRouter() {
   return (
     <Routes>
-      {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/test" element={<TestPage />} />
 
-      {/* Protected Routes */}
       <Route
         path="/"
         element={
           <ProtectedRoute>
-            <Navigate to="/products" replace />
+            <Navigate to="/dashboard" replace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
           </ProtectedRoute>
         }
       />
@@ -25,15 +32,7 @@ export default function AppRouter() {
         path="/products"
         element={
           <ProtectedRoute>
-            <AdminPanel />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/products/add"
-        element={
-          <ProtectedRoute>
-            <AddProductPage />
+            <ProductsPage />
           </ProtectedRoute>
         }
       />
@@ -45,7 +44,15 @@ export default function AppRouter() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route
+        path="/products/:id"
+        element={
+          <ProtectedRoute>
+            <ProductDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

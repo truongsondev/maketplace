@@ -8,11 +8,13 @@ import { apiClient } from "@/lib/api";
 interface AuthState {
   user: User | null;
   accessToken: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => Promise<void>;
   setLoading: (loading: boolean) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -20,6 +22,7 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       accessToken: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
 
@@ -31,6 +34,7 @@ export const useAuthStore = create<AuthState>()(
           if (response.success) {
             const { token, user: rawUser } = response.data;
             const accessToken = token.accessToken;
+            const refreshToken = token.refreshToken;
 
             // Transform user data to match User interface
             const user: User = {
@@ -47,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user,
               accessToken,
+              refreshToken,
               isAuthenticated: true,
               isLoading: false,
             });
@@ -73,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             accessToken: null,
+            refreshToken: null,
             isAuthenticated: false,
             isLoading: false,
           });
@@ -82,6 +88,12 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setLoading: (loading: boolean) => set({ isLoading: loading }),
+
+      setTokens: (accessToken: string, refreshToken: string) => {
+        apiClient.defaults.headers.common["Authorization"] =
+          `Bearer ${accessToken}`;
+        set({ accessToken, refreshToken });
+      },
     }),
     {
       name: "auth-storage",
@@ -89,6 +101,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     },

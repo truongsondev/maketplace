@@ -42,6 +42,33 @@ export interface ProductListResponse {
   };
 }
 
+export interface FavoriteToggleResponse {
+  productId: string;
+  isFavorite: boolean;
+  created?: boolean;
+  removed?: boolean;
+  favoritedAt?: string;
+}
+
+export interface FavoriteProductItem {
+  productId: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  minPrice: number;
+  favoritedAt: string;
+}
+
+export interface FavoriteProductsResponse {
+  products: FavoriteProductItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 export interface Color {
   name: string;
   value: string;

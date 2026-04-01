@@ -50,6 +50,9 @@ services:
     environment:
       NODE_ENV: development
       PORT: 8080
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "500"
+      TSC_WATCHFILE: UsePolling
       DATABASE_URL: mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true
       DATABASE_HOST: mysql
       DATABASE_PORT: 3306
@@ -85,6 +88,8 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_BASE_URL: http://localhost:8080
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
     ports:
       - "5173:5173"
     volumes:
@@ -102,6 +107,9 @@ services:
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
     ports:
       - "3000:3000"
     volumes:

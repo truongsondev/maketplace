@@ -1,10 +1,11 @@
 import { Search, Bell, LogOut } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export function Header() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
     await logout();
@@ -21,12 +22,25 @@ export function Header() {
       .slice(0, 2);
   };
 
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === "/dashboard") return "Dashboard";
+    if (path.startsWith("/products")) return "Products";
+    if (path === "/orders") return "Orders";
+    if (path === "/users") return "Users";
+    if (path === "/logs") return "Logs";
+    if (path === "/voucher") return "Voucher";
+    if (path === "/events") return "Events";
+    return "Aura";
+  };
+
   return (
     <header className="bg-white border-b border-gray-200 px-8 py-4">
       <div className="flex items-center justify-between">
-        {/* Left: Page Title and Search */}
         <div className="flex-1">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Products</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            {getPageTitle()}
+          </h2>
 
           <div className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -37,8 +51,6 @@ export function Header() {
             />
           </div>
         </div>
-
-        {/* Right: Notifications and User Profile */}
         <div className="flex items-center gap-6">
           <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
             <Bell className="w-6 h-6" />

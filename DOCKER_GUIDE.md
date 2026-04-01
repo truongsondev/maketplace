@@ -60,6 +60,15 @@ docker compose -f docker-compose.dev.yml up -d
 docker compose -f docker-compose.dev.yml up --build
 ```
 
+**Lần đầu sau khi đổi cấu hình Docker/dev watcher (quan trọng):**
+
+```bash
+docker compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml up -d --build
+```
+
+Sau bước này, khi sửa code backend/frontend, container dev sẽ tự detect thay đổi và app tự reload/restart, không cần down/up lại mỗi lần sửa.
+
 **Xem logs:**
 
 ```bash

@@ -36,6 +36,7 @@ export interface VerifyEmailResponse {
 
 export interface LogoutRequest {
   refreshToken: string | null;
+  accessToken: string | null;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -82,8 +83,10 @@ export const authService = {
   async logout(payload: LogoutRequest): Promise<void> {
     try {
       await apiClient.post("api/auth/logout", payload);
-    } finally {
-      apiClient.clearAuthToken();
+    } catch {
+      console.log(
+        "Logout API call failed, but we'll clear the session anyway.",
+      );
     }
   },
 };
