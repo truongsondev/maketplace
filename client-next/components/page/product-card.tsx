@@ -3,6 +3,10 @@
 import { Heart, ShoppingCart, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ProductItem } from "@/types/product";
+import {
+  useFavoriteIds,
+  useToggleFavorite,
+} from "@/hooks/use-product-favorites";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&h=600&fit=crop";
@@ -13,6 +17,13 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
+  const { favoriteIds } = useFavoriteIds();
+  const toggleFavorite = useToggleFavorite();
+
+  const isFavorite = favoriteIds.has(product.id);
+  const isTogglingFavorite =
+    toggleFavorite.isPending &&
+    toggleFavorite.variables?.productId === product.id;
 
   const formattedPrice = new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -29,11 +40,31 @@ export function ProductCard({ product }: ProductCardProps) {
     console.log("Add to cart:", product.id);
   };
 
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (isTogglingFavorite) {
+      return;
+    }
+
+    toggleFavorite.mutate({
+      productId: product.id,
+      isFavorite,
+    });
+  };
+
   return (
     <div className="group relative flex flex-col">
       <div className="aspect-3/4 w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800 relative">
-        <button className="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100">
-          <Heart className="size-5" />
+        <button
+          aria-label={isFavorite ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}
+          onClick={handleToggleFavorite}
+          disabled={isTogglingFavorite}
+          className="absolute top-3 right-3 z-10 flex size-8 items-center justify-center rounded-full bg-white text-neutral-400 opacity-0 shadow-sm transition-all hover:text-red-500 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-100"
+        >
+          <Heart
+            className={`size-5 ${isFavorite ? "fill-red-500 text-red-500" : ""}`}
+          />
         </button>
         <img
           src={product.imageUrl ?? FALLBACK_IMAGE}
@@ -46,6 +77,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={handleAddToCart}
+            aria-label="Thêm sản phẩm vào giỏ hàng"
             className="flex-1 flex items-center justify-center gap-2 bg-primary text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-lg hover:bg-orange-600 transition-colors"
           >
             <ShoppingCart className="size-4" />
@@ -53,6 +85,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </button>
           <button
             onClick={handleViewDetail}
+            aria-label="Xem chi tiết sản phẩm"
             className="flex-1 flex items-center justify-center gap-2 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white text-sm font-bold px-4 py-2.5 rounded-lg shadow-lg hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
           >
             <Eye className="size-4" />

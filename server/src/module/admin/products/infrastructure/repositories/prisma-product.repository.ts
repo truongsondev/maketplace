@@ -204,7 +204,16 @@ export class PrismaProductRepository implements IProductRepository {
       where: { id },
       include: {
         variants: {
-          include: {
+          select: {
+            id: true,
+            productId: true,
+            sku: true,
+            attributes: true,
+            price: true,
+            stockAvailable: true,
+            stockReserved: true,
+            minStock: true,
+            isDeleted: true,
             images: true,
           },
         },
@@ -269,8 +278,9 @@ export class PrismaProductRepository implements IProductRepository {
   }
 
   async existsBySku(sku: string): Promise<boolean> {
-    const variant = await this.prisma.productVariant.findUnique({
+    const variant = await this.prisma.productVariant.findFirst({
       where: { sku },
+      select: { id: true },
     });
     return variant !== null;
   }
@@ -399,7 +409,18 @@ export class PrismaProductRepository implements IProductRepository {
       include: {
         variants: {
           where: { isDeleted: false },
-          include: { images: true },
+          select: {
+            id: true,
+            productId: true,
+            sku: true,
+            attributes: true,
+            price: true,
+            stockAvailable: true,
+            stockReserved: true,
+            minStock: true,
+            isDeleted: true,
+            images: true,
+          },
         },
         images: {
           where: { isPrimary: true, variantId: null },
@@ -531,6 +552,7 @@ export class PrismaProductRepository implements IProductRepository {
         // Get existing variants
         const existingVariants = await tx.productVariant.findMany({
           where: { productId },
+          select: { id: true },
         });
 
         const variantIdsToKeep = variants.filter((v) => v.id).map((v) => v.id!);

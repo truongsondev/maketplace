@@ -5,6 +5,7 @@ import { createProductModule } from './module/product/di';
 import { createAdminModule } from './module/admin/products/di';
 import { createCommonModule } from './module/common/di';
 import { createCartModule } from './module/cart/di';
+import { createPaymentModule } from './module/payment/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -53,6 +54,7 @@ app.use('/api/auth', createAuthModule());
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
 app.use('/api/cart', createCartModule());
 app.use('/api/products', createProductModule());
+app.use('/api/payments', createPaymentModule());
 
 app.use('/api/admin', requireAdmin, createAdminModule());
 

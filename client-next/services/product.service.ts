@@ -2,6 +2,8 @@ import { apiClient } from "@/lib/api-client";
 import type { ApiSuccessResponse, ApiErrorResponse } from "@/types/api.types";
 import type {
   CategoryStat,
+  FavoriteProductsResponse,
+  FavoriteToggleResponse,
   ProductListResponse,
   ProductDetail,
 } from "@/types/product";
@@ -34,6 +36,45 @@ export const productService = {
     console.log("Product detail response:", response);
     if (response.success) {
       return (response as ApiSuccessResponse<ProductDetail>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async addToFavorites(productId: string): Promise<FavoriteToggleResponse> {
+    const response = await apiClient.post<FavoriteToggleResponse>(
+      `api/products/${productId}/favorite`,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<FavoriteToggleResponse>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async removeFromFavorites(productId: string): Promise<FavoriteToggleResponse> {
+    const response = await apiClient.delete<FavoriteToggleResponse>(
+      `api/products/${productId}/favorite`,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<FavoriteToggleResponse>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async getFavoriteProducts(
+    page = 1,
+    limit = 100,
+  ): Promise<FavoriteProductsResponse> {
+    const response = await apiClient.get<FavoriteProductsResponse>(
+      `api/products/favorites?page=${page}&limit=${limit}`,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<FavoriteProductsResponse>).data;
     }
 
     throw response as ApiErrorResponse;

@@ -47,6 +47,12 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum PaymentTransactionStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
 enum InventoryAction {
   IMPORT
   EXPORT
@@ -306,10 +312,6 @@ model ProductVariant {
   id             String  @id @default(uuid()) @db.VarChar(36)
   productId      String  @map("product_id") @db.VarChar(36)
   sku            String  @unique @db.VarChar(100)
-  /// Thuộc tính chuẩn để truy vấn/filter nhanh
-  color          String  @default("DEFAULT") @db.VarChar(100)
-  /// Dùng ONE_SIZE cho sản phẩm không có size
-  size           String  @default("ONE_SIZE") @db.VarChar(50)
   /// Thuộc tính biến thể: {"color": "đỏ", "size": "M"}
   attributes     Json    @default("{}")
   price          Decimal @db.Decimal(10, 2)
@@ -330,9 +332,6 @@ model ProductVariant {
   priceHistory  ProductPriceHistory[]
 
   @@index([productId])
-  @@index([productId, color])
-  @@index([productId, size])
-  @@unique([productId, color, size])
   @@map("product_variants")
 }
 
@@ -475,6 +474,7 @@ model Order {
   user          User                 @relation(fields: [userId], references: [id])
   items         OrderItem[]
   payment       Payment?
+  paymentTransaction PaymentTransaction?
   statusHistory OrderStatusHistory[]
   invoice       Invoice?
   discount      Discount?            @relation(fields: [discountId], references: [id])
@@ -526,6 +526,31 @@ model Payment {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@map("payments")
+}
+
+/// Giao dịch thanh toán VNPAY (idempotent qua trạng thái PENDING)
+model PaymentTransaction {
+  id                   String                   @id @default(uuid()) @db.VarChar(36)
+  orderId               String                   @unique @map("order_id") @db.VarChar(36)
+  orderCode             String                   @unique @map("order_code") @db.VarChar(64)
+  amount                Decimal                  @db.Decimal(10, 2)
+  status                PaymentTransactionStatus @default(PENDING)
+  bankCode              String?                  @map("bank_code") @db.VarChar(20)
+  vnpTransactionNo      String?                  @unique @map("vnp_transaction_no") @db.VarChar(64)
+  vnpResponseCode       String?                  @map("vnp_response_code") @db.VarChar(10)
+  vnpTransactionStatus  String?                  @map("vnp_transaction_status") @db.VarChar(10)
+  paidAt                DateTime?                @map("paid_at")
+  rawPayload            Json?                    @map("raw_payload")
+
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([orderCode])
+  @@map("payment_transactions")
 }
 
 // ============================================================================

@@ -6,9 +6,20 @@ export class PrismaVariantRepository implements IVariantRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async findById(variantId: string): Promise<ProductVariant | null> {
-    const variant = await this.prisma.productVariant.findUnique({
+    const variant = await this.prisma.productVariant.findFirst({
       where: { id: variantId },
-      include: { images: true },
+      select: {
+        id: true,
+        productId: true,
+        sku: true,
+        attributes: true,
+        price: true,
+        stockAvailable: true,
+        stockReserved: true,
+        minStock: true,
+        isDeleted: true,
+        images: true,
+      },
     });
 
     if (!variant) return null;
@@ -38,7 +49,18 @@ export class PrismaVariantRepository implements IVariantRepository {
   async findByProductId(productId: string): Promise<ProductVariant[]> {
     const variants = await this.prisma.productVariant.findMany({
       where: { productId, isDeleted: false },
-      include: { images: true },
+      select: {
+        id: true,
+        productId: true,
+        sku: true,
+        attributes: true,
+        price: true,
+        stockAvailable: true,
+        stockReserved: true,
+        minStock: true,
+        isDeleted: true,
+        images: true,
+      },
     });
 
     return variants.map((v) =>
@@ -134,8 +156,9 @@ export class PrismaVariantRepository implements IVariantRepository {
   }
 
   async existsBySku(sku: string): Promise<boolean> {
-    const variant = await this.prisma.productVariant.findUnique({
+    const variant = await this.prisma.productVariant.findFirst({
       where: { sku },
+      select: { id: true },
     });
     return variant !== null;
   }
@@ -152,7 +175,7 @@ export class PrismaVariantRepository implements IVariantRepository {
   }> {
     return await this.prisma.$transaction(async (tx) => {
       // Get current stock
-      const variant = await tx.productVariant.findUnique({
+      const variant = await tx.productVariant.findFirst({
         where: { id: variantId },
         select: { stockAvailable: true },
       });

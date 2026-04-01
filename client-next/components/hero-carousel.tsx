@@ -102,7 +102,7 @@ export function HeroCarousel() {
 
   return (
     <div
-      className="relative w-full h-screen overflow-hidden bg-black"
+      className="relative w-full h-[68vh] min-h-125 max-h-190 md:h-[72vh] overflow-hidden bg-black"
       onMouseEnter={() => setIsAutoPlay(false)}
       onMouseLeave={() => setIsAutoPlay(true)}
     >
