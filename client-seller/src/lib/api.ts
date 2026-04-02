@@ -1,5 +1,30 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 
+const normalizeBaseUrl = (value: string): string => {
+  let normalized = value.trim();
+
+  // Fix common copy/paste mistakes like "http://http://host".
+  normalized = normalized.replace(/^(https?:\/\/)(https?:\/\/)/i, "$1");
+
+  if (!/^https?:\/\//i.test(normalized) && !normalized.startsWith("/")) {
+    normalized = `http://${normalized}`;
+  }
+
+  return normalized.replace(/\/+$/, "");
+};
+
+const resolveApiBaseUrl = (): string => {
+  const envBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  const defaultOrigin = import.meta.env.PROD
+    ? "http://160.187.229.142:8080"
+    : "http://localhost:8080";
+
+  const base = normalizeBaseUrl(envBaseUrl?.trim() ? envBaseUrl : defaultOrigin);
+  return base.endsWith("/api") ? base : `${base}/api`;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
 interface StoredUser {
   id: string;
   email: string;
@@ -66,7 +91,7 @@ const processQueue = (
 };
 
 export const apiClient = axios.create({
-  baseURL: "http://localhost:8080/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -74,7 +99,7 @@ export const apiClient = axios.create({
 
 // Dedicated client to avoid running auth interceptors during refresh.
 const refreshClient = axios.create({
-  baseURL: "http://localhost:8080/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
