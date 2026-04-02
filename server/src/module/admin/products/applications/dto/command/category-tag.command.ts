@@ -3,16 +3,14 @@ export interface GetCategoriesCommand {
 }
 
 export interface GetCategoriesResult {
-  categories: CategoryTreeDto[];
+  categories: CategoryDto[];
 }
 
-export interface CategoryTreeDto {
+export interface CategoryDto {
   id: string;
   name: string;
   slug: string;
-  parentId?: string;
   sortOrder: number;
-  children: CategoryTreeDto[];
 }
 
 export interface GetTagsCommand {

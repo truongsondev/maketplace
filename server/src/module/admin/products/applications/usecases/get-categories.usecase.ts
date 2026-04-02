@@ -1,4 +1,4 @@
-import { GetCategoriesCommand, GetCategoriesResult, CategoryTreeDto } from '../dto';
+import { GetCategoriesCommand, GetCategoriesResult } from '../dto';
 import { IGetCategoriesUseCase } from '../ports/input';
 import { ICategoryRepository } from '../ports/output';
 import { createLogger } from '@/shared/util/logger';
@@ -13,44 +13,17 @@ export class GetCategoriesUseCase implements IGetCategoriesUseCase {
 
     const categories = await this.categoryRepository.findAll();
 
-    // Build tree structure
-    const categoryMap = new Map<string, CategoryTreeDto>();
-    const rootCategories: CategoryTreeDto[] = [];
-
-    // First pass: create all nodes
-    categories.forEach((cat: any) => {
-      categoryMap.set(cat.id, {
+    const sortedCategories = categories
+      .map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
-        parentId: cat.parentId,
         sortOrder: cat.sortOrder,
-        children: [],
-      });
-    });
-
-    // Second pass: build tree
-    categories.forEach((cat: any) => {
-      const node = categoryMap.get(cat.id)!;
-      if (cat.parentId) {
-        const parent = categoryMap.get(cat.parentId);
-        if (parent) {
-          parent.children.push(node);
-        }
-      } else {
-        rootCategories.push(node);
-      }
-    });
-
-    // Sort by sortOrder
-    const sortTree = (nodes: CategoryTreeDto[]) => {
-      nodes.sort((a, b) => a.sortOrder - b.sortOrder);
-      nodes.forEach((node) => sortTree(node.children));
-    };
-    sortTree(rootCategories);
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
 
     return {
-      categories: rootCategories,
+      categories: sortedCategories,
     };
   }
 }

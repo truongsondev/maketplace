@@ -7,9 +7,6 @@ export class PrismaCategoryRepository implements ICategoryRepository {
   async findAll(): Promise<any[]> {
     return await this.prisma.category.findMany({
       orderBy: { sortOrder: 'asc' },
-      include: {
-        parent: true,
-      },
     });
   }
 

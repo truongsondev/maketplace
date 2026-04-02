@@ -472,7 +472,6 @@ export class PrismaProductRepository implements IProductRepository {
           id: pc.category.id,
           name: pc.category.name,
           slug: pc.category.slug,
-          parentId: pc.category.parentId,
         })),
         tags: p.tags.map((pt) => ({
           id: pt.tag.id,

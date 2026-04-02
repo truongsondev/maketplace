@@ -43,12 +43,6 @@ export interface CategoryDetailDto {
   id: string;
   name: string;
   slug: string;
-  parentId?: string;
-  parent?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
 }
 
 export interface TagDetailDto {

@@ -15,10 +15,7 @@ export class CommonController {
 
   async getCategories(req: Request, res: Response): Promise<void> {
     try {
-      const query: GetCategoriesQuery = {
-        parentId: req.query.parentId as string,
-        includeChildren: req.query.includeChildren === 'true',
-      };
+      const query: GetCategoriesQuery = {};
 
       const result = await this.getCategoriesUseCase.execute(query);
 

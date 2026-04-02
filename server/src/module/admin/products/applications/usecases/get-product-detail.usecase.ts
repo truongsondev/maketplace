@@ -60,14 +60,6 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       id: cat.id,
       name: cat.name,
       slug: cat.slug,
-      parentId: cat.parentId,
-      parent: cat.parent
-        ? {
-            id: cat.parent.id,
-            name: cat.parent.name,
-            slug: cat.parent.slug,
-          }
-        : undefined,
     }));
 
     // Map tags

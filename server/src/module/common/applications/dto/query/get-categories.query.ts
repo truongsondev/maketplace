@@ -1,6 +1,4 @@
 export interface GetCategoriesQuery {
-  parentId?: string;
-  includeChildren?: boolean;
 }
 
 export interface CategoryDto {
@@ -9,9 +7,7 @@ export interface CategoryDto {
   slug: string;
   description?: string;
   imageUrl?: string;
-  parentId?: string;
   sortOrder: number;
-  children?: CategoryDto[];
   createdAt: Date;
   updatedAt: Date;
 }

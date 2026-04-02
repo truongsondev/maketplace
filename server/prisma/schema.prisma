@@ -366,18 +366,13 @@ model Category {
   slug        String  @unique @db.VarChar(255)
   description String? @db.Text
   imageUrl    String? @map("image_url") @db.VarChar(1000)
-  parentId    String? @map("parent_id") @db.VarChar(36)
   sortOrder   Int     @default(0) @map("sort_order")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  parent   Category?         @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[]        @relation("CategoryTree")
   products ProductCategory[]
-
-  @@index([parentId])
   @@map("categories")
 }
 

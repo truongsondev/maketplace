@@ -11,16 +11,9 @@ export class GetCategoriesUseCase implements IGetCategoriesUseCase {
   async execute(query: GetCategoriesQuery): Promise<GetCategoriesResult> {
     this.logger.info('Getting categories', query);
 
-    const { parentId, includeChildren } = query;
-
     const [categories, total] = await Promise.all([
-      this.categoryRepository.findAll({
-        parentId,
-        includeChildren,
-      }),
-      this.categoryRepository.count({
-        parentId,
-      }),
+      this.categoryRepository.findAll(),
+      this.categoryRepository.count(),
     ]);
 
     this.logger.info('Categories retrieved', {

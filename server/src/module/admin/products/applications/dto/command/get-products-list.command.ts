@@ -55,7 +55,6 @@ export interface CategorySummaryDto {
   id: string;
   name: string;
   slug: string;
-  parentId?: string;
 }
 
 export interface TagSummaryDto {
