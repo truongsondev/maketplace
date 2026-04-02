@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { Heart, ShoppingCart, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ProductItem } from "@/types/product";
@@ -9,7 +10,33 @@ import {
 } from "@/hooks/use-product-favorites";
 
 const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&h=600&fit=crop";
+  "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80";
+
+function normalizeProductImageUrl(rawUrl: string | null) {
+  if (!rawUrl) {
+    return FALLBACK_IMAGE;
+  }
+
+  const trimmed = rawUrl.trim();
+  if (!trimmed) {
+    return FALLBACK_IMAGE;
+  }
+
+  const absoluteUrl = trimmed.startsWith("//") ? `https:${trimmed}` : trimmed;
+
+  if (absoluteUrl.includes("res.cloudinary.com") && absoluteUrl.includes("/upload/")) {
+    return absoluteUrl.replace(
+      "/upload/",
+      "/upload/f_auto,q_auto,c_fill,w_900,h_1200/",
+    );
+  }
+
+  if (absoluteUrl.includes("images.unsplash.com") && !absoluteUrl.includes("w=")) {
+    return `${absoluteUrl}${absoluteUrl.includes("?") ? "&" : "?"}auto=format&fit=crop&w=900&q=80`;
+  }
+
+  return absoluteUrl;
+}
 
 interface ProductCardProps {
   product: ProductItem;
@@ -19,6 +46,11 @@ export function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const { favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
+  const normalizedImageUrl = useMemo(
+    () => normalizeProductImageUrl(product.imageUrl),
+    [product.imageUrl],
+  );
+  const [imageSrc, setImageSrc] = useState(normalizedImageUrl);
 
   const isFavorite = favoriteIds.has(product.id);
   const isTogglingFavorite =
@@ -53,6 +85,10 @@ export function ProductCard({ product }: ProductCardProps) {
     });
   };
 
+  useEffect(() => {
+    setImageSrc(normalizedImageUrl);
+  }, [normalizedImageUrl]);
+
   return (
     <div className="group relative flex flex-col">
       <div className="aspect-3/4 w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800 relative">
@@ -67,10 +103,13 @@ export function ProductCard({ product }: ProductCardProps) {
           />
         </button>
         <img
-          src={product.imageUrl ?? FALLBACK_IMAGE}
+          src={imageSrc}
           alt={product.name}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 cursor-pointer"
           onClick={handleViewDetail}
+          onError={() => setImageSrc(FALLBACK_IMAGE)}
         />
 
         {/* Action Buttons */}

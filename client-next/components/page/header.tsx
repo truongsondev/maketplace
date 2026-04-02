@@ -4,11 +4,11 @@ import {
   ShoppingCart,
   Search,
   User,
+  Heart,
   Menu,
   X,
   Sun,
   Moon,
-  Sparkles,
   ChevronDown,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -118,12 +118,9 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
     <>
       <header className="sticky top-0 z-50 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md px-6 py-4 lg:px-10 transition-colors duration-200">
         <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center size-10 rounded-lg bg-linear-to-br from-primary to-orange-400 text-white shadow-lg shadow-primary/30">
-            <Sparkles className="size-6" />
-          </div>
           <Link
             href="/"
-            className="text-2xl font-bold leading-tight tracking-[-0.015em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900 rounded"
+            className="text-2xl font-black leading-tight tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900 rounded"
           >
             AURA
           </Link>
@@ -132,27 +129,45 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
         <nav className="hidden md:flex flex-1 justify-center gap-8">
           <Link
             href="/"
-            className="text-sm font-bold text-neutral-800 dark:text-neutral-50 hover:text-primary dark:hover:text-primary transition-colors"
+            className="text-sm font-semibold text-neutral-800 dark:text-neutral-50 hover:text-primary dark:hover:text-primary transition-colors"
           >
-            Trang chủ
+            Home
           </Link>
           <Link
-            href="/#products"
-            className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+            href="/#new-arrivals"
+            className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
           >
-            Áo
-          </Link>
-          <Link
-            href="/#products"
-            className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
-          >
-            Quần
+            New Arrivals
           </Link>
           <Link
             href="/#categories"
-            className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+            className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
           >
-            Phụ kiện
+            Men
+          </Link>
+          <Link
+            href="/#categories"
+            className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+          >
+            Women
+          </Link>
+          <Link
+            href="/#new-arrivals"
+            className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+          >
+            Tops
+          </Link>
+          <Link
+            href="/#best-sellers"
+            className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+          >
+            Bottoms
+          </Link>
+          <Link
+            href="/#brand-value"
+            className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+          >
+            Accessories
           </Link>
           <Link
             href="/#sale"
@@ -201,6 +216,13 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                     Hồ sơ
                   </button>
                   <button
+                    onClick={() => handleNavigate("/favorites")}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <Heart className="size-4" />
+                    Yêu thích
+                  </button>
+                  <button
                     onClick={handleAuthAction}
                     disabled={isLoggingOut}
                     className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-red-950/40"
@@ -221,7 +243,7 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
           )}
           <button
             aria-label="Tìm kiếm sản phẩm"
-            onClick={() => router.push("/#products")}
+            onClick={() => router.push("/#new-arrivals")}
             className="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Search className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
@@ -285,28 +307,49 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
               onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
-              Trang chủ
+              Home
             </Link>
             <Link
-              href="/#products"
+              href="/#new-arrivals"
               onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
-              Áo
-            </Link>
-            <Link
-              href="/#products"
-              onClick={() => setIsMenuOpen(false)}
-              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
-            >
-              Quần
+              New Arrivals
             </Link>
             <Link
               href="/#categories"
               onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
-              Phụ kiện
+              Men
+            </Link>
+            <Link
+              href="/#categories"
+              onClick={() => setIsMenuOpen(false)}
+              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
+            >
+              Women
+            </Link>
+            <Link
+              href="/#new-arrivals"
+              onClick={() => setIsMenuOpen(false)}
+              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
+            >
+              Tops
+            </Link>
+            <Link
+              href="/#best-sellers"
+              onClick={() => setIsMenuOpen(false)}
+              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
+            >
+              Bottoms
+            </Link>
+            <Link
+              href="/#brand-value"
+              onClick={() => setIsMenuOpen(false)}
+              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
+            >
+              Accessories
             </Link>
             <Link
               href="/#sale"
@@ -343,6 +386,12 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                       className="w-full rounded-md bg-neutral-100 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Hồ sơ
+                    </button>
+                    <button
+                      onClick={() => handleNavigate("/favorites")}
+                      className="w-full rounded-md bg-neutral-100 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    >
+                      Yêu thích
                     </button>
                     <button
                       onClick={handleAuthAction}

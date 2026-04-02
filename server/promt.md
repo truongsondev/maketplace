@@ -16,7 +16,7 @@
 
 # CONTEXT
 
-Code chức năng thêm sản phẩm yêu thích (favorite product).
+Code chức năng get all sản phẩm yêu thích
 
 # INSTRUCTION
 

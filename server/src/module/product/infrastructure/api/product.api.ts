@@ -20,6 +20,27 @@ export class ProductAPI {
     this.router.get('/:id', asyncHandler(this.getProductDetail.bind(this)));
   }
 
+  private parsePositiveIntegerQueryParam(
+    value: unknown,
+    fieldName: string,
+  ): number | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (typeof raw !== 'string') {
+      throw new BadRequestError(`${fieldName} must be a positive integer`);
+    }
+
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new BadRequestError(`${fieldName} must be a positive integer`);
+    }
+
+    return parsed;
+  }
+
   private async getProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
@@ -115,15 +136,11 @@ export class ProductAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
-    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+    const page = this.parsePositiveIntegerQueryParam(req.query.page, 'page');
+    const limit = this.parsePositiveIntegerQueryParam(req.query.limit, 'limit');
 
-    if (page !== undefined && (!Number.isInteger(page) || page <= 0)) {
-      throw new BadRequestError('page must be a positive integer');
-    }
-
-    if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
-      throw new BadRequestError('limit must be a positive integer');
+    if (limit !== undefined && limit > 100) {
+      throw new BadRequestError('limit must be less than or equal to 100');
     }
 
     const result = await this.productController.getFavoriteProducts(userId, { page, limit });
