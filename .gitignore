@@ -1,7 +1,13 @@
 # Environment files (do not commit secrets)
 .env
 .env.*
+.envrc
+.envrc.*
+*.env
+*.env.*
 
 # Keep examples committed
 !.env.example
 !.env.*.example
+!*.env.example
+!*.env.*.example
