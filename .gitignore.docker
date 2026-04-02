@@ -7,17 +7,14 @@
 .env.development
 .env.staging
 .env.production
+.env.prod
 server/.env
 server/.env.development
 server/.env.staging
+server/.env.prod
 client-seller/.env
 client-next/.env
 client-next/.env.local
-
-# SSL Certificates
-nginx/ssl/*.crt
-nginx/ssl/*.key
-nginx/ssl/*.pem
 
 # Docker volumes (if using local bind mounts)
 data/

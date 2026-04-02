@@ -60,7 +60,7 @@ export function CategoriesGrid({ categories, isLoading }: CategoriesGridProps) {
 
     const interval = window.setInterval(() => {
       setCurrentPage((prev) => (prev + 1) % totalPages);
-    }, 2000);
+    }, 5000);
 
     return () => {
       window.clearInterval(interval);

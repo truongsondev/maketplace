@@ -17,18 +17,38 @@ import { createLogger } from './shared/util/logger';
 const logger = createLogger('App');
 const app = express();
 
+function parseCorsOrigins(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+const defaultCorsOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://160.187.229.142:3000',
+  'http://160.187.229.142:5173',
+];
+
+const corsOriginAllowlist = new Set([
+  ...defaultCorsOrigins,
+  ...parseCorsOrigins(process.env.CORS_ORIGINS),
+]);
+
 // CORS configuration - cho phép truy cập từ frontend
 app.use(
   cors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://127.0.0.1:3000',
-      'http://160.187.229.142:3000',
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (corsOriginAllowlist.has(origin)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 );
 

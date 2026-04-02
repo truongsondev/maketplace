@@ -241,6 +241,7 @@ class ApiClient {
       const parsed = JSON.parse(authSessionRaw) as {
         state?: {
           user?: unknown;
+          profile?: unknown;
           token?: {
             accessToken?: string | null;
             refreshToken?: string | null;

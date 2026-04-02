@@ -18,20 +18,30 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
 # Copy package files
 COPY package*.json ./
 
 # Install production dependencies only
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy built application from builder
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./
 
+# Run container as non-root for better security in production.
+RUN chown -R node:node /app
+USER node
+
 # Expose port
 EXPOSE 3000
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+	CMD wget -qO- http://127.0.0.1:3000 >/dev/null || exit 1
+
 # Start the application
-CMD ["npm", "start"]
+CMD ["npm", "start", "--", "-H", "0.0.0.0", "-p", "3000"]

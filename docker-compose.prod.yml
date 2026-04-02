@@ -57,6 +57,8 @@ services:
       dockerfile: Dockerfile
     container_name: prod-backend
     restart: always
+    ports:
+      - "8080:8080"
     environment:
       NODE_ENV: production
       PORT: 8080
@@ -81,11 +83,9 @@ services:
       test:
         [
           "CMD",
-          "wget",
-          "--quiet",
-          "--tries=1",
-          "--spider",
-          "http://localhost:8080/",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
         ]
       interval: 30s
       timeout: 10s
@@ -98,6 +98,8 @@ services:
       dockerfile: Dockerfile
     container_name: prod-admin-client
     restart: always
+    ports:
+      - "5173:5173"
     depends_on:
       - backend
     networks:
@@ -110,42 +112,12 @@ services:
       dockerfile: Dockerfile
     container_name: prod-user-client
     restart: always
-    depends_on:
-      - backend
-    networks:
-      - prod-network
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: prod-nginx
-    restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - "3000:3000"
     depends_on:
       - backend
-      - admin-client
-      - user-client
     networks:
       - prod-network
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--quiet",
-          "--tries=1",
-          "--spider",
-          "http://localhost/health",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
 networks:
   prod-network:
     driver: bridge
