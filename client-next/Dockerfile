@@ -31,7 +31,7 @@ RUN npm ci --omit=dev
 # Copy built application from builder
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.ts ./
+COPY --from=builder /app/next.config.js ./
 
 # Run container as non-root for better security in production.
 RUN chown -R node:node /app
@@ -41,7 +41,7 @@ USER node
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-	CMD wget -qO- http://127.0.0.1:3000 >/dev/null || exit 1
+	CMD node -e "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Start the application
 CMD ["npm", "start", "--", "-H", "0.0.0.0", "-p", "3000"]
