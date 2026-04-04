@@ -4,6 +4,7 @@ import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/api.types";
 export interface CreatePayosPaymentLinkRequest {
   amount: number;
   description?: string;
+  cartItemIds?: string[];
 }
 
 export interface CreatePayosPaymentLinkResponse {

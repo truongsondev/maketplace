@@ -93,7 +93,6 @@ export class RefreshTokenUseCase implements IRefreshTokenUseCase {
           refreshToken: newRefreshToken,
         },
         user,
-        profile: user.profile || undefined,
       };
     } catch (error) {
       try {

@@ -24,11 +24,6 @@ enum OAuthProvider {
   APPLE
 }
 
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
-}
 
 enum OrderStatus {
   PENDING
@@ -97,7 +92,6 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  profile                    UserProfile?
   addresses                  UserAddress[]
   refreshTokens              RefreshToken[]
   oauthAccounts              OAuthAccount[]
@@ -232,23 +226,6 @@ model UserRole {
 // ============================================================================
 // PROFILE
 // ============================================================================
-
-/// Hồ sơ cá nhân - tách khỏi auth để dễ mở rộng
-model UserProfile {
-  userId    String    @id @map("user_id") @db.VarChar(36)
-  fullName  String?   @map("full_name") @db.VarChar(255)
-  avatarUrl String?   @map("avatar_url") @db.Text
-  gender    Gender?
-  birthday  DateTime? @db.Date
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_profiles")
-}
 
 /// Địa chỉ người dùng - quản lý nhiều địa chỉ giao hàng
 model UserAddress {
@@ -533,9 +510,9 @@ model PaymentTransaction {
   amount                Decimal                  @db.Decimal(10, 2)
   status                PaymentTransactionStatus @default(PENDING)
   bankCode              String?                  @map("bank_code") @db.VarChar(20)
-  vnpTransactionNo      String?                  @unique @map("vnp_transaction_no") @db.VarChar(64)
-  vnpResponseCode       String?                  @map("vnp_response_code") @db.VarChar(10)
-  vnpTransactionStatus  String?                  @map("vnp_transaction_status") @db.VarChar(10)
+  gatewayReference      String?                  @unique @map("vnp_transaction_no") @db.VarChar(64)
+  gatewayCode           String?                  @map("vnp_response_code") @db.VarChar(10)
+  gatewayStatus         String?                  @map("vnp_transaction_status") @db.VarChar(10)
   paidAt                DateTime?                @map("paid_at")
   rawPayload            Json?                    @map("raw_payload")
 

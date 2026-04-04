@@ -1,5 +1,4 @@
 import { Email } from '../value-object/email.vo';
-import { UserProfile } from './user-profile.entity';
 
 export enum UserStatus {
   ACTIVE = 'ACTIVE',
@@ -13,7 +12,6 @@ export interface UserProps {
   passwordHash?: string;
   emailVerified?: boolean;
   status?: UserStatus;
-  profile?: UserProfile;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -24,7 +22,6 @@ export class User {
   private _passwordHash?: string;
   private _emailVerified: boolean;
   private _status: UserStatus;
-  private _profile?: UserProfile;
 
   private constructor(props: UserProps) {
     this._id = props.id;
@@ -32,7 +29,6 @@ export class User {
     this._passwordHash = props.passwordHash;
     this._emailVerified = props.emailVerified ?? false;
     this._status = props.status ?? UserStatus.ACTIVE;
-    this._profile = props.profile;
   }
 
   static registerWithEmail(email: Email, passwordHash: string): User {
@@ -78,10 +74,6 @@ export class User {
 
   get status(): UserStatus {
     return this._status;
-  }
-
-  get profile(): UserProfile | undefined {
-    return this._profile;
   }
 
   verifyEmail(): void {

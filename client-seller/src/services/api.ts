@@ -17,6 +17,12 @@ import type {
   InventoryLogsResponse,
 } from "@/types/api";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
+import type {
+  AdminOrdersCountsResponse,
+  AdminOrdersListResponse,
+  AdminOrderTab,
+  AdminOrderSort,
+} from "@/types/order";
 
 export const authService = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
@@ -162,5 +168,27 @@ export const cloudinaryService = {
 
     const result = await response.json();
     return result.secure_url;
+  },
+};
+
+export const orderService = {
+  getOrders: async (params: {
+    tab?: AdminOrderTab;
+    search?: string;
+    sort?: AdminOrderSort;
+    page?: number;
+    limit?: number;
+  }): Promise<AdminOrdersListResponse> => {
+    const response = await apiClient.get("/admin/orders", { params });
+    return response.data;
+  },
+
+  getCounts: async (): Promise<AdminOrdersCountsResponse> => {
+    const response = await apiClient.get("/admin/orders/counts");
+    return response.data;
+  },
+
+  cancelOrder: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/cancel`);
   },
 };

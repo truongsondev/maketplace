@@ -26,10 +26,7 @@ export class ProductAPI {
     this.router.get('/:id', asyncHandler(this.getProductDetail.bind(this)));
   }
 
-  private parsePositiveIntegerQueryParam(
-    value: unknown,
-    fieldName: string,
-  ): number | undefined {
+  private parsePositiveIntegerQueryParam(value: unknown, fieldName: string): number | undefined {
     if (value === undefined) {
       return undefined;
     }
@@ -42,6 +39,24 @@ export class ProductAPI {
     const parsed = Number.parseInt(raw, 10);
     if (!Number.isInteger(parsed) || parsed <= 0) {
       throw new BadRequestError(`${fieldName} must be a positive integer`);
+    }
+
+    return parsed;
+  }
+
+  private parseNonNegativeIntegerQueryParam(value: unknown, fieldName: string): number | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    const raw = Array.isArray(value) ? value[0] : value;
+    if (typeof raw !== 'string') {
+      throw new BadRequestError(`${fieldName} must be a non-negative integer`);
+    }
+
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new BadRequestError(`${fieldName} must be a non-negative integer`);
     }
 
     return parsed;
@@ -100,8 +115,14 @@ export class ProductAPI {
     res: Response,
     next: NextFunction,
   ): Promise<void> {
-    const categoryLimit = this.parsePositiveIntegerQueryParam(req.query.categoryLimit, 'categoryLimit');
-    const productLimit = this.parsePositiveIntegerQueryParam(req.query.productLimit, 'productLimit');
+    const categoryLimit = this.parsePositiveIntegerQueryParam(
+      req.query.categoryLimit,
+      'categoryLimit',
+    );
+    const productLimit = this.parsePositiveIntegerQueryParam(
+      req.query.productLimit,
+      'productLimit',
+    );
 
     if (categoryLimit !== undefined && categoryLimit > 10) {
       throw new BadRequestError('categoryLimit must be less than or equal to 10');
@@ -171,7 +192,10 @@ export class ProductAPI {
     }
 
     const result = await this.productController.removeProductFromFavorite(userId, id);
-    const response = ResponseFormatter.success(result, 'Product removed from favorites successfully');
+    const response = ResponseFormatter.success(
+      result,
+      'Product removed from favorites successfully',
+    );
     res.status(200).json(response);
   }
 
@@ -185,7 +209,7 @@ export class ProductAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const page = this.parsePositiveIntegerQueryParam(req.query.page, 'page');
+    const page = this.parseNonNegativeIntegerQueryParam(req.query.page, 'page');
     const limit = this.parsePositiveIntegerQueryParam(req.query.limit, 'limit');
 
     if (limit !== undefined && limit > 100) {

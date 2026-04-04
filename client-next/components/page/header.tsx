@@ -209,6 +209,13 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                     Giỏ hàng
                   </button>
                   <button
+                    onClick={() => handleNavigate("/orders")}
+                    className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <ShoppingCart className="size-4" />
+                    Đơn mua
+                  </button>
+                  <button
                     onClick={() => handleNavigate("/profile")}
                     className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-100 dark:hover:bg-neutral-800"
                   >
@@ -271,7 +278,11 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
           )}
           <button
             onClick={onToggleDarkMode}
-            aria-label={isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"}
+            aria-label={
+              isDark
+                ? "Chuyển sang giao diện sáng"
+                : "Chuyển sang giao diện tối"
+            }
             className="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {isDark ? (
@@ -283,7 +294,9 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
           <button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label={isMenuOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"}
+            aria-label={
+              isMenuOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"
+            }
             aria-expanded={isMenuOpen}
             aria-controls="mobile-main-menu"
           >
@@ -374,7 +387,10 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                 </button>
 
                 {isUserMenuOpen && (
-                  <div id="mobile-user-menu" className="mt-3 flex flex-col gap-2">
+                  <div
+                    id="mobile-user-menu"
+                    className="mt-3 flex flex-col gap-2"
+                  >
                     <button
                       onClick={() => handleNavigate("/cart")}
                       className="w-full rounded-md bg-neutral-100 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"

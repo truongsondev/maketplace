@@ -6,6 +6,7 @@ import AddProductPage from "../page/product/create-product";
 import LoginPage from "../page/auth/login";
 import Dashboard from "../page/dashboard";
 import NotFound from "../page/not-found";
+import OrdersPage from "../page/order/orders";
 
 export default function AppRouter() {
   return (
@@ -49,6 +50,14 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <ProductDetailPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/orders"
+        element={
+          <ProtectedRoute>
+            <OrdersPage />
           </ProtectedRoute>
         }
       />

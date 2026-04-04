@@ -33,7 +33,6 @@ export class CreatePayosPaymentLinkUseCase {
         returnUrl: config.returnUrl,
         cancelUrl: config.cancelUrl,
       });
-
       await this.paymentRepository.setCheckoutReference(orderCode, paymentLink.paymentLinkId);
 
       logger.info('Created PayOS payment link', {

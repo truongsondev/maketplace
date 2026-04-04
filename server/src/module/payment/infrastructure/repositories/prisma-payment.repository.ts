@@ -13,6 +13,34 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     input: CreatePendingTransactionInput,
   ): Promise<{ orderId: string }> {
     const result = await this.prisma.$transaction(async (tx) => {
+      const cart = await tx.cart.findUnique({
+        where: { userId: input.userId },
+        select: { id: true },
+      });
+
+      if (!cart) {
+        throw new Error('Cart not found for checkout');
+      }
+
+      const cartItems = await tx.cartItem.findMany({
+        where: { cartId: cart.id },
+        select: {
+          id: true,
+          productId: true,
+          variantId: true,
+          quantity: true,
+          variant: {
+            select: {
+              price: true,
+            },
+          },
+        },
+      });
+
+      if (cartItems.length === 0) {
+        throw new Error('Cart is empty');
+      }
+
       const order = await tx.order.create({
         data: {
           userId: input.userId,
@@ -22,6 +50,22 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         select: {
           id: true,
         },
+      });
+
+      await tx.orderItem.createMany({
+        data: cartItems.map((item) => {
+          if (!item.variantId || !item.variant) {
+            throw new Error(`Cart item ${item.id} missing required variant`);
+          }
+
+          return {
+            orderId: order.id,
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            price: item.variant.price,
+          };
+        }),
       });
 
       await tx.payment.create({
@@ -39,6 +83,18 @@ export class PrismaPaymentRepository implements IPaymentRepository {
           orderCode: input.orderCode,
           amount: input.amount,
           status: 'PENDING',
+          rawPayload: {
+            checkout: {
+              source: 'cart',
+              cartId: cart.id,
+              cartItemIds: cartItems.map((i) => i.id),
+              items: cartItems.map((i) => ({
+                productId: i.productId,
+                variantId: i.variantId,
+                quantity: i.quantity,
+              })),
+            },
+          } as Prisma.InputJsonValue,
         },
       });
 
@@ -66,8 +122,8 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         amount: true,
         status: true,
         bankCode: true,
-        vnpTransactionNo: true,
-        vnpResponseCode: true,
+        gatewayReference: true,
+        gatewayCode: true,
         paidAt: true,
       },
     });
@@ -82,8 +138,8 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       amount: Number(payment.amount),
       status: payment.status,
       bankCode: payment.bankCode,
-      gatewayReference: payment.vnpTransactionNo,
-      gatewayCode: payment.vnpResponseCode,
+      gatewayReference: payment.gatewayReference,
+      gatewayCode: payment.gatewayCode,
       paidAt: payment.paidAt,
     };
   }
@@ -102,7 +158,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       await tx.paymentTransaction.update({
         where: { orderCode },
         data: {
-          vnpTransactionNo: paymentLinkId,
+          gatewayReference: paymentLinkId,
         },
       });
 
@@ -130,7 +186,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         where: { orderCode },
         data: {
           status: 'FAILED',
-          vnpResponseCode: 'CREATE_LINK_FAILED',
+          gatewayCode: 'CREATE_LINK_FAILED',
           rawPayload: { reason },
         },
       });
@@ -158,6 +214,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         select: {
           orderId: true,
           status: true,
+          rawPayload: true,
         },
       });
 
@@ -173,11 +230,13 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         data: {
           status: input.status,
           bankCode: input.bankCode,
-          vnpTransactionNo: input.gatewayReference ?? input.paymentLinkId,
-          vnpResponseCode: input.gatewayCode,
-          vnpTransactionStatus: input.gatewayCode,
+          gatewayReference: input.gatewayReference ?? input.paymentLinkId,
+          gatewayCode: input.gatewayCode,
+          gatewayStatus: input.gatewayCode,
           paidAt: input.paidAt,
-          rawPayload: input.rawPayload as Prisma.InputJsonValue,
+          rawPayload: this.mergeRawPayload(current.rawPayload, {
+            webhook: input.rawPayload,
+          }),
         },
       });
 
@@ -201,9 +260,121 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
       });
 
+      if (input.status === 'PAID') {
+        await this.consumeStockForPaidOrder(tx, current.orderId);
+        await this.removePurchasedCartItems(tx, current.orderId, current.rawPayload);
+      }
+
       return true;
     });
 
     return updated;
+  }
+
+  private mergeRawPayload(
+    existing: unknown,
+    patch: Record<string, unknown>,
+  ): Prisma.InputJsonValue {
+    if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+      return {
+        ...(existing as Record<string, unknown>),
+        ...patch,
+      } as Prisma.InputJsonValue;
+    }
+
+    return {
+      previous: existing,
+      ...patch,
+    } as Prisma.InputJsonValue;
+  }
+
+  private async consumeStockForPaidOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { variantId: true, quantity: true },
+    });
+
+    const quantityByVariantId = new Map<string, number>();
+    for (const item of items) {
+      if (!item.variantId) continue;
+      quantityByVariantId.set(
+        item.variantId,
+        (quantityByVariantId.get(item.variantId) ?? 0) + item.quantity,
+      );
+    }
+
+    for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const updated = await tx.productVariant.updateMany({
+        where: {
+          id: variantId,
+          stockAvailable: { gte: quantity },
+          stockReserved: { gte: quantity },
+        },
+        data: {
+          stockAvailable: { decrement: quantity },
+          stockReserved: { decrement: quantity },
+        },
+      });
+
+      if (updated.count > 0) {
+        continue;
+      }
+
+      const current = await tx.productVariant.findUnique({
+        where: { id: variantId },
+        select: { stockAvailable: true, stockReserved: true },
+      });
+
+      if (!current) {
+        continue;
+      }
+
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          stockAvailable: Math.max(0, current.stockAvailable - quantity),
+          stockReserved: Math.max(0, current.stockReserved - quantity),
+        },
+      });
+    }
+  }
+
+  private async removePurchasedCartItems(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    paymentRawPayload: unknown,
+  ): Promise<void> {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { userId: true },
+    });
+
+    if (!order) {
+      return;
+    }
+
+    const raw = paymentRawPayload as any;
+    const cartItemIds: unknown = raw?.checkout?.cartItemIds;
+
+    if (!Array.isArray(cartItemIds) || cartItemIds.length === 0) {
+      return;
+    }
+
+    const ids = cartItemIds.filter((id) => typeof id === 'string') as string[];
+    if (ids.length === 0) {
+      return;
+    }
+
+    await tx.cartItem.deleteMany({
+      where: {
+        id: { in: ids },
+        cart: {
+          userId: order.userId,
+        },
+      },
+    });
   }
 }

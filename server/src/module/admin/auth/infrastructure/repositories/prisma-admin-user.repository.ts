@@ -9,7 +9,6 @@ export class PrismaAdminUserRepository implements IAdminUserRepository {
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
-        profile: true,
         userRoles: {
           include: {
             role: true,
@@ -28,8 +27,6 @@ export class PrismaAdminUserRepository implements IAdminUserRepository {
       passwordHash: user.passwordHash,
       emailVerified: user.emailVerified,
       status: user.status as UserStatus,
-      fullName: user.profile?.fullName ?? undefined,
-      avatarUrl: user.profile?.avatarUrl ?? undefined,
       roleCodes: user.userRoles.map((userRole) => userRole.role.code),
     };
   }

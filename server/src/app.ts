@@ -4,9 +4,12 @@ import { createAuthModule } from './module/auth/di';
 import { createProductModule } from './module/product/di';
 import { createAdminModule } from './module/admin/products/di';
 import { createAdminAuthModule } from './module/admin/auth/di';
+import { createAdminOrdersModule } from './module/admin/orders/di';
 import { createCommonModule } from './module/common/di';
 import { createCartModule } from './module/cart/di';
 import { createPaymentModule } from './module/payment/di';
+import { createAddressModule } from './module/address/di';
+import { createOrderModule } from './module/order/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -74,11 +77,14 @@ app.use('/api/auth', createAuthModule());
 app.use('/api/admin/auth', createAdminAuthModule());
 
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
+app.use('/api/addresses', createAddressModule());
 app.use('/api/cart', createCartModule());
+app.use('/api/orders', createOrderModule());
 app.use('/api/products', createProductModule());
 app.use('/api/payments', createPaymentModule());
 
 app.use('/api/admin', requireAdmin, createAdminModule());
+app.use('/api/admin/orders', requireAdmin, createAdminOrdersModule());
 
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Endpoint not found' });

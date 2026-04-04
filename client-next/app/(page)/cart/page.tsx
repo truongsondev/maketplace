@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   ChevronRight,
-  Loader2,
   Search,
   ShoppingCart,
   Ticket,
@@ -16,7 +16,6 @@ import {
   useRemoveCartItem,
   useUpdateCartItem,
 } from "@/hooks/use-cart";
-import { useCreatePayosPaymentLink } from "@/hooks/use-payos-payment";
 import type { CartItem } from "@/services/cart.service";
 import { toast } from "sonner";
 
@@ -108,10 +107,10 @@ function CartEmpty() {
 }
 
 export default function CartPage() {
+  const router = useRouter();
   const { data: cart, isLoading, isError, refetch } = useCart();
   const updateMutation = useUpdateCartItem();
   const removeMutation = useRemoveCartItem();
-  const payosMutation = useCreatePayosPaymentLink();
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   const updatingItemId = updateMutation.isPending
@@ -146,28 +145,18 @@ export default function CartPage() {
   if (cart.items.length === 0) return <CartEmpty />;
 
   const handleCheckout = () => {
-    const amount = effectiveTotal;
-
-    if (amount <= 0) {
+    if (effectiveTotal <= 0) {
       toast.error("Số tiền thanh toán không hợp lệ");
       return;
     }
 
-    const description = hasSelection
-      ? `TT ${selectedCount} san pham`
-      : "Thanh toan don hang";
+    const params = new URLSearchParams();
+    if (hasSelection) {
+      params.set("items", selectedItemIds.join(","));
+    }
 
-    payosMutation.mutate(
-      {
-        amount,
-        description,
-      },
-      {
-        onSuccess: (result) => {
-          window.location.href = result.checkoutUrl;
-        },
-      },
-    );
+    const query = params.toString();
+    router.push(query ? `/checkout/confirm?${query}` : "/checkout/confirm");
   };
 
   const handleDecrease = (item: CartItem) => {
@@ -362,21 +351,10 @@ export default function CartPage() {
           </div>
           <button
             onClick={handleCheckout}
-            disabled={
-              payosMutation.isPending ||
-              updateMutation.isPending ||
-              removeMutation.isPending
-            }
+            disabled={updateMutation.isPending || removeMutation.isPending}
             className="h-11 min-w-40 rounded-sm bg-black px-6 text-white font-bold hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {payosMutation.isPending ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="size-4 animate-spin" />
-                Dang xu ly
-              </span>
-            ) : (
-              "Thanh toan PayOS"
-            )}
+            Thanh toán
           </button>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   CheckCircle2,
@@ -33,8 +34,22 @@ function formatPrice(price: number): string {
 }
 
 export function PayosReturnClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [state, setState] = useState<ReturnViewState>({ kind: "loading" });
+
+  useEffect(() => {
+    if (state.kind !== "ready") return;
+
+    const gatewayStatus = state.verifyResult.gatewayStatus;
+    const isPaid =
+      gatewayStatus === "PAID" || state.orderStatus?.status === "PAID";
+    if (!isPaid) return;
+
+    router.replace(
+      `/checkout/thank-you?orderCode=${encodeURIComponent(state.verifyResult.orderCode)}`,
+    );
+  }, [router, state]);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,9 +124,15 @@ export function PayosReturnClient() {
     );
   }
 
-  const isPaidFromDb = state.orderStatus?.status === "PAID";
-  const isFailedFromDb = state.orderStatus?.status === "FAILED";
-  const isPendingFromDb = state.orderStatus?.status === "PENDING";
+  const gatewayStatus = state.verifyResult.gatewayStatus;
+  const isPaid =
+    gatewayStatus === "PAID" || state.orderStatus?.status === "PAID";
+  const isFailed =
+    gatewayStatus === "FAILED" ||
+    gatewayStatus === "CANCELLED" ||
+    gatewayStatus === "EXPIRED" ||
+    state.orderStatus?.status === "FAILED";
+  const isPending = !isPaid && !isFailed;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-14">
@@ -121,47 +142,35 @@ export function PayosReturnClient() {
         </h1>
 
         <div className="mt-6 rounded-xl border border-slate-200 p-5">
-          {isPaidFromDb && (
+          {isPaid && (
             <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
               <CheckCircle2 className="mt-0.5 size-5" />
               <div>
                 <p className="font-semibold">Thanh toan thanh cong</p>
-                <p className="text-sm">Don hang da duoc xac nhan thanh toan.</p>
+                <p className="text-sm">Dang chuyen den trang cam on...</p>
               </div>
             </div>
           )}
 
-          {isFailedFromDb && (
+          {isFailed && (
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
               <XCircle className="mt-0.5 size-5" />
               <div>
                 <p className="font-semibold">Thanh toan that bai</p>
                 <p className="text-sm">
-                  He thong da ghi nhan giao dich khong thanh cong.
+                  Giao dich khong thanh cong hoac da bi huy.
                 </p>
               </div>
             </div>
           )}
 
-          {isPendingFromDb && (
+          {isPending && (
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-700">
               <Clock3 className="mt-0.5 size-5" />
               <div>
                 <p className="font-semibold">Dang cho xac nhan</p>
                 <p className="text-sm">
-                  He thong dang doi webhook tu PayOS de chot trang thai.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!isPaidFromDb && !isFailedFromDb && !isPendingFromDb && (
-            <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-slate-700">
-              <AlertCircle className="mt-0.5 size-5" />
-              <div>
-                <p className="font-semibold">Dang dong bo trang thai</p>
-                <p className="text-sm">
-                  Vui long cho trong it phut roi tai lai trang.
+                  Vui long cho trong giay lat, hoac tai lai trang.
                 </p>
               </div>
             </div>
@@ -183,12 +192,6 @@ export function PayosReturnClient() {
                 Trang thai gateway:
               </span>{" "}
               {state.verifyResult.gatewayStatus}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-900">
-                Trang thai DB:
-              </span>{" "}
-              {state.orderStatus?.status ?? state.verifyResult.dbStatus ?? "-"}
             </p>
           </div>
         </div>
