@@ -1,22 +1,21 @@
 import {
-  CreatePaymentUrlCommand,
-  CreatePaymentUrlResult,
-  ParsedVnpParams,
+  CreatePayosPaymentLinkCommand,
+  CreatePayosPaymentLinkResult,
+  HandlePayosWebhookResult,
   PaymentStatusResult,
-  VnpIpnResult,
-  VnpReturnResult,
+  PayosReturnResult,
 } from '../../dto';
 
-export interface ICreatePaymentUrlUseCase {
-  execute(command: CreatePaymentUrlCommand, requestIp: string): Promise<CreatePaymentUrlResult>;
+export interface ICreatePayosPaymentLinkUseCase {
+  execute(command: CreatePayosPaymentLinkCommand): Promise<CreatePayosPaymentLinkResult>;
 }
 
-export interface IHandleVnpReturnUseCase {
-  execute(query: ParsedVnpParams): VnpReturnResult;
+export interface IHandlePayosReturnUseCase {
+  execute(orderCode: string): Promise<PayosReturnResult>;
 }
 
-export interface IHandleVnpIpnUseCase {
-  execute(query: ParsedVnpParams): Promise<VnpIpnResult>;
+export interface IHandlePayosWebhookUseCase {
+  execute(payload: unknown): Promise<HandlePayosWebhookResult>;
 }
 
 export interface IGetPaymentStatusUseCase {

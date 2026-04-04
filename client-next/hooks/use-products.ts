@@ -1,9 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { productService } from "@/services/product.service";
 
-export function useProducts() {
+type UseProductsParams = {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  c?: string;
+  s?: string;
+  cl?: string;
+  p?: string;
+};
+
+export function useProducts(params: UseProductsParams = {}) {
   return useQuery({
-    queryKey: ["products"],
-    queryFn: () => productService.getProducts(),
+    queryKey: ["products", params],
+    queryFn: () => productService.getProducts(params),
   });
 }

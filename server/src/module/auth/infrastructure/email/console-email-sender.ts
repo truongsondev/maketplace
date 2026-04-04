@@ -32,11 +32,8 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendEmailVerification(email: string, token: string): Promise<void> {
-    const frontendBaseUrl =
-      process.env.NODE_ENV === 'production'
-        ? 'http://160.187.229.142:8080'
-        : process.env.FRONTEND_URL || 'http://localhost:8080';
-    const verifyUrl = `${frontendBaseUrl}/api/auth/verify-email?token=${token}`;
+    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const verifyUrl = `${frontendBaseUrl}/verify-email?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Verify Your Email Address</h2>
@@ -61,7 +58,7 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendPasswordReset(email: string, token: string): Promise<void> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth/reset-password?token=${token}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Reset Your Password</h2>

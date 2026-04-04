@@ -6,9 +6,8 @@ export interface PaymentTransactionRecord {
   amount: number;
   status: PaymentTransactionStatus;
   bankCode: string | null;
-  vnpTransactionNo: string | null;
-  vnpResponseCode: string | null;
-  vnpTransactionStatus: string | null;
+  gatewayReference: string | null;
+  gatewayCode: string | null;
   paidAt: Date | null;
 }
 
@@ -18,20 +17,22 @@ export interface CreatePendingTransactionInput {
   amount: number;
 }
 
-export interface UpdateTransactionFromIpnInput {
+export interface UpdateTransactionFromWebhookInput {
   orderCode: string;
   status: PaymentTransactionStatus;
+  paymentLinkId: string | null;
+  gatewayReference: string | null;
+  gatewayCode: string | null;
   bankCode: string | null;
-  vnpTransactionNo: string | null;
-  vnpResponseCode: string | null;
-  vnpTransactionStatus: string | null;
   paidAt: Date | null;
-  rawPayload: Record<string, string>;
+  rawPayload: Record<string, unknown>;
 }
 
 export interface IPaymentRepository {
   createPendingTransaction(input: CreatePendingTransactionInput): Promise<{ orderId: string }>;
   existsByOrderCode(orderCode: string): Promise<boolean>;
   findByOrderCode(orderCode: string): Promise<PaymentTransactionRecord | null>;
-  updateFromIpnIfPending(input: UpdateTransactionFromIpnInput): Promise<boolean>;
+  setCheckoutReference(orderCode: string, paymentLinkId: string): Promise<void>;
+  markCreateLinkFailed(orderCode: string, reason: string): Promise<void>;
+  updateFromWebhookIfPending(input: UpdateTransactionFromWebhookInput): Promise<boolean>;
 }

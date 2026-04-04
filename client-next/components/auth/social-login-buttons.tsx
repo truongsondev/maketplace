@@ -44,7 +44,7 @@ export function SocialLoginButtons() {
         <button
           key={id}
           type="button"
-          className="flex items-center justify-center gap-2 bg-background-light hover:bg-gray-200 border border-transparent hover:border-border-color text-text-main font-medium py-2.5 px-4 rounded-lg transition-all"
+          className="flex items-center justify-center gap-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 hover:border-neutral-300 text-neutral-900 font-medium py-2.5 px-4 rounded-sm transition-colors dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-700"
         >
           {icon}
           <span>{label}</span>

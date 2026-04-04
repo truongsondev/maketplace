@@ -30,6 +30,11 @@ export interface CartData {
   items: CartItem[];
 }
 
+export interface CartSummaryData {
+  totalItems: number;
+  totalPrice: number;
+}
+
 export interface UpdateCartItemRequest {
   itemId: string;
   quantity: number;
@@ -40,6 +45,16 @@ export interface RemoveCartItemRequest {
 }
 
 export const cartService = {
+  async getCartSummary(): Promise<CartSummaryData> {
+    const response = await apiClient.get<CartSummaryData>("api/cart/summary");
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<CartSummaryData>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
   async getCart(): Promise<CartData> {
     const response = await apiClient.get<CartData>("api/cart");
 

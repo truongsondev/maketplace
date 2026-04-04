@@ -1,11 +1,15 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { createLogger } from '../../../../shared/util/logger';
 import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { ProductController } from '../../interface-adapter/controller/product.controller';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
+import { redis } from '../../../../infrastructure/database';
 
 export class ProductAPI {
   readonly router = express.Router();
+  private readonly logger = createLogger('ProductAPI');
+  private readonly homeCacheTtlSeconds = 600;
 
   constructor(private readonly productController: ProductController) {
     this.initializeRoutes();
@@ -14,6 +18,8 @@ export class ProductAPI {
   private initializeRoutes(): void {
     this.router.get('/', asyncHandler(this.getProducts.bind(this)));
     this.router.get('/categories/stats', asyncHandler(this.getCategoryStats.bind(this)));
+    this.router.get('/category-showcases', asyncHandler(this.getCategoryShowcases.bind(this)));
+    this.router.get('/home/category-showcases', asyncHandler(this.getCategoryShowcases.bind(this)));
     this.router.get('/favorites', asyncHandler(this.getFavoriteProducts.bind(this)));
     this.router.post('/:id/favorite', asyncHandler(this.addProductToFavorite.bind(this)));
     this.router.delete('/:id/favorite', asyncHandler(this.removeProductFromFavorite.bind(this)));
@@ -56,6 +62,7 @@ export class ProductAPI {
     const size = getStringParam(req.query.s);
     const color = getStringParam(req.query.cl);
     const priceRange = getStringParam(req.query.p);
+    const sort = getStringParam(req.query.sort);
 
     const result = await this.productController.getProducts({
       page,
@@ -64,6 +71,7 @@ export class ProductAPI {
       size,
       color,
       priceRange,
+      sort,
     });
 
     const response = ResponseFormatter.success(result, 'Products retrieved successfully');
@@ -72,9 +80,50 @@ export class ProductAPI {
 
   private async getCategoryStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     const nonEmptyOnly = req.query['non_empty_only'] === 'true';
+    const cacheKey = `home:categories:stats:${nonEmptyOnly}`;
+
+    const cached = await this.getCache(cacheKey);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
 
     const result = await this.productController.getCategoryStats({ nonEmptyOnly });
     const response = ResponseFormatter.success(result, 'Category stats retrieved successfully');
+
+    await this.setCache(cacheKey, response);
+    res.status(200).json(response);
+  }
+
+  private async getCategoryShowcases(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    const categoryLimit = this.parsePositiveIntegerQueryParam(req.query.categoryLimit, 'categoryLimit');
+    const productLimit = this.parsePositiveIntegerQueryParam(req.query.productLimit, 'productLimit');
+
+    if (categoryLimit !== undefined && categoryLimit > 10) {
+      throw new BadRequestError('categoryLimit must be less than or equal to 10');
+    }
+    if (productLimit !== undefined && productLimit > 20) {
+      throw new BadRequestError('productLimit must be less than or equal to 20');
+    }
+
+    const cacheKey = `home:category-showcases:${categoryLimit ?? 'default'}:${productLimit ?? 'default'}`;
+    const cached = await this.getCache(cacheKey);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+
+    const result = await this.productController.getCategoryShowcases({
+      categoryLimit,
+      productLimit,
+    });
+
+    const response = ResponseFormatter.success(result, 'Category showcases retrieved successfully');
+    await this.setCache(cacheKey, response);
     res.status(200).json(response);
   }
 
@@ -146,5 +195,27 @@ export class ProductAPI {
     const result = await this.productController.getFavoriteProducts(userId, { page, limit });
     const response = ResponseFormatter.success(result, 'Favorite products retrieved successfully');
     res.status(200).json(response);
+  }
+
+  private async getCache(key: string): Promise<any | null> {
+    try {
+      const raw = await redis.get(key);
+      if (!raw) {
+        return null;
+      }
+
+      return JSON.parse(raw);
+    } catch (error) {
+      this.logger.warn('Failed to read cache', { key, error });
+      return null;
+    }
+  }
+
+  private async setCache(key: string, payload: any): Promise<void> {
+    try {
+      await redis.setex(key, this.homeCacheTtlSeconds, JSON.stringify(payload));
+    } catch (error) {
+      this.logger.warn('Failed to write cache', { key, error });
+    }
   }
 }

@@ -1,35 +1,28 @@
-export type VnpLocale = 'vn' | 'en';
-
-export interface CreatePaymentUrlCommand {
+export interface CreatePayosPaymentLinkCommand {
   userId: string;
   amount: number;
-  orderInfo: string;
-  locale: VnpLocale;
-  orderType: string;
-  bankCode?: string;
+  description?: string;
 }
 
-export interface CreatePaymentUrlResult {
+export interface CreatePayosPaymentLinkResult {
   orderId: string;
   orderCode: string;
-  paymentUrl: string;
-  expiredAt: string;
+  checkoutUrl: string;
+  qrCode: string;
+  paymentLinkId: string;
+  status: string;
+  expiredAt?: number;
 }
 
-export interface VnpReturnResult {
-  isValidSignature: boolean;
-  orderCode?: string;
-  amount?: number;
-  responseCode?: string;
-  transactionStatus?: string;
-  bankCode?: string;
-  payDate?: string;
+export interface PayosReturnResult {
+  orderCode: string;
+  amount: number;
+  amountPaid: number;
+  amountRemaining: number;
+  paymentLinkId: string;
+  gatewayStatus: string;
+  dbStatus?: 'PENDING' | 'PAID' | 'FAILED';
   message: string;
-}
-
-export interface VnpIpnResult {
-  RspCode: string;
-  Message: string;
 }
 
 export interface PaymentStatusResult {
@@ -38,12 +31,13 @@ export interface PaymentStatusResult {
   amount: number;
   status: 'PENDING' | 'PAID' | 'FAILED';
   bankCode?: string;
-  vnpTransactionNo?: string;
-  vnpResponseCode?: string;
-  vnpTransactionStatus?: string;
+  gatewayReference?: string;
+  gatewayCode?: string;
   paidAt?: string;
 }
 
-export interface ParsedVnpParams {
-  [key: string]: string | undefined;
+export interface HandlePayosWebhookResult {
+  processed: boolean;
+  orderCode: string;
+  status: 'PAID' | 'FAILED';
 }

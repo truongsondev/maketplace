@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createAuthModule } from './module/auth/di';
 import { createProductModule } from './module/product/di';
 import { createAdminModule } from './module/admin/products/di';
+import { createAdminAuthModule } from './module/admin/auth/di';
 import { createCommonModule } from './module/common/di';
 import { createCartModule } from './module/cart/di';
 import { createPaymentModule } from './module/payment/di';
@@ -70,6 +71,7 @@ app.use(requestLoggingMiddleware);
 app.use('/api/common', createCommonModule());
 
 app.use('/api/auth', createAuthModule());
+app.use('/api/admin/auth', createAdminAuthModule());
 
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
 app.use('/api/cart', createCartModule());

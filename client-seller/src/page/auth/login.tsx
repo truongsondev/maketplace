@@ -95,6 +95,7 @@ export default function LoginPage() {
                   name="password"
                   placeholder="••••••••"
                   required
+                  minLength={6}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

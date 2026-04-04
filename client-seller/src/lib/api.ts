@@ -19,7 +19,9 @@ const resolveApiBaseUrl = (): string => {
     ? "http://160.187.229.142:8080"
     : "http://localhost:8080";
 
-  const base = normalizeBaseUrl(envBaseUrl?.trim() ? envBaseUrl : defaultOrigin);
+  const base = normalizeBaseUrl(
+    envBaseUrl?.trim() ? envBaseUrl : defaultOrigin,
+  );
   return base.endsWith("/api") ? base : `${base}/api`;
 };
 
@@ -28,8 +30,9 @@ const API_BASE_URL = resolveApiBaseUrl();
 interface StoredUser {
   id: string;
   email: string;
-  name?: string;
-  role?: string;
+  fullName?: string;
+  avatarUrl?: string | null;
+  roles: string[];
   emailVerified?: boolean;
   status?: string;
 }
@@ -56,12 +59,12 @@ interface RefreshTokenResponse {
     user: {
       id: string;
       email: string;
+      fullName?: string;
+      avatarUrl?: string | null;
+      roles?: string[];
       emailVerified: boolean;
       status: string;
     };
-    profile: {
-      fullName?: string;
-    } | null;
   };
   message: string;
   timestamp: string;
@@ -223,8 +226,13 @@ apiClient.interceptors.response.use(
           const refreshedUser: StoredUser = {
             id: response.data.data.user.id || state.user?.id || "",
             email: response.data.data.user.email || state.user?.email || "",
-            name: response.data.data.profile?.fullName || state.user?.name,
-            role: state.user?.role,
+            fullName:
+              response.data.data.user.fullName || state.user?.fullName || "",
+            avatarUrl:
+              response.data.data.user.avatarUrl ??
+              state.user?.avatarUrl ??
+              null,
+            roles: response.data.data.user.roles || state.user?.roles || [],
             emailVerified:
               response.data.data.user.emailVerified ??
               state.user?.emailVerified,

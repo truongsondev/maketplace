@@ -1,9 +1,9 @@
-import { PrismaClient } from '@/generated/prisma/client';
+import { Prisma, PrismaClient } from '@/generated/prisma/client';
 import {
   CreatePendingTransactionInput,
   IPaymentRepository,
   PaymentTransactionRecord,
-  UpdateTransactionFromIpnInput,
+  UpdateTransactionFromWebhookInput,
 } from '../../applications/ports/output';
 
 export class PrismaPaymentRepository implements IPaymentRepository {
@@ -21,6 +21,15 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
         select: {
           id: true,
+        },
+      });
+
+      await tx.payment.create({
+        data: {
+          orderId: order.id,
+          amount: input.amount,
+          method: 'PAYOS',
+          status: 'PENDING',
         },
       });
 
@@ -59,7 +68,6 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         bankCode: true,
         vnpTransactionNo: true,
         vnpResponseCode: true,
-        vnpTransactionStatus: true,
         paidAt: true,
       },
     });
@@ -74,14 +82,76 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       amount: Number(payment.amount),
       status: payment.status,
       bankCode: payment.bankCode,
-      vnpTransactionNo: payment.vnpTransactionNo,
-      vnpResponseCode: payment.vnpResponseCode,
-      vnpTransactionStatus: payment.vnpTransactionStatus,
+      gatewayReference: payment.vnpTransactionNo,
+      gatewayCode: payment.vnpResponseCode,
       paidAt: payment.paidAt,
     };
   }
 
-  async updateFromIpnIfPending(input: UpdateTransactionFromIpnInput): Promise<boolean> {
+  async setCheckoutReference(orderCode: string, paymentLinkId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.paymentTransaction.findUnique({
+        where: { orderCode },
+        select: { orderId: true },
+      });
+
+      if (!existing) {
+        return;
+      }
+
+      await tx.paymentTransaction.update({
+        where: { orderCode },
+        data: {
+          vnpTransactionNo: paymentLinkId,
+        },
+      });
+
+      await tx.payment.update({
+        where: { orderId: existing.orderId },
+        data: {
+          transactionId: paymentLinkId,
+        },
+      });
+    });
+  }
+
+  async markCreateLinkFailed(orderCode: string, reason: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.paymentTransaction.findUnique({
+        where: { orderCode },
+        select: { orderId: true, status: true },
+      });
+
+      if (!existing || existing.status !== 'PENDING') {
+        return;
+      }
+
+      await tx.paymentTransaction.update({
+        where: { orderCode },
+        data: {
+          status: 'FAILED',
+          vnpResponseCode: 'CREATE_LINK_FAILED',
+          rawPayload: { reason },
+        },
+      });
+
+      await tx.payment.update({
+        where: { orderId: existing.orderId },
+        data: {
+          status: 'FAILED',
+        },
+      });
+
+      await tx.order.update({
+        where: { id: existing.orderId },
+        data: {
+          status: 'CANCELLED',
+        },
+      });
+    });
+  }
+
+  async updateFromWebhookIfPending(input: UpdateTransactionFromWebhookInput): Promise<boolean> {
     const updated = await this.prisma.$transaction(async (tx) => {
       const current = await tx.paymentTransaction.findUnique({
         where: { orderCode: input.orderCode },
@@ -95,7 +165,6 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         return false;
       }
 
-      // Idempotency gate: only update when current status is still PENDING.
       const updateResult = await tx.paymentTransaction.updateMany({
         where: {
           orderCode: input.orderCode,
@@ -104,17 +173,26 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         data: {
           status: input.status,
           bankCode: input.bankCode,
-          vnpTransactionNo: input.vnpTransactionNo,
-          vnpResponseCode: input.vnpResponseCode,
-          vnpTransactionStatus: input.vnpTransactionStatus,
+          vnpTransactionNo: input.gatewayReference ?? input.paymentLinkId,
+          vnpResponseCode: input.gatewayCode,
+          vnpTransactionStatus: input.gatewayCode,
           paidAt: input.paidAt,
-          rawPayload: input.rawPayload,
+          rawPayload: input.rawPayload as Prisma.InputJsonValue,
         },
       });
 
       if (updateResult.count === 0) {
         return false;
       }
+
+      await tx.payment.update({
+        where: { orderId: current.orderId },
+        data: {
+          status: input.status === 'PAID' ? 'SUCCESS' : 'FAILED',
+          transactionId: input.paymentLinkId ?? input.gatewayReference,
+          paidAt: input.paidAt,
+        },
+      });
 
       await tx.order.update({
         where: { id: current.orderId },

@@ -2,29 +2,10 @@ import express, { Request, Response } from 'express';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
-import { parseClientIp } from '../vnpay/request-ip.util';
-import { ParsedVnpParams } from '../../applications/dto';
+import { createLogger } from '../../../../shared/util/logger';
 import { PaymentController } from '../../interface-adapter/controller';
 
-function queryToParsedVnpParams(query: Request['query']): ParsedVnpParams {
-  const parsed: ParsedVnpParams = {};
-
-  for (const [key, value] of Object.entries(query)) {
-    if (Array.isArray(value)) {
-      parsed[key] = typeof value[0] === 'string' ? value[0] : undefined;
-      continue;
-    }
-
-    if (typeof value === 'string') {
-      parsed[key] = value;
-      continue;
-    }
-
-    parsed[key] = undefined;
-  }
-
-  return parsed;
-}
+const logger = createLogger('PaymentAPI');
 
 export class PaymentAPI {
   readonly router = express.Router();
@@ -34,80 +15,89 @@ export class PaymentAPI {
   }
 
   private initializeRoutes(): void {
-    this.router.post('/vnpay/create-url', asyncHandler(this.createPaymentUrl.bind(this)));
-    this.router.get('/vnpay/return', asyncHandler(this.handleVnpReturn.bind(this)));
-    this.router.get('/vnpay/ipn', asyncHandler(this.handleVnpIpn.bind(this)));
+    this.router.post('/payos/create-link', asyncHandler(this.createPayosPaymentLink.bind(this)));
+    this.router.get('/payos/return', asyncHandler(this.handlePayosReturn.bind(this)));
+    this.router.post('/payos/webhook', asyncHandler(this.handlePayosWebhook.bind(this)));
     this.router.get(
-      '/vnpay/orders/:orderCode/status',
+      '/payos/orders/:orderCode/status',
       asyncHandler(this.getPaymentStatus.bind(this)),
     );
   }
 
-  private async createPaymentUrl(req: Request, res: Response): Promise<void> {
+  private async createPayosPaymentLink(req: Request, res: Response): Promise<void> {
     const userId = req.userId;
     if (!userId) {
       throw new BadRequestError('User ID not found');
     }
 
-    const {
-      amount,
-      orderInfo,
-      locale = 'vn',
-      orderType = 'other',
-      bankCode,
-    } = req.body as {
+    const { amount, description } = req.body as {
       amount?: number;
-      orderInfo?: string;
-      locale?: 'vn' | 'en';
-      orderType?: string;
-      bankCode?: string;
+      description?: string;
     };
 
     if (typeof amount !== 'number') {
       throw new BadRequestError('amount must be a number');
     }
 
-    if (!orderInfo || typeof orderInfo !== 'string') {
-      throw new BadRequestError('orderInfo is required');
+    if (description && typeof description !== 'string') {
+      throw new BadRequestError('description must be a string');
     }
 
-    const requestIp = parseClientIp(req);
-
-    const result = await this.paymentController.createPaymentUrl(
-      {
-        userId,
-        amount,
-        orderInfo,
-        locale,
-        orderType,
-        bankCode,
-      },
-      requestIp,
-    );
+    const result = await this.paymentController.createPayosPaymentLink({
+      userId,
+      amount,
+      description,
+    });
 
     res
       .status(201)
-      .json(ResponseFormatter.success(result, 'VNPAY payment URL created successfully'));
+      .json(ResponseFormatter.success(result, 'PayOS payment link created successfully'));
   }
 
-  private async handleVnpReturn(req: Request, res: Response): Promise<void> {
-    const query = queryToParsedVnpParams(req.query);
-    const result = this.paymentController.handleVnpReturn(query);
+  private async handlePayosReturn(req: Request, res: Response): Promise<void> {
+    const { orderCode } = req.query;
+    if (typeof orderCode !== 'string' || orderCode.trim() === '') {
+      throw new BadRequestError('orderCode is required');
+    }
 
+    const result = await this.paymentController.handlePayosReturn(orderCode.trim());
     res.status(200).json(ResponseFormatter.success(result));
   }
 
-  private async handleVnpIpn(req: Request, res: Response): Promise<void> {
-    const query = queryToParsedVnpParams(req.query);
-    const result = await this.paymentController.handleVnpIpn(query);
+  private async handlePayosWebhook(req: Request, res: Response): Promise<void> {
+    logger.info('PayOS webhook received', {
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip,
+      contentType: req.get('content-type'),
+      bodyType: typeof req.body,
+      hasBody: Boolean(req.body),
+      hasData: Boolean((req.body as any)?.data),
+      hasSignature: Boolean((req.body as any)?.signature),
+    });
 
-    // VNPAY requires the plain response format: {"RspCode":"xx","Message":"..."}
-    res.status(200).json(result);
+    try {
+      const result = await this.paymentController.handlePayosWebhook(req.body);
+      res.status(200).json({
+        error: 0,
+        message: 'Webhook processed',
+        data: result,
+      });
+    } catch (error) {
+      logger.warn('PayOS webhook verify failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      // Keep 200 to avoid repetitive callback retries for malformed signatures.
+      res.status(200).json({
+        error: -1,
+        message: 'Invalid webhook payload',
+      });
+    }
   }
 
   private async getPaymentStatus(req: Request, res: Response): Promise<void> {
     const { orderCode } = req.params;
-
     if (!orderCode || typeof orderCode !== 'string') {
       throw new BadRequestError('orderCode is required');
     }

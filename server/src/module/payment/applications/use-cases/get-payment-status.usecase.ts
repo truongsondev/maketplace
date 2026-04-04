@@ -17,9 +17,8 @@ export class GetPaymentStatusUseCase {
       amount: payment.amount,
       status: payment.status,
       bankCode: payment.bankCode ?? undefined,
-      vnpTransactionNo: payment.vnpTransactionNo ?? undefined,
-      vnpResponseCode: payment.vnpResponseCode ?? undefined,
-      vnpTransactionStatus: payment.vnpTransactionStatus ?? undefined,
+      gatewayReference: payment.gatewayReference ?? undefined,
+      gatewayCode: payment.gatewayCode ?? undefined,
       paidAt: payment.paidAt?.toISOString(),
     };
   }

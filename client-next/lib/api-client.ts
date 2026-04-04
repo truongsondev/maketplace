@@ -12,6 +12,8 @@ const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const AUTH_SESSION_KEY = "auth-session";
 const REFRESH_ENDPOINT = "api/auth/refresh-token";
+const LOGIN_PATH = "/login";
+const AUTH_PAGE_PATHS = new Set(["/login", "/register", "/verify-email"]);
 
 type AuthEventHandlers = {
   onSessionUpdated?: (params: {
@@ -86,6 +88,7 @@ class ApiClient {
           }
 
           this.clearAuthToken({ notify: true });
+          this.handleRefreshFailureRedirect();
         }
 
         const serverError = error.response?.data;
@@ -110,6 +113,17 @@ class ApiClient {
   private isRefreshRequest(url?: string): boolean {
     if (!url) return false;
     return url.includes(REFRESH_ENDPOINT);
+  }
+
+  private handleRefreshFailureRedirect() {
+    if (typeof window === "undefined") return;
+
+    const { pathname, search, hash } = window.location;
+    if (AUTH_PAGE_PATHS.has(pathname)) return;
+
+    const returnTo = `${pathname}${search}${hash}`;
+    const params = new URLSearchParams({ redirect: returnTo });
+    window.location.replace(`${LOGIN_PATH}?${params.toString()}`);
   }
 
   private getStoredRefreshToken(): string | null {
@@ -278,11 +292,7 @@ class ApiClient {
 
       const response = await this.axios.post<
         ApiResponse<RefreshTokenResponseData>
-      >(
-        REFRESH_ENDPOINT,
-        { refreshToken },
-        refreshConfig,
-      );
+      >(REFRESH_ENDPOINT, { refreshToken }, refreshConfig);
 
       const payload = response.data;
       if (!payload.success) return null;

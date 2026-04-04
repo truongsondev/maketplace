@@ -2,6 +2,57 @@
 
 ---
 
+# 0. ADMIN AUTH API
+
+## **POST /api/admin/auth/login**
+
+Dang nhap danh rieng cho admin. Endpoint nay public (khong can Bearer token),
+nhung chi cap token khi user hop le va co role ADMIN.
+
+### Request Body
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "123456"
+}
+```
+
+### Response Thanh Cong (200)
+
+```json
+{
+  "success": true,
+  "message": "Admin login successful",
+  "data": {
+    "token": {
+      "accessToken": "atk_xxx",
+      "refreshToken": "rtk_xxx"
+    },
+    "user": {
+      "id": "user-uuid",
+      "email": "admin@example.com",
+      "fullName": "Admin User",
+      "avatarUrl": "https://cdn.example.com/avatar.jpg",
+      "roles": ["ADMIN"]
+    }
+  }
+}
+```
+
+### Response Loi Thuong Gap
+
+- 400 Bad Request: email/password khong hop le
+- 401 Unauthorized: sai thong tin dang nhap hoac khong co role ADMIN
+- 429 Too Many Requests: vuot gioi han tan suat
+
+### Tai lieu chi tiet
+
+- Xem file: `doc-api/admin-auth-login.md`
+- Request test nhanh: `doc-api/admin-auth-login.http`
+
+---
+
 ## BASE URL
 
 ```

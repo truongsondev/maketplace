@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import type { ApiSuccessResponse, ApiErrorResponse } from "@/types/api.types";
 import type {
+  CategoryShowcase,
   CategoryStat,
   FavoriteProductsResponse,
   FavoriteToggleResponse,
@@ -8,10 +9,39 @@ import type {
   ProductDetail,
 } from "@/types/product";
 
+type ProductQueryParams = {
+  page?: number;
+  limit?: number;
+  sort?: string;
+  c?: string;
+  s?: string;
+  cl?: string;
+  p?: string;
+};
+
+type CategoryShowcaseParams = {
+  categoryLimit?: number;
+  productLimit?: number;
+};
+
+function buildQueryString(params: Record<string, string | number | boolean | undefined>) {
+  const searchParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  });
+
+  const query = searchParams.toString();
+  return query ? `?${query}` : "";
+}
+
 export const productService = {
-  async getCategoryStats(): Promise<CategoryStat[]> {
+  async getCategoryStats(nonEmptyOnly = false): Promise<CategoryStat[]> {
+    const query = buildQueryString({ non_empty_only: nonEmptyOnly });
     const response = await apiClient.get<CategoryStat[]>(
-      "api/products/categories/stats",
+      `api/products/categories/stats${query}`,
     );
 
     if (response.success) {
@@ -21,8 +51,9 @@ export const productService = {
     throw response as ApiErrorResponse;
   },
 
-  async getProducts(): Promise<ProductListResponse> {
-    const response = await apiClient.get<ProductListResponse>("api/products/");
+  async getProducts(params: ProductQueryParams = {}): Promise<ProductListResponse> {
+    const query = buildQueryString(params);
+    const response = await apiClient.get<ProductListResponse>(`api/products/${query}`);
 
     if (response.success) {
       return (response as ApiSuccessResponse<ProductListResponse>).data;
@@ -31,9 +62,27 @@ export const productService = {
     throw response as ApiErrorResponse;
   },
 
+  async getCategoryShowcases(
+    params: CategoryShowcaseParams = {},
+  ): Promise<CategoryShowcase[]> {
+    const query = buildQueryString({
+      categoryLimit: params.categoryLimit,
+      productLimit: params.productLimit,
+    });
+    const response = await apiClient.get<CategoryShowcase[]>(
+      `api/products/category-showcases${query}`,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<CategoryShowcase[]>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
   async getProductDetail(id: string): Promise<ProductDetail> {
     const response = await apiClient.get<ProductDetail>(`api/products/${id}`);
-    console.log("Product detail response:", response);
+
     if (response.success) {
       return (response as ApiSuccessResponse<ProductDetail>).data;
     }

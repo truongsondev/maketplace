@@ -27,11 +27,7 @@ export interface RegisterResponse {
 }
 
 export interface VerifyEmailResponse {
-  token: {
-    accessToken: string;
-    refreshToken: string;
-  };
-  user: User;
+  message: string;
 }
 
 export interface LogoutRequest {

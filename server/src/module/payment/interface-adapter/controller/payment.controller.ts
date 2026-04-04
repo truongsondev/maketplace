@@ -1,39 +1,37 @@
 import {
-  CreatePaymentUrlCommand,
-  CreatePaymentUrlResult,
-  ParsedVnpParams,
+  CreatePayosPaymentLinkCommand,
+  CreatePayosPaymentLinkResult,
+  HandlePayosWebhookResult,
   PaymentStatusResult,
-  VnpIpnResult,
-  VnpReturnResult,
+  PayosReturnResult,
 } from '../../applications/dto';
 import {
-  ICreatePaymentUrlUseCase,
+  ICreatePayosPaymentLinkUseCase,
   IGetPaymentStatusUseCase,
-  IHandleVnpIpnUseCase,
-  IHandleVnpReturnUseCase,
+  IHandlePayosReturnUseCase,
+  IHandlePayosWebhookUseCase,
 } from '../../applications/ports/input';
 
 export class PaymentController {
   constructor(
-    private readonly createPaymentUrlUseCase: ICreatePaymentUrlUseCase,
-    private readonly handleVnpReturnUseCase: IHandleVnpReturnUseCase,
-    private readonly handleVnpIpnUseCase: IHandleVnpIpnUseCase,
+    private readonly createPayosPaymentLinkUseCase: ICreatePayosPaymentLinkUseCase,
+    private readonly handlePayosReturnUseCase: IHandlePayosReturnUseCase,
+    private readonly handlePayosWebhookUseCase: IHandlePayosWebhookUseCase,
     private readonly getPaymentStatusUseCase: IGetPaymentStatusUseCase,
   ) {}
 
-  createPaymentUrl(
-    command: CreatePaymentUrlCommand,
-    requestIp: string,
-  ): Promise<CreatePaymentUrlResult> {
-    return this.createPaymentUrlUseCase.execute(command, requestIp);
+  createPayosPaymentLink(
+    command: CreatePayosPaymentLinkCommand,
+  ): Promise<CreatePayosPaymentLinkResult> {
+    return this.createPayosPaymentLinkUseCase.execute(command);
   }
 
-  handleVnpReturn(query: ParsedVnpParams): VnpReturnResult {
-    return this.handleVnpReturnUseCase.execute(query);
+  handlePayosReturn(orderCode: string): Promise<PayosReturnResult> {
+    return this.handlePayosReturnUseCase.execute(orderCode);
   }
 
-  handleVnpIpn(query: ParsedVnpParams): Promise<VnpIpnResult> {
-    return this.handleVnpIpnUseCase.execute(query);
+  handlePayosWebhook(payload: unknown): Promise<HandlePayosWebhookResult> {
+    return this.handlePayosWebhookUseCase.execute(payload);
   }
 
   getPaymentStatus(orderCode: string): Promise<PaymentStatusResult> {

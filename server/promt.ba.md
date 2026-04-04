@@ -22,24 +22,21 @@
 
 # SCOPE
 
-docs/ba/addToCard.md
+
 
 # CONTEXT
 
-Viết tài liệu BRP cho chức năng thêm sản phẩm vào giỏ hàng
-Bạn đã triển khai nó trong file \\wsl.localhost\Ubuntu-22.04\home\doran\project\server\docs\ba\addToCart.md
-Nhưng có một vài vấn đề như sau
-
-- Người dùng chỉ nên thêm được variant vào giỏ hàng
-- Cần phải response về image của từng variant
-- Variant bắt buộc phải có của 1 product, người dùng chỉ mua variant
+Viết tài liệu BRP cho trang để xây dựng các API cần thiết
 
 # INSTRUCTION
 
 1.  **Phân tích CONTEXT**:
+2.  Phân tích các dữ liệu đang được hiển thị trên màn hình
 2.  Đặt câu hỏi để làm rõ yêu cầu người dùng
 3.  Lên kế hoạch triển khai bao gồm phát triển, testing
 4.  Thực hiện đầy đủ các nhiệm vụ
 5.  Gợi ý các nhiệm vụ
 
 # NOTE
+
+- Tài liệu định dạng .md viết trong  thư muc docs

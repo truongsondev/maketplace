@@ -6,6 +6,8 @@ export interface ProductProps {
   minPrice: number;
   originalPrice?: number;
   discountPercent?: number;
+  isNew?: boolean;
+  isSale?: boolean;
   // For detailed view
   description?: string | null;
   basePrice?: number;
@@ -42,6 +44,12 @@ export class Product {
   }
   get discountPercent(): number | undefined {
     return this.props.discountPercent;
+  }
+  get isNew(): boolean {
+    return this.props.isNew ?? false;
+  }
+  get isSale(): boolean {
+    return this.props.isSale ?? false;
   }
   get description(): string | null | undefined {
     return this.props.description;
@@ -93,6 +101,8 @@ export class Product {
       slug: data.slug || '',
       imageUrl: data.images?.[0]?.url || null,
       minPrice: data.variants?.[0]?.price ? Number(data.variants[0].price) : Number(data.basePrice),
+      isNew: data.isNew ?? false,
+      isSale: data.isSale ?? false,
       description: data.description,
       basePrice: Number(data.basePrice),
       isDeleted: data.isDeleted,

@@ -10,6 +10,10 @@ export interface ProductSummary {
   originalPrice?: number;
   /** % giảm giá (nếu có) */
   discountPercent?: number;
+  /** Nhan san pham moi */
+  isNew: boolean;
+  /** Nhan san pham dang sale */
+  isSale: boolean;
 }
 
 export interface ProductListResult {

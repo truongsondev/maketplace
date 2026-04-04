@@ -28,8 +28,11 @@ export interface CategoryStat {
 export interface ProductItem {
   id: string;
   name: string;
+  slug?: string;
   imageUrl: string | null;
-  minPrice: string;
+  minPrice: string | number;
+  isNew?: boolean;
+  isSale?: boolean;
 }
 
 export interface ProductListResponse {
@@ -40,6 +43,14 @@ export interface ProductListResponse {
     total: number;
     totalPages: number;
   };
+}
+
+export interface CategoryShowcase {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string | null;
+  products: ProductItem[];
 }
 
 export interface FavoriteToggleResponse {

@@ -11,12 +11,11 @@ export interface LoginResponse {
       refreshToken: string;
     };
     user: {
-      _id: string;
-      _email: {
-        value: string;
-      };
-      _emailVerified: boolean;
-      _status: string;
+      id: string;
+      email: string;
+      fullName: string;
+      avatarUrl: string | null;
+      roles: string[];
     };
   };
   message: string;
@@ -26,8 +25,9 @@ export interface LoginResponse {
 export interface User {
   id: string;
   email: string;
-  name?: string;
-  role?: string;
+  fullName?: string;
+  avatarUrl?: string | null;
+  roles: string[];
   emailVerified?: boolean;
   status?: string;
 }

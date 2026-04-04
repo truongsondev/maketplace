@@ -1,5 +1,6 @@
 import { PrismaClient } from '@/generated/prisma/client';
 import {
+  CategoryShowcase,
   IProductRepository,
   ProductFilters,
   PaginationParams,
@@ -71,7 +72,9 @@ export class PrismaProductRepository implements IProductRepository {
             take: 1,
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: {
+          [filters.sortField ?? 'createdAt']: filters.sortOrder ?? 'desc',
+        },
       }),
       this.prisma.product.count({ where }),
     ]);
@@ -119,6 +122,180 @@ export class PrismaProductRepository implements IProductRepository {
     return Product.fromPersistenceWithDetails(row);
   }
 
+  async findCategoryShowcases(
+    categoryLimit: number,
+    productLimit: number,
+  ): Promise<CategoryShowcase[]> {
+    try {
+      const rows = await this.prisma.category.findMany({
+        where: {
+          products: {
+            some: {
+              product: {
+                isDeleted: false,
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          imageUrl: true,
+          products: {
+            where: {
+              product: {
+                isDeleted: false,
+              },
+            },
+            take: productLimit,
+            orderBy: {
+              product: {
+                createdAt: 'desc',
+              },
+            },
+            select: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  basePrice: true,
+                  isNew: true,
+                  isSale: true,
+                  variants: {
+                    where: {
+                      isDeleted: false,
+                    },
+                    orderBy: {
+                      price: 'asc',
+                    },
+                    take: 1,
+                    select: {
+                      price: true,
+                    },
+                  },
+                  images: {
+                    where: {
+                      isPrimary: true,
+                    },
+                    take: 1,
+                    select: {
+                      url: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        take: categoryLimit,
+      });
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        imageUrl: row.imageUrl,
+        products: row.products.map((item) => ({
+          id: item.product.id,
+          name: item.product.name,
+          imageUrl: item.product.images[0]?.url ?? null,
+          minPrice: Number(item.product.variants[0]?.price ?? item.product.basePrice),
+          isNew: item.product.isNew,
+          isSale: item.product.isSale,
+        })),
+      }));
+    } catch (error) {
+      const isUnknownIsNewFieldError =
+        error instanceof Error &&
+        (error.message.includes('Unknown field `isNew`') ||
+          error.message.includes('Unknown field `isSale`'));
+
+      if (!isUnknownIsNewFieldError) {
+        throw error;
+      }
+
+      const rows = await this.prisma.category.findMany({
+        where: {
+          products: {
+            some: {
+              product: {
+                isDeleted: false,
+              },
+            },
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          imageUrl: true,
+          products: {
+            where: {
+              product: {
+                isDeleted: false,
+              },
+            },
+            take: productLimit,
+            orderBy: {
+              product: {
+                createdAt: 'desc',
+              },
+            },
+            select: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  basePrice: true,
+                  variants: {
+                    where: {
+                      isDeleted: false,
+                    },
+                    orderBy: {
+                      price: 'asc',
+                    },
+                    take: 1,
+                    select: {
+                      price: true,
+                    },
+                  },
+                  images: {
+                    where: {
+                      isPrimary: true,
+                    },
+                    take: 1,
+                    select: {
+                      url: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        take: categoryLimit,
+      });
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        slug: row.slug,
+        imageUrl: row.imageUrl,
+        products: row.products.map((item) => ({
+          id: item.product.id,
+          name: item.product.name,
+          imageUrl: item.product.images[0]?.url ?? null,
+          minPrice: Number(item.product.variants[0]?.price ?? item.product.basePrice),
+          isNew: false,
+          isSale: false,
+        })),
+      }));
+    }
+  }
+
   private toDomain(row: any): Product {
     const minPrice = row.variants[0]?.price ?? row.basePrice ?? 0;
     const imageUrl = row.images[0]?.url ?? null;
@@ -131,6 +308,8 @@ export class PrismaProductRepository implements IProductRepository {
       minPrice,
       originalPrice: undefined,
       discountPercent: undefined,
+      isNew: row.isNew ?? false,
+      isSale: row.isSale ?? false,
     });
   }
 }

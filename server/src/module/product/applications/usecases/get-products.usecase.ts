@@ -20,7 +20,19 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       categorySlugOrId: query.category,
       size: query.size,
       color: query.color,
+      sortField: 'createdAt',
+      sortOrder: 'desc',
     };
+
+    if (query.sort) {
+      const [field, order] = query.sort.split(':');
+      if (field === 'createdAt') {
+        filters.sortField = 'createdAt';
+      }
+      if (order === 'asc' || order === 'desc') {
+        filters.sortOrder = order;
+      }
+    }
 
     if (query.priceRange) {
       const [minStr, maxStr] = query.priceRange.split('-');
@@ -67,6 +79,8 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       minPrice: product.minPrice,
       originalPrice: product.originalPrice,
       discountPercent: product.discountPercent,
+      isNew: product.isNew,
+      isSale: product.isSale,
     };
   }
 }

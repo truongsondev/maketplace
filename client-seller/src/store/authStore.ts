@@ -4,6 +4,7 @@ import type { User, LoginRequest } from "@/types/auth";
 import { authService } from "@/services/api";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
+import { AxiosError } from "axios";
 
 interface AuthState {
   user: User | null;
@@ -17,6 +18,35 @@ interface AuthState {
   setTokens: (accessToken: string, refreshToken: string) => void;
 }
 
+const getLoginErrorMessage = (error: unknown): string => {
+  if (error instanceof AxiosError) {
+    const status = error.response?.status;
+    const code = (error.response?.data as { error?: { code?: string } })?.error
+      ?.code;
+
+    if (status === 429 || code === "RATE_LIMIT_EXCEEDED") {
+      return "Bạn đã đăng nhập quá nhiều lần. Vui lòng thử lại sau.";
+    }
+
+    if (status === 400) {
+      const apiMessage = (
+        error.response?.data as { error?: { message?: string } }
+      )?.error?.message;
+      return apiMessage || "Thông tin đăng nhập không hợp lệ.";
+    }
+
+    if (status === 401 || code === "INVALID_CREDENTIALS") {
+      return "Email hoặc mật khẩu không đúng, hoặc tài khoản không có quyền ADMIN.";
+    }
+  }
+
+  return "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.";
+};
+
+const isValidEmail = (email: string): boolean => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
@@ -28,23 +58,44 @@ export const useAuthStore = create<AuthState>()(
 
       login: async (credentials: LoginRequest) => {
         try {
+          const normalizedEmail = credentials.email.trim();
+          const password = credentials.password;
+
+          if (!normalizedEmail) {
+            throw new Error("EMAIL_REQUIRED");
+          }
+
+          if (!isValidEmail(normalizedEmail)) {
+            throw new Error("EMAIL_INVALID");
+          }
+
+          if (!password || password.length < 6) {
+            throw new Error("PASSWORD_TOO_SHORT");
+          }
+
           set({ isLoading: true });
-          const response = await authService.login(credentials);
+          const response = await authService.login({
+            email: normalizedEmail,
+            password,
+          });
 
           if (response.success) {
             const { token, user: rawUser } = response.data;
             const accessToken = token.accessToken;
             const refreshToken = token.refreshToken;
 
-            // Transform user data to match User interface
             const user: User = {
-              id: rawUser._id,
-              email: rawUser._email.value,
-              emailVerified: rawUser._emailVerified,
-              status: rawUser._status,
+              id: rawUser.id,
+              email: rawUser.email,
+              fullName: rawUser.fullName,
+              avatarUrl: rawUser.avatarUrl,
+              roles: rawUser.roles,
             };
 
-            // Set token to axios default headers
+            if (!user.roles.includes("ADMIN")) {
+              throw new Error("INVALID_ADMIN_ROLE");
+            }
+
             apiClient.defaults.headers.common["Authorization"] =
               `Bearer ${accessToken}`;
 
@@ -57,11 +108,43 @@ export const useAuthStore = create<AuthState>()(
             });
 
             toast.success("Đăng nhập thành công!");
+            return;
           }
+
+          throw new Error("LOGIN_FAILED");
         } catch (error) {
           set({ isLoading: false });
           console.error("Login error:", error);
-          toast.error("Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+          if (
+            error instanceof Error &&
+            (error.message === "INVALID_ADMIN_ROLE" ||
+              error.message === "LOGIN_FAILED")
+          ) {
+            toast.error(
+              "Email hoặc mật khẩu không đúng, hoặc tài khoản không có quyền ADMIN.",
+            );
+            throw error;
+          }
+
+          if (error instanceof Error && error.message === "EMAIL_REQUIRED") {
+            toast.error("email is required");
+            throw error;
+          }
+
+          if (error instanceof Error && error.message === "EMAIL_INVALID") {
+            toast.error("email must be a valid email");
+            throw error;
+          }
+
+          if (
+            error instanceof Error &&
+            error.message === "PASSWORD_TOO_SHORT"
+          ) {
+            toast.error("password must be at least 6 characters");
+            throw error;
+          }
+
+          toast.error(getLoginErrorMessage(error));
           throw error;
         }
       },

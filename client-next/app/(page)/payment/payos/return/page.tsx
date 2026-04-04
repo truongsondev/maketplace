@@ -1,0 +1,24 @@
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
+import { PayosReturnClient } from "./payos-return-client";
+
+function PayosReturnFallback() {
+  return (
+    <main className="mx-auto max-w-3xl px-4 py-14">
+      <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
+        <Loader2 className="mx-auto size-8 animate-spin text-primary" />
+        <p className="mt-4 text-slate-600">
+          Dang kiem tra ket qua thanh toan...
+        </p>
+      </div>
+    </main>
+  );
+}
+
+export default function PayosReturnPage() {
+  return (
+    <Suspense fallback={<PayosReturnFallback />}>
+      <PayosReturnClient />
+    </Suspense>
+  );
+}

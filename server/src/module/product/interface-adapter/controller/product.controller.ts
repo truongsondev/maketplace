@@ -1,6 +1,9 @@
 import { GetCategoryStatsQuery } from '../../applications/dto/query/get-category-stats.query';
+import { GetCategoryShowcasesQuery } from '../../applications/dto/query/get-category-showcases.query';
+import { CategoryShowcaseResult } from '../../applications/dto/result/category-showcase.result';
 import { CategoryStatsResult } from '../../applications/dto/result/category-stats.result';
 import { IGetCategoryStatsUseCase } from '../../applications/ports/input/get-category-stats.usecase';
+import { IGetCategoryShowcasesUseCase } from '../../applications/ports/input/get-category-showcases.usecase';
 import { GetProductsQuery } from '../../applications/dto/query/get-products.query';
 import { ProductListResult } from '../../applications/dto/result/product-list.result';
 import { IGetProductsUseCase } from '../../applications/ports/input/get-products.usecase';
@@ -18,6 +21,7 @@ import { IGetFavoriteProductsUseCase } from '../../applications/ports/input/get-
 export class ProductController {
   constructor(
     private readonly getCategoryStatsUseCase: IGetCategoryStatsUseCase,
+    private readonly getCategoryShowcasesUseCase: IGetCategoryShowcasesUseCase,
     private readonly getProductsUseCase: IGetProductsUseCase,
     private readonly getProductDetailUseCase: IGetProductDetailUseCase,
     private readonly addProductFavoriteUseCase: IAddProductFavoriteUseCase,
@@ -27,6 +31,10 @@ export class ProductController {
 
   async getCategoryStats(query: GetCategoryStatsQuery): Promise<CategoryStatsResult[]> {
     return this.getCategoryStatsUseCase.execute(query);
+  }
+
+  async getCategoryShowcases(query: GetCategoryShowcasesQuery): Promise<CategoryShowcaseResult[]> {
+    return this.getCategoryShowcasesUseCase.execute(query);
   }
 
   async getProducts(query: GetProductsQuery): Promise<ProductListResult> {

@@ -9,6 +9,7 @@ export interface ICartRepository {
   updateItemQuantity(itemId: string, quantity: number): Promise<void>;
   removeItem(itemId: string): Promise<void>;
   getCartDetail(userId: string): Promise<Cart | null>;
+  getCartSummary(userId: string): Promise<{ totalItems: number; totalPrice: number }>;
 }
 
 export interface CartItemData {

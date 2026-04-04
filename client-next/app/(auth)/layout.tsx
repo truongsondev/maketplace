@@ -1,6 +1,4 @@
 import { Plus_Jakarta_Sans } from "next/font/google";
-import { AuthHeader } from "@/components/auth/auth-header";
-import { AuthFooter } from "@/components/auth/auth-footer";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -16,19 +14,12 @@ export default function AuthLayout({
 }) {
   return (
     <div
-      className={`${plusJakartaSans.variable} font-display bg-background-light text-text-main min-h-screen flex flex-col`}
+      className={`${plusJakartaSans.variable} font-display bg-[#f5f5f5] text-[#222222] min-h-screen flex flex-col`}
     >
-      <AuthHeader />
-
       <main className="grow flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Decorative background blobs */}
-        <div className="absolute -top-[10%] -left-[10%] w-125 h-125 rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
-        <div className="absolute -bottom-[10%] -right-[10%] w-125 h-125 rounded-full bg-blue-500/5 blur-[100px] pointer-events-none" />
-
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(0,0,0,0.045),transparent_45%),radial-gradient(circle_at_85%_75%,rgba(0,0,0,0.035),transparent_45%)] pointer-events-none" />
         {children}
       </main>
-
-      <AuthFooter />
     </div>
   );
 }

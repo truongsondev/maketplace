@@ -46,8 +46,10 @@ export function CartItemCard({
 
   return (
     <article
-      className={`border-b border-slate-200 px-4 py-4 transition-colors dark:border-slate-700 ${
-        selected ? "bg-orange-50/70 dark:bg-orange-950/20" : "bg-white dark:bg-slate-900"
+      className={`border-b border-neutral-200 px-4 py-4 transition-colors dark:border-neutral-700 ${
+        selected
+          ? "bg-neutral-100 dark:bg-neutral-800"
+          : "bg-white dark:bg-neutral-900"
       }`}
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_0.6fr_0.6fr_0.7fr_0.5fr] lg:items-center">
@@ -66,11 +68,11 @@ export function CartItemCard({
         <div className="min-w-0 flex gap-3">
           <button
             onClick={() => onToggleSelect(item)}
-            className="mt-1 flex size-6 shrink-0 items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+            className="mt-1 flex size-6 shrink-0 items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
             aria-label={selected ? "Bỏ chọn sản phẩm" : "Chọn sản phẩm"}
           >
             {selected ? (
-              <CheckCircle2 className="size-4 text-primary" />
+              <CheckCircle2 className="size-4 text-black dark:text-white" />
             ) : (
               <Circle className="size-4" />
             )}
@@ -78,7 +80,7 @@ export function CartItemCard({
 
           <Link
             href={`/product/${item.productId}`}
-            className="relative size-20 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-800 shrink-0"
+            className="relative size-20 rounded-sm overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0"
           >
             <Image
               src={item.image?.url || FALLBACK_IMAGE}
@@ -92,12 +94,12 @@ export function CartItemCard({
           <div className="min-w-0">
             <Link
               href={`/product/${item.productId}`}
-              className="font-medium text-slate-900 dark:text-white line-clamp-2 hover:text-primary transition-colors"
+              className="font-medium text-neutral-900 dark:text-white line-clamp-2 hover:text-black dark:hover:text-neutral-200 transition-colors"
             >
               {item.productName}
             </Link>
 
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-300">
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-300">
               {Object.entries(item.variantAttributes).map(([key, value]) => (
                 <span key={key}>
                   {key}: <strong>{value}</strong>
@@ -107,7 +109,7 @@ export function CartItemCard({
           </div>
         </div>
 
-        <p className="text-sm text-slate-900 dark:text-white lg:text-base lg:text-center">
+        <p className="text-sm text-neutral-900 dark:text-white lg:text-base lg:text-center">
           {formatPrice(item.unitPrice)}
         </p>
 
@@ -115,27 +117,27 @@ export function CartItemCard({
           <button
             onClick={() => onDecrease(item)}
             disabled={!canDecrease}
-            className="size-8 rounded-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-100 hover:border-primary hover:text-primary transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="size-8 rounded-sm border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-100 hover:border-black hover:text-black dark:hover:border-white dark:hover:text-white transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Giảm số lượng"
           >
             <Minus className="size-3.5" />
           </button>
 
-          <div className="w-10 border border-slate-200 dark:border-slate-700 rounded-sm h-8 flex items-center justify-center text-sm font-semibold text-slate-900 dark:text-white">
+          <div className="w-10 border border-neutral-200 dark:border-neutral-700 rounded-sm h-8 flex items-center justify-center text-sm font-semibold text-neutral-900 dark:text-white">
             {item.quantity}
           </div>
 
           <button
             onClick={() => onIncrease(item)}
             disabled={!canIncrease}
-            className="size-8 rounded-sm border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-100 hover:border-primary hover:text-primary transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="size-8 rounded-sm border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-100 hover:border-black hover:text-black dark:hover:border-white dark:hover:text-white transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Tăng số lượng"
           >
             <Plus className="size-3.5" />
           </button>
         </div>
 
-        <p className="text-sm font-semibold text-primary lg:text-base lg:text-center">
+        <p className="text-sm font-semibold text-neutral-900 dark:text-white lg:text-base lg:text-center">
           {formatPrice(item.subtotal)}
         </p>
 
@@ -143,7 +145,7 @@ export function CartItemCard({
           <button
             onClick={() => onRemove(item)}
             disabled={isRemoving || isUpdating}
-            className="text-sm text-slate-600 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-sm text-neutral-600 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Xóa sản phẩm"
           >
             {isRemoving ? (
@@ -158,7 +160,7 @@ export function CartItemCard({
 
           <Link
             href="/#products"
-            className="text-xs text-primary hover:underline"
+            className="text-xs text-neutral-700 dark:text-neutral-300 hover:underline"
           >
             Tìm sản phẩm tương tự
           </Link>

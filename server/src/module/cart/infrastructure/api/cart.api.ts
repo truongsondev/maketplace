@@ -26,6 +26,7 @@ export class CartAPI {
   private initializeRoutes(): void {
     // Note: Auth middleware will be applied at app level for /api/cart routes
     this.router.get('/', asyncHandler(this.getCart.bind(this)));
+    this.router.get('/summary', asyncHandler(this.getCartSummary.bind(this)));
     this.router.post('/items', asyncHandler(this.addToCart.bind(this)));
     this.router.patch('/items/:itemId', asyncHandler(this.updateCartItem.bind(this)));
     this.router.delete('/items/:itemId', asyncHandler(this.removeCartItem.bind(this)));
@@ -40,6 +41,18 @@ export class CartAPI {
 
     const result = await this.cartController.getCart(userId);
     const response = ResponseFormatter.success(result, 'Cart retrieved successfully');
+    res.status(200).json(response);
+  }
+
+  private async getCartSummary(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const result = await this.cartController.getCartSummary(userId);
+    const response = ResponseFormatter.success(result, 'Cart summary retrieved successfully');
     res.status(200).json(response);
   }
 

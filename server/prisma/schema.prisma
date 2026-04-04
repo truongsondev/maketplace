@@ -282,6 +282,8 @@ model Product {
   description String? @db.Text
   /// Giá hiển thị / khởi điểm; giá bán thực tế lấy từ ProductVariant.price
   basePrice   Decimal @map("base_price") @db.Decimal(10, 2)
+  isNew       Boolean @default(false) @map("is_new")
+  isSale      Boolean @default(false) @map("is_sale")
   isDeleted   Boolean @default(false) @map("is_deleted")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -300,6 +302,7 @@ model Product {
   campaignProducts CampaignProduct[]
 
   @@fulltext([name])
+  @@index([createdAt])
   @@map("products")
 }
 
@@ -359,7 +362,6 @@ model ProductImage {
 // CATEGORIES & TAGS
 // ============================================================================
 
-/// Danh mục sản phẩm - hỗ trợ cây phân cấp đa cấp
 model Category {
   id          String  @id @default(uuid()) @db.VarChar(36)
   name        String  @db.VarChar(255)
@@ -523,7 +525,7 @@ model Payment {
   @@map("payments")
 }
 
-/// Giao dịch thanh toán VNPAY (idempotent qua trạng thái PENDING)
+/// Giao dịch thanh toan online (idempotent qua trang thai PENDING)
 model PaymentTransaction {
   id                   String                   @id @default(uuid()) @db.VarChar(36)
   orderId               String                   @unique @map("order_id") @db.VarChar(36)

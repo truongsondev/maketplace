@@ -12,9 +12,9 @@ export function Header() {
     navigate("/login");
   };
 
-  const getInitials = (name?: string) => {
-    if (!name) return "U";
-    return name
+  const getInitials = (fullName?: string) => {
+    if (!fullName) return "A";
+    return fullName
       .split(" ")
       .map((n) => n[0])
       .join("")
@@ -59,14 +59,14 @@ export function Header() {
 
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
-              {user ? getInitials(user.name) : "U"}
+              {user ? getInitials(user.fullName) : "A"}
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-900">
-                {user?.name || "User"}
+                {user?.fullName || "Admin"}
               </p>
               <p className="text-xs text-gray-600">
-                {user?.role || "Administrator"}
+                {user?.roles?.join(", ") || "ADMIN"}
               </p>
             </div>
             <button

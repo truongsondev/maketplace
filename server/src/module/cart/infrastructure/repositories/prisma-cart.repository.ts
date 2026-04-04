@@ -152,4 +152,43 @@ export class PrismaCartRepository implements ICartRepository {
   async getCartDetail(userId: string): Promise<Cart | null> {
     return this.findByUserId(userId);
   }
+
+  async getCartSummary(userId: string): Promise<{ totalItems: number; totalPrice: number }> {
+    const cart = await this.prisma.cart.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!cart) {
+      return {
+        totalItems: 0,
+        totalPrice: 0,
+      };
+    }
+
+    const items = await this.prisma.cartItem.findMany({
+      where: {
+        cartId: cart.id,
+      },
+      select: {
+        quantity: true,
+        variant: {
+          select: {
+            price: true,
+          },
+        },
+      },
+    });
+
+    const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+    const totalPrice = items.reduce(
+      (acc, item) => acc + item.quantity * Number(item.variant?.price ?? 0),
+      0,
+    );
+
+    return {
+      totalItems,
+      totalPrice,
+    };
+  }
 }

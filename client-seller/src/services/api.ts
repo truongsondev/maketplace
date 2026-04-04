@@ -20,7 +20,7 @@ import type { LoginRequest, LoginResponse } from "@/types/auth";
 
 export const authService = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    const response = await apiClient.post("/auth/login", data);
+    const response = await apiClient.post("/admin/auth/login", data);
     return response.data;
   },
 

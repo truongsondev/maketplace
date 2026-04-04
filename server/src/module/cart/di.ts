@@ -4,6 +4,7 @@ import { prisma } from '../../infrastructure/database';
 import {
   AddToCartUseCase,
   GetCartUseCase,
+  GetCartSummaryUseCase,
   UpdateCartItemUseCase,
   RemoveCartItemUseCase,
 } from './applications/use-cases';
@@ -28,6 +29,7 @@ export function createCartModule(): Router {
     productImageRepository,
   );
   const getCartUseCase = new GetCartUseCase(cartRepository, productImageRepository);
+  const getCartSummaryUseCase = new GetCartSummaryUseCase(cartRepository);
   const updateCartItemUseCase = new UpdateCartItemUseCase(
     cartRepository,
     variantRepository,
@@ -43,6 +45,7 @@ export function createCartModule(): Router {
   const cartController = new CartController(
     addToCartUseCase,
     getCartUseCase,
+    getCartSummaryUseCase,
     updateCartItemUseCase,
     removeCartItemUseCase,
   );

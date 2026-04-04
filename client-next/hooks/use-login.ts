@@ -5,7 +5,14 @@ import { authService, type LoginRequest } from "@/services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
 import type { ApiErrorResponse } from "@/types/api.types";
 
-export function useLogin() {
+function resolvePostLoginPath(redirect?: string): string {
+  if (!redirect) return "/";
+  if (!redirect.startsWith("/") || redirect.startsWith("//")) return "/";
+  if (redirect.startsWith("/login")) return "/";
+  return redirect;
+}
+
+export function useLogin(redirectAfterLogin?: string) {
   const router = useRouter();
   const setSession = useAuthStore((s) => s.setSession);
 
@@ -23,7 +30,7 @@ export function useLogin() {
       toast.success("Chào mừng trở lại!", {
         description: `Đã đăng nhập với ${data.user.email}`,
       });
-      router.push("/");
+      router.replace(resolvePostLoginPath(redirectAfterLogin));
     },
 
     onError: (err: ApiErrorResponse) => {

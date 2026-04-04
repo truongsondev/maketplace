@@ -1,0 +1,18 @@
+@baseUrl = http://localhost:8080
+@accessToken = REPLACE_WITH_ACCESS_TOKEN
+
+### 1) Categories with product count
+GET {{baseUrl}}/api/products/categories/stats?non_empty_only=true
+
+### 2) New arrivals
+GET {{baseUrl}}/api/products?sort=createdAt:desc&limit=12
+
+### 3) Category showcases
+GET {{baseUrl}}/api/products/category-showcases?categoryLimit=4&productLimit=3
+
+### 4) Category showcases alias
+GET {{baseUrl}}/api/products/home/category-showcases?categoryLimit=4&productLimit=3
+
+### 5) Cart summary (auth required)
+GET {{baseUrl}}/api/cart/summary
+Authorization: Bearer {{accessToken}}

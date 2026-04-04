@@ -9,25 +9,31 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
     // Public endpoints (không yêu cầu access token)
     const requestPath = req.originalUrl || req.path;
     const isFavoriteEndpoint =
-      requestPath.startsWith('/api/products/favorites') || /\/api\/products\/[^/]+\/favorite/.test(requestPath);
+      requestPath.startsWith('/api/products/favorites') ||
+      /\/api\/products\/[^/]+\/favorite/.test(requestPath);
     const isFavoriteEndpointByPath =
-      req.path.startsWith('/api/products/favorites') || /\/api\/products\/[^/]+\/favorite/.test(req.path);
+      req.path.startsWith('/api/products/favorites') ||
+      /\/api\/products\/[^/]+\/favorite/.test(req.path);
 
     const isPublicProductGet =
       req.method === 'GET' && requestPath.startsWith('/api/products') && !isFavoriteEndpoint;
     const isPublicProductGetByPath =
       req.method === 'GET' && req.path.startsWith('/api/products') && !isFavoriteEndpointByPath;
+    const isPublicPayosPath =
+      requestPath.startsWith('/api/payments/payos/webhook') ||
+      requestPath.startsWith('/api/payments/payos/return') ||
+      requestPath.startsWith('/api/payments/payos/orders/');
+    const isPublicPayosPathByReqPath =
+      req.path.startsWith('/api/payments/payos/webhook') ||
+      req.path.startsWith('/api/payments/payos/return') ||
+      req.path.startsWith('/api/payments/payos/orders/');
     const isPublicEndpoint =
       requestPath.startsWith('/api/auth') ||
       isPublicProductGet ||
-      requestPath.startsWith('/api/payments/vnpay/ipn') ||
-      requestPath.startsWith('/api/payments/vnpay/return') ||
-      requestPath.startsWith('/api/payments/vnpay/orders/') ||
+      isPublicPayosPath ||
       req.path.startsWith('/api/auth') ||
       isPublicProductGetByPath ||
-      req.path.startsWith('/api/payments/vnpay/ipn') ||
-      req.path.startsWith('/api/payments/vnpay/return') ||
-      req.path.startsWith('/api/payments/vnpay/orders/');
+      isPublicPayosPathByReqPath;
 
     // Bỏ qua preflight request
     if (req.method === 'OPTIONS' || isPublicEndpoint) {

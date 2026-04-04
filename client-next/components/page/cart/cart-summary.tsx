@@ -30,10 +30,7 @@ export function CartSummary({
   const discount = 0;
   const shippingFee = 0;
   const taxes = 0;
-  const total = Math.max(
-    effectiveSubtotal + shippingFee + taxes - discount,
-    0,
-  );
+  const total = Math.max(effectiveSubtotal + shippingFee + taxes - discount, 0);
 
   return (
     <aside className="rounded-none lg:rounded-2xl border-l lg:border border-slate-200 dark:border-slate-700 bg-transparent lg:bg-white dark:lg:bg-slate-900 p-5 md:p-6">
@@ -60,7 +57,9 @@ export function CartSummary({
         </div>
         <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
           <span>Tạm tính</span>
-          <span className="font-semibold">{formatPrice(effectiveSubtotal)}</span>
+          <span className="font-semibold">
+            {formatPrice(effectiveSubtotal)}
+          </span>
         </div>
         <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
           <span>Phí vận chuyển (ước tính)</span>
@@ -100,7 +99,7 @@ export function CartSummary({
         disabled={checkoutLoading || checkoutDisabled}
         className="mt-5 w-full h-12 rounded-full bg-primary text-white font-bold tracking-wide hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {checkoutLoading ? "ĐANG XỬ LÝ..." : "THANH TOÁN VNPAY"}
+        {checkoutLoading ? "ĐANG XỬ LÝ..." : "MUA HÀNG"}
       </button>
 
       <button

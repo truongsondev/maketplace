@@ -5,6 +5,7 @@ import { PrismaCategoryRepository } from './infrastructure/repositories/prisma-c
 import { PrismaProductRepository } from './infrastructure/repositories/prisma-product.repository';
 import { PrismaWishlistRepository } from './infrastructure/repositories/prisma-wishlist.repository';
 import { GetCategoryStatsUseCase } from './applications/usecases/get-category-stats.usecase';
+import { GetCategoryShowcasesUseCase } from './applications/usecases/get-category-showcases.usecase';
 import { GetProductsUseCase } from './applications/usecases/get-products.usecase';
 import { GetProductDetailUseCase } from './applications/usecases/get-product-detail.usecase';
 import { AddProductFavoriteUseCase } from './applications/usecases/add-product-favorite.usecase';
@@ -19,6 +20,7 @@ export function createProductModule(): Router {
   const wishlistRepository = new PrismaWishlistRepository(prisma);
 
   const getCategoryStatsUseCase = new GetCategoryStatsUseCase(categoryRepository);
+  const getCategoryShowcasesUseCase = new GetCategoryShowcasesUseCase(productRepository);
   const getProductsUseCase = new GetProductsUseCase(productRepository);
   const getProductDetailUseCase = new GetProductDetailUseCase(productRepository);
   const addProductFavoriteUseCase = new AddProductFavoriteUseCase(wishlistRepository);
@@ -27,6 +29,7 @@ export function createProductModule(): Router {
 
   const controller = new ProductController(
     getCategoryStatsUseCase,
+    getCategoryShowcasesUseCase,
     getProductsUseCase,
     getProductDetailUseCase,
     addProductFavoriteUseCase,
