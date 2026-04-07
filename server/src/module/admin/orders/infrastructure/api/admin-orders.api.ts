@@ -6,6 +6,7 @@ import { ResponseFormatter } from '../../../../../shared/server/api-response';
 import { HttpErrorHandler } from '../../../../../shared/server/http-error-handler';
 import { BadRequestError } from '../../../../../error-handlling/badRequestError';
 import { ForbiddenError } from '../../../../../error-handlling/forbiddenError';
+import type { AdminOrderReturnsController } from '../../interface-adapter/controller/admin-order-returns.controller';
 
 type AdminOrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'canceled';
 type OrderSort = 'new' | 'old';
@@ -48,7 +49,10 @@ function safeAttributesToText(attributes: unknown): string {
 export class AdminOrdersAPI {
   readonly router = express.Router();
 
-  constructor(private readonly prisma: PrismaClient) {
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly returnsController: AdminOrderReturnsController,
+  ) {
     this.initializeRoutes();
   }
 
@@ -56,6 +60,133 @@ export class AdminOrdersAPI {
     this.router.get('/', asyncHandler(this.listOrders.bind(this)));
     this.router.get('/counts', asyncHandler(this.getCounts.bind(this)));
     this.router.post('/:orderId/cancel', asyncHandler(this.cancelOrder.bind(this)));
+    this.router.post('/:orderId/confirm', asyncHandler(this.confirmOrder.bind(this)));
+    this.router.post('/:orderId/ship', asyncHandler(this.shipOrder.bind(this)));
+    this.router.post('/:orderId/deliver', asyncHandler(this.deliverOrder.bind(this)));
+    this.router.post('/:orderId/returns/approve', asyncHandler(this.approveReturns.bind(this)));
+    this.router.post('/:orderId/returns/reject', asyncHandler(this.rejectReturns.bind(this)));
+    this.router.post('/:orderId/returns/pickup', asyncHandler(this.pickupReturns.bind(this)));
+    this.router.post('/:orderId/returns/complete', asyncHandler(this.completeReturns.bind(this)));
+  }
+
+  private async transitionStatus(params: {
+    orderId: string;
+    actorId: string;
+    to: OrderStatus;
+    allowedFrom: OrderStatus[];
+    okIfAlreadyIn?: OrderStatus[];
+  }): Promise<{ id: string; status: OrderStatus }> {
+    const { orderId, actorId, to, allowedFrom, okIfAlreadyIn } = params;
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      throw new BadRequestError('Order not found');
+    }
+
+    if (order.status === to || okIfAlreadyIn?.includes(order.status)) {
+      return { id: order.id, status: order.status };
+    }
+
+    if (!allowedFrom.includes(order.status)) {
+      throw new BadRequestError(`Invalid status transition from ${order.status} to ${to}`);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: { status: to },
+        select: { id: true, status: true },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          oldStatus: order.status,
+          newStatus: to,
+          changedBy: actorId,
+        },
+      });
+
+      return updatedOrder;
+    });
+
+    return updated;
+  }
+
+  private async confirmOrder(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+    if (!actorId) {
+      throw new ForbiddenError('Authentication required');
+    }
+
+    const updated = await this.transitionStatus({
+      orderId,
+      actorId,
+      to: 'CONFIRMED',
+      allowedFrom: ['PAID'],
+      okIfAlreadyIn: ['CONFIRMED', 'SHIPPED', 'DELIVERED', 'RETURNED'],
+    });
+
+    res.status(200).json(ResponseFormatter.success(updated, 'Order confirmed'));
+  }
+
+  private async shipOrder(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+    if (!actorId) {
+      throw new ForbiddenError('Authentication required');
+    }
+
+    const updated = await this.transitionStatus({
+      orderId,
+      actorId,
+      to: 'SHIPPED',
+      allowedFrom: ['CONFIRMED'],
+      okIfAlreadyIn: ['SHIPPED', 'DELIVERED', 'RETURNED'],
+    });
+
+    res.status(200).json(ResponseFormatter.success(updated, 'Order shipped'));
+  }
+
+  private async deliverOrder(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+    if (!actorId) {
+      throw new ForbiddenError('Authentication required');
+    }
+
+    const updated = await this.transitionStatus({
+      orderId,
+      actorId,
+      to: 'DELIVERED',
+      allowedFrom: ['SHIPPED'],
+      okIfAlreadyIn: ['DELIVERED', 'RETURNED'],
+    });
+
+    res.status(200).json(ResponseFormatter.success(updated, 'Order delivered'));
   }
 
   private async listOrders(req: Request, res: Response): Promise<void> {
@@ -112,6 +243,12 @@ export class AdminOrdersAPI {
                   images: { select: { url: true, isPrimary: true, sortOrder: true } },
                 },
               },
+              returns: {
+                select: {
+                  id: true,
+                  status: true,
+                },
+              },
             },
           },
         },
@@ -120,11 +257,24 @@ export class AdminOrdersAPI {
 
     const items = orders.map((o) => {
       const userLabel = o.user.email ?? o.user.phone ?? o.user.id;
+
+      const returnsSummary = { requested: 0, approved: 0, rejected: 0, completed: 0 };
+      for (const it of o.items) {
+        for (const r of it.returns ?? []) {
+          if (r.status === 'REQUESTED') returnsSummary.requested += 1;
+          else if (r.status === 'APPROVED') returnsSummary.approved += 1;
+          else if (r.status === 'REJECTED') returnsSummary.rejected += 1;
+          else if (r.status === 'COMPLETED') returnsSummary.completed += 1;
+        }
+      }
+
       return {
         id: o.id,
         createdAt: o.createdAt,
         status: o.status,
+        returnStatus: o.returnStatus ?? null,
         totalPrice: o.totalPrice,
+        returns: returnsSummary,
         user: {
           id: o.user.id,
           label: userLabel,
@@ -197,6 +347,90 @@ export class AdminOrdersAPI {
     res
       .status(200)
       .json(ResponseFormatter.success({ all, pending, processing, shipped, canceled }, 'OK'));
+  }
+
+  private async approveReturns(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+
+    const result = await this.returnsController.approve(orderId, actorId);
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          { id: result.orderId, returnStatus: result.returnStatus },
+          'Returns approved',
+        ),
+      );
+  }
+
+  private async rejectReturns(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+
+    const result = await this.returnsController.reject(orderId, actorId);
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          { id: result.orderId, returnStatus: result.returnStatus },
+          'Returns rejected',
+        ),
+      );
+  }
+
+  private async pickupReturns(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+    const result = await this.returnsController.pickedUp(orderId, actorId);
+
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          { id: result.orderId, returnStatus: result.returnStatus },
+          'Return marked as picked up',
+        ),
+      );
+  }
+
+  private async completeReturns(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const actorId = (req as any).userId as string | undefined;
+
+    const result = await this.returnsController.complete(orderId, actorId);
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          { id: result.orderId, status: result.orderStatus, returnStatus: result.returnStatus },
+          'Return completed',
+        ),
+      );
   }
 
   private async cancelOrder(req: Request, res: Response): Promise<void> {

@@ -11,6 +11,11 @@ import { useMyAddresses } from "@/hooks/use-addresses";
 import { useCreatePayosPaymentLink } from "@/hooks/use-payos-payment";
 import type { CartItem } from "@/services/cart.service";
 import type { UserAddress } from "@/types/address.types";
+import {
+  voucherService,
+  type VoucherValidationResult,
+} from "@/services/voucher.service";
+import type { ApiErrorResponse } from "@/types/api.types";
 
 type PaymentMethod = "PAYOS" | "MOMO";
 
@@ -70,9 +75,17 @@ export function CheckoutConfirmClient() {
     return cart.items.filter((item) => selectedItemIds.includes(item.itemId));
   }, [cart, selectedItemIds]);
 
-  const totalAmount = useMemo(() => {
+  const subtotalAmount = useMemo(() => {
     return itemsToPay.reduce((sum, item) => sum + item.subtotal, 0);
   }, [itemsToPay]);
+
+  const [voucherCode, setVoucherCode] = useState<string>("");
+  const [voucherResult, setVoucherResult] =
+    useState<VoucherValidationResult | null>(null);
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+
+  const discountAmount = voucherResult?.pricing.discountAmount ?? 0;
+  const totalAmount = voucherResult?.pricing.finalTotal ?? subtotalAmount;
 
   const defaultAddressId = useMemo(() => {
     const list = addresses ?? [];
@@ -110,7 +123,43 @@ export function CheckoutConfirmClient() {
     });
   }, [isCartError]);
 
+  useEffect(() => {
+    setVoucherResult(null);
+  }, [selectedItemIds, cart?.cartId]);
+
   const canSubmit = itemsToPay.length > 0 && totalAmount > 0;
+
+  const handleApplyVoucher = async () => {
+    const normalizedCode = voucherCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      toast.error("Vui lòng nhập mã voucher");
+      return;
+    }
+
+    try {
+      setIsValidatingVoucher(true);
+      const result = await voucherService.validateVoucher({
+        code: normalizedCode,
+        cartItemIds: itemsToPay.map((item) => item.itemId),
+      });
+      setVoucherCode(result.voucher.code);
+      setVoucherResult(result);
+      toast.success(`Đã áp dụng voucher ${result.voucher.code}`);
+    } catch (error) {
+      const apiError = error as ApiErrorResponse;
+      setVoucherResult(null);
+      toast.error("Không thể áp dụng voucher", {
+        description: apiError?.error?.message ?? "Vui lòng kiểm tra lại mã.",
+      });
+    } finally {
+      setIsValidatingVoucher(false);
+    }
+  };
+
+  const clearVoucher = () => {
+    setVoucherResult(null);
+    setVoucherCode("");
+  };
 
   const handleSubmit = () => {
     if (!canSubmit) {
@@ -160,6 +209,7 @@ export function CheckoutConfirmClient() {
       {
         amount: totalAmount,
         description,
+        voucherCode: voucherResult?.voucher.code,
         cartItemIds: itemsToPay.map((item) => item.itemId),
       },
       {
@@ -169,6 +219,12 @@ export function CheckoutConfirmClient() {
               orderId: result.orderId,
               orderCode: result.orderCode,
               amount: totalAmount,
+              pricing: {
+                subtotalAmount,
+                discountAmount,
+                totalAmount,
+                voucherCode: voucherResult?.voucher.code ?? null,
+              },
               items: itemsToPay.map((item) => ({
                 itemId: item.itemId,
                 productId: item.productId,
@@ -379,6 +435,41 @@ export function CheckoutConfirmClient() {
               </label>
             </div>
           </article>
+
+          <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+              Voucher
+            </h2>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                value={voucherCode}
+                onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                placeholder="Nhập mã giảm giá"
+                className="h-11 flex-1 rounded-xl border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+              />
+              <button
+                onClick={handleApplyVoucher}
+                disabled={isValidatingVoucher || itemsToPay.length === 0}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-neutral-300 px-4 font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:text-neutral-100"
+              >
+                {isValidatingVoucher ? "Đang kiểm tra..." : "Áp dụng"}
+              </button>
+              {voucherResult && (
+                <button
+                  onClick={clearVoucher}
+                  className="inline-flex h-11 items-center justify-center rounded-xl border border-red-200 px-4 font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Bỏ mã
+                </button>
+              )}
+            </div>
+            {voucherResult && (
+              <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
+                Áp dụng thành công {voucherResult.voucher.code}: giảm{" "}
+                {formatPrice(discountAmount)}
+              </p>
+            )}
+          </article>
         </div>
 
         <aside className="space-y-4">
@@ -409,7 +500,15 @@ export function CheckoutConfirmClient() {
             </div>
 
             <div className="mt-5 border-t border-neutral-200 pt-4 dark:border-neutral-700">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between text-sm text-neutral-600 dark:text-neutral-300">
+                <p>Tạm tính</p>
+                <p>{formatPrice(subtotalAmount)}</p>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm text-neutral-600 dark:text-neutral-300">
+                <p>Giảm giá</p>
+                <p>-{formatPrice(discountAmount)}</p>
+              </div>
+              <div className="mt-3 flex items-center justify-between">
                 <p className="text-sm text-neutral-600 dark:text-neutral-300">
                   Tổng thanh toán
                 </p>

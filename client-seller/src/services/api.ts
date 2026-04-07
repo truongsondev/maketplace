@@ -15,6 +15,9 @@ import type {
   BulkAssignTagsRequest,
   AdjustStockRequest,
   InventoryLogsResponse,
+  VoucherListResponse,
+  VoucherResponse,
+  VoucherUpsertCommand,
 } from "@/types/api";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
 import type {
@@ -136,9 +139,11 @@ export const productService = {
 };
 
 export const cloudinaryService = {
-  getSignature: async (): Promise<CloudinarySignatureResponse> => {
+  getSignature: async (
+    folderKey = "products",
+  ): Promise<CloudinarySignatureResponse> => {
     const response = await apiClient.post("/admin/cloudinary/sign", {
-      productId: "products",
+      productId: folderKey,
     });
     return response.data;
   },
@@ -190,5 +195,66 @@ export const orderService = {
 
   cancelOrder: async (orderId: string): Promise<void> => {
     await apiClient.post(`/admin/orders/${orderId}/cancel`);
+  },
+
+  confirmOrder: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/confirm`);
+  },
+
+  shipOrder: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/ship`);
+  },
+
+  deliverOrder: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/deliver`);
+  },
+
+  approveReturns: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/returns/approve`);
+  },
+
+  rejectReturns: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/returns/reject`);
+  },
+
+  completeReturns: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/returns/complete`);
+  },
+};
+
+export const voucherService = {
+  getVouchers: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+  }): Promise<VoucherListResponse> => {
+    const response = await apiClient.get("/admin/vouchers", { params });
+    return response.data;
+  },
+
+  createVoucher: async (
+    data: VoucherUpsertCommand,
+  ): Promise<VoucherResponse> => {
+    const response = await apiClient.post("/admin/vouchers", data);
+    return response.data;
+  },
+
+  updateVoucher: async (
+    id: string,
+    data: VoucherUpsertCommand,
+  ): Promise<VoucherResponse> => {
+    const response = await apiClient.put(`/admin/vouchers/${id}`, data);
+    return response.data;
+  },
+
+  updateStatus: async (
+    id: string,
+    isActive: boolean,
+  ): Promise<VoucherResponse> => {
+    const response = await apiClient.patch(`/admin/vouchers/${id}/status`, {
+      isActive,
+    });
+    return response.data;
   },
 };

@@ -39,6 +39,8 @@ function statusLabel(status: string) {
       return "Đang giao";
     case "DELIVERED":
       return "Hoàn thành";
+    case "RETURNED":
+      return "Đang trả hàng";
     case "CANCELLED":
       return "Đã hủy";
     default:
@@ -57,6 +59,8 @@ function statusBadge(status: string) {
       return "bg-purple-50 text-purple-700 border-purple-200";
     case "DELIVERED":
       return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    case "RETURNED":
+      return "bg-neutral-50 text-neutral-700 border-neutral-200";
     case "CANCELLED":
       return "bg-red-50 text-red-700 border-red-200";
     default:

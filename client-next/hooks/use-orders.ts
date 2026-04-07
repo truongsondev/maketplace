@@ -67,3 +67,40 @@ export function useCancelMyOrder() {
     },
   });
 }
+
+export function useConfirmReceivedOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (orderId: string) => orderService.confirmReceived(orderId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ORDER_COUNTS_QUERY_KEY }),
+      ]);
+      toast.success("Đã xác nhận nhận hàng");
+    },
+    onError: (err: ApiErrorResponse) => {
+      handleOrderError(err, "Xác nhận nhận hàng thất bại");
+    },
+  });
+}
+
+export function useRequestReturnOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: { orderId: string; reason?: string }) =>
+      orderService.requestReturn(params.orderId, params.reason),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ORDER_COUNTS_QUERY_KEY }),
+      ]);
+      toast.success("Đã gửi yêu cầu trả hàng/hoàn tiền");
+    },
+    onError: (err: ApiErrorResponse) => {
+      handleOrderError(err, "Gửi yêu cầu trả hàng thất bại");
+    },
+  });
+}

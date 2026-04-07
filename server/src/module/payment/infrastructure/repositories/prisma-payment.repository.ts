@@ -5,25 +5,32 @@ import {
   PaymentTransactionRecord,
   UpdateTransactionFromWebhookInput,
 } from '../../applications/ports/output';
+import { VoucherCheckoutService } from '../../../voucher/applications/services/voucher-checkout.service';
 
 export class PrismaPaymentRepository implements IPaymentRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly voucherCheckoutService: VoucherCheckoutService,
+  ) {}
 
-  async createPendingTransaction(
-    input: CreatePendingTransactionInput,
-  ): Promise<{ orderId: string }> {
+  async createPendingTransaction(input: CreatePendingTransactionInput): Promise<{
+    orderId: string;
+    payableAmount: number;
+    discountAmount: number;
+    subtotalAmount: number;
+    appliedVoucherCode?: string;
+  }> {
     const result = await this.prisma.$transaction(async (tx) => {
-      const cart = await tx.cart.findUnique({
-        where: { userId: input.userId },
-        select: { id: true },
+      const checkoutPricing = await this.voucherCheckoutService.calculateForCheckout({
+        userId: input.userId,
+        amount: input.amount,
+        voucherCode: input.voucherCode,
+        cartItemIds: input.cartItemIds,
+        tx,
       });
 
-      if (!cart) {
-        throw new Error('Cart not found for checkout');
-      }
-
       const cartItems = await tx.cartItem.findMany({
-        where: { cartId: cart.id },
+        where: { cartId: checkoutPricing.cartId, id: { in: checkoutPricing.itemIds } },
         select: {
           id: true,
           productId: true,
@@ -44,8 +51,11 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       const order = await tx.order.create({
         data: {
           userId: input.userId,
-          totalPrice: input.amount,
+          totalPrice: checkoutPricing.payableAmount,
           status: 'PENDING',
+          discountId: checkoutPricing.appliedVoucherId,
+          discountAmount:
+            checkoutPricing.discountAmount > 0 ? checkoutPricing.discountAmount : null,
         },
         select: {
           id: true,
@@ -71,7 +81,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       await tx.payment.create({
         data: {
           orderId: order.id,
-          amount: input.amount,
+          amount: checkoutPricing.payableAmount,
           method: 'PAYOS',
           status: 'PENDING',
         },
@@ -81,13 +91,17 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         data: {
           orderId: order.id,
           orderCode: input.orderCode,
-          amount: input.amount,
+          amount: checkoutPricing.payableAmount,
           status: 'PENDING',
           rawPayload: {
             checkout: {
               source: 'cart',
-              cartId: cart.id,
+              cartId: checkoutPricing.cartId,
               cartItemIds: cartItems.map((i) => i.id),
+              subtotalAmount: checkoutPricing.subtotalAmount,
+              discountAmount: checkoutPricing.discountAmount,
+              payableAmount: checkoutPricing.payableAmount,
+              voucherCode: checkoutPricing.appliedVoucherCode ?? null,
               items: cartItems.map((i) => ({
                 productId: i.productId,
                 variantId: i.variantId,
@@ -98,7 +112,13 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
       });
 
-      return { orderId: order.id };
+      return {
+        orderId: order.id,
+        payableAmount: checkoutPricing.payableAmount,
+        discountAmount: checkoutPricing.discountAmount,
+        subtotalAmount: checkoutPricing.subtotalAmount,
+        appliedVoucherCode: checkoutPricing.appliedVoucherCode,
+      };
     });
 
     return result;
@@ -261,6 +281,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       });
 
       if (input.status === 'PAID') {
+        await this.voucherCheckoutService.recordUsageForPaidOrder(tx, current.orderId);
         await this.consumeStockForPaidOrder(tx, current.orderId);
         await this.removePurchasedCartItems(tx, current.orderId, current.rawPayload);
       }

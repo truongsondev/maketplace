@@ -42,14 +42,38 @@ function statusBadge(status: string) {
       return "bg-purple-100 text-purple-700";
     case "CANCELLED":
       return "bg-red-100 text-red-700";
+    case "RETURNED":
+      return "bg-gray-100 text-gray-700";
     default:
       return "bg-gray-100 text-gray-700";
   }
 }
 
+function statusText(status: string) {
+  switch (status) {
+    case "PENDING":
+      return "Chờ xác nhận";
+    case "PAID":
+      return "Đã thanh toán";
+    case "CONFIRMED":
+      return "Đã xác nhận";
+    case "SHIPPED":
+      return "Đang giao";
+    case "DELIVERED":
+      return "Đã giao";
+    case "CANCELLED":
+      return "Đã hủy";
+    case "RETURNED":
+      return "Đã trả";
+    default:
+      return status;
+  }
+}
+
 function primaryActionLabel(status: string) {
-  if (status === "SHIPPED" || status === "DELIVERED") return "Invoice";
-  return "Print Label";
+  if (status === "PAID") return "Xác nhận";
+  if (status === "CONFIRMED") return "Giao cho shipper";
+  return "—";
 }
 
 export default function OrdersPage() {
@@ -132,6 +156,52 @@ export default function OrdersPage() {
       fetchOrders();
     } catch (e) {
       toast.error("Failed to cancel order");
+      console.error(e);
+    }
+  };
+
+  const handleConfirm = async (orderId: string) => {
+    try {
+      await orderService.confirmOrder(orderId);
+      toast.success("Order confirmed");
+      fetchCounts();
+      fetchOrders();
+    } catch (e) {
+      toast.error("Failed to confirm order");
+      console.error(e);
+    }
+  };
+
+  const handleShip = async (orderId: string) => {
+    try {
+      await orderService.shipOrder(orderId);
+      toast.success("Handed to shipper");
+      fetchCounts();
+      fetchOrders();
+    } catch (e) {
+      toast.error("Failed to hand over to shipper");
+      console.error(e);
+    }
+  };
+
+  const handleApproveReturns = async (orderId: string) => {
+    try {
+      await orderService.approveReturns(orderId);
+      toast.success("Returns approved");
+      fetchOrders();
+    } catch (e) {
+      toast.error("Failed to approve returns");
+      console.error(e);
+    }
+  };
+
+  const handleRejectReturns = async (orderId: string) => {
+    try {
+      await orderService.rejectReturns(orderId);
+      toast.success("Returns rejected");
+      fetchOrders();
+    } catch (e) {
+      toast.error("Failed to reject returns");
       console.error(e);
     }
   };
@@ -222,6 +292,20 @@ export default function OrdersPage() {
                     const extraCount = Math.max(order.items.length - 1, 0);
                     const canCancel = order.status === "PENDING";
 
+                    const primaryLabel = primaryActionLabel(order.status);
+                    const canPrimary =
+                      order.status === "PAID" || order.status === "CONFIRMED";
+                    const handlePrimary = () => {
+                      if (order.status === "PAID")
+                        return handleConfirm(order.id);
+                      if (order.status === "CONFIRMED")
+                        return handleShip(order.id);
+                      return;
+                    };
+
+                    const requestedReturns = order.returns?.requested ?? 0;
+                    const hasReturnRequest = requestedReturns > 0;
+
                     return (
                       <div
                         key={order.id}
@@ -311,17 +395,44 @@ export default function OrdersPage() {
                               order.status,
                             )}`}
                           >
-                            {order.status}
+                            {statusText(order.status)}
                           </span>
                         </div>
 
                         <div className="col-span-2 flex items-center justify-end gap-2">
                           <button
-                            onClick={() => {}}
-                            className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                            onClick={handlePrimary}
+                            disabled={
+                              !canPrimary ||
+                              !primaryLabel ||
+                              primaryLabel === "—"
+                            }
+                            className={`px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
+                              canPrimary && primaryLabel !== "—"
+                                ? "border-gray-300 text-gray-700 hover:bg-gray-50"
+                                : "border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
+                            }`}
                           >
-                            {primaryActionLabel(order.status)}
+                            {primaryLabel}
                           </button>
+
+                          {hasReturnRequest ? (
+                            <>
+                              <button
+                                onClick={() => handleApproveReturns(order.id)}
+                                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                              >
+                                Duyệt trả hàng
+                              </button>
+                              <button
+                                onClick={() => handleRejectReturns(order.id)}
+                                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+                              >
+                                Từ chối
+                              </button>
+                            </>
+                          ) : null}
+
                           <button
                             onClick={() => handleCancel(order.id)}
                             disabled={!canCancel}

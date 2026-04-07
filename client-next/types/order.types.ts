@@ -17,6 +17,13 @@ export type OrderStatus =
   | "CANCELLED"
   | "RETURNED";
 
+export type ReturnFlowStatus =
+  | "REQUESTED"
+  | "WAITING_PICKUP"
+  | "RETURNING"
+  | "COMPLETED"
+  | "REJECTED";
+
 export interface OrderListItemProduct {
   id: string;
   productId: string;
@@ -32,6 +39,7 @@ export interface MyOrderListItem {
   id: string;
   createdAt: string;
   status: OrderStatus;
+  returnStatus?: ReturnFlowStatus | null;
   totalPrice: string;
   orderCode: string | null;
   payment: {

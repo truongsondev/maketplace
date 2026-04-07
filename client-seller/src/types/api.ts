@@ -268,3 +268,59 @@ export interface AdjustStockRequest {
   referenceId?: string;
   note?: string;
 }
+
+export type VoucherType = "PERCENTAGE" | "FIXED_AMOUNT";
+
+export interface VoucherItem {
+  id: string;
+  code: string;
+  description: string | null;
+  type: VoucherType;
+  value: number;
+  maxDiscount: number | null;
+  minOrderAmount: number | null;
+  maxUsage: number | null;
+  userUsageLimit: number | null;
+  usedCount: number;
+  startAt: string;
+  endAt: string;
+  isActive: boolean;
+  bannerImageUrl: string | null;
+}
+
+export interface VoucherListResponse {
+  success: boolean;
+  data: {
+    items: VoucherItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface VoucherResponse {
+  success: boolean;
+  data: VoucherItem;
+  message: string;
+  timestamp: string;
+}
+
+export interface VoucherUpsertCommand {
+  code: string;
+  description?: string | null;
+  type: VoucherType;
+  value: number;
+  maxDiscount?: number | null;
+  minOrderAmount?: number | null;
+  maxUsage?: number | null;
+  userUsageLimit?: number | null;
+  startAt: string;
+  endAt: string;
+  isActive?: boolean;
+  bannerImageUrl?: string | null;
+}

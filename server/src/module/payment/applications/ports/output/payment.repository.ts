@@ -15,6 +15,8 @@ export interface CreatePendingTransactionInput {
   userId: string;
   orderCode: string;
   amount: number;
+  voucherCode?: string;
+  cartItemIds?: string[];
 }
 
 export interface UpdateTransactionFromWebhookInput {
@@ -29,7 +31,13 @@ export interface UpdateTransactionFromWebhookInput {
 }
 
 export interface IPaymentRepository {
-  createPendingTransaction(input: CreatePendingTransactionInput): Promise<{ orderId: string }>;
+  createPendingTransaction(input: CreatePendingTransactionInput): Promise<{
+    orderId: string;
+    payableAmount: number;
+    discountAmount: number;
+    subtotalAmount: number;
+    appliedVoucherCode?: string;
+  }>;
   existsByOrderCode(orderCode: string): Promise<boolean>;
   findByOrderCode(orderCode: string): Promise<PaymentTransactionRecord | null>;
   setCheckoutReference(orderCode: string, paymentLinkId: string): Promise<void>;

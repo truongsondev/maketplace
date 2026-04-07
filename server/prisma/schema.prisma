@@ -68,6 +68,19 @@ enum ReturnStatus {
   COMPLETED
 }
 
+enum ReturnFlowStatus {
+  /// Buyer yeu cau tra hang (cho duyet)
+  REQUESTED
+  /// Da duoc duyet, cho shipper den lay
+  WAITING_PICKUP
+  /// Shipper da lay hang, dang tra ve shop
+  RETURNING
+  /// Shop da nhan hang tra (ket thuc)
+  COMPLETED
+  /// Yeu cau tra hang bi tu choi (ket thuc)
+  REJECTED
+}
+
 enum DiscountType {
   PERCENTAGE   // Giảm theo %
   FIXED_AMOUNT // Giảm số tiền cố định
@@ -438,6 +451,7 @@ model Order {
   userId         String      @map("user_id") @db.VarChar(36)
   totalPrice     Decimal     @map("total_price") @db.Decimal(10, 2)
   status         OrderStatus @default(PENDING)
+  returnStatus   ReturnFlowStatus? @map("return_status")
   discountId     String?     @map("discount_id") @db.VarChar(36)
   discountAmount Decimal?    @map("discount_amount") @db.Decimal(10, 2)
 
@@ -562,12 +576,15 @@ model Discount {
   description    String?      @db.VarChar(500)
   type           DiscountType
   value          Decimal      @db.Decimal(10, 2)
+  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(10, 2)
   minOrderAmount Decimal?     @map("min_order_amount") @db.Decimal(10, 2)
   maxUsage       Int?         @map("max_usage")
+  userUsageLimit Int?         @map("user_usage_limit")
   usedCount      Int          @default(0) @map("used_count")
   startAt        DateTime     @map("start_at")
   endAt          DateTime     @map("end_at")
   isActive       Boolean      @default(true) @map("is_active")
+  bannerImageUrl String?      @map("banner_image_url") @db.VarChar(1000)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -577,6 +594,7 @@ model Discount {
   campaigns CampaignDiscount[]
   orders    Order[]
 
+  @@index([isActive, startAt, endAt])
   @@map("discounts")
 }
 

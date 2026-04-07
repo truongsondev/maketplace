@@ -5,6 +5,7 @@ export interface CreatePayosPaymentLinkRequest {
   amount: number;
   description?: string;
   cartItemIds?: string[];
+  voucherCode?: string;
 }
 
 export interface CreatePayosPaymentLinkResponse {

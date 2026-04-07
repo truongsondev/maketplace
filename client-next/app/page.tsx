@@ -24,6 +24,7 @@ import { useCategories } from "@/hooks/use-categories";
 import { useProducts } from "@/hooks/use-products";
 import { cartService } from "@/services/cart.service";
 import { productService } from "@/services/product.service";
+import { voucherService } from "@/services/voucher.service";
 import { useAuthStore } from "@/stores/auth.store";
 
 const FALLBACK_IMAGE =
@@ -105,6 +106,13 @@ export default function Home() {
     retry: false,
   });
 
+  const { data: activeVouchers = [] } = useQuery({
+    queryKey: ["active-vouchers-banner"],
+    queryFn: () => voucherService.getActiveVouchers(),
+    staleTime: 1000 * 60,
+    retry: false,
+  });
+
   const newArrivals = useMemo<NormalizedProduct[]>(() => {
     return (newArrivalsData?.products ?? []).map((item) => ({
       id: item.id,
@@ -126,6 +134,18 @@ export default function Home() {
 
   const heroProduct = newArrivals[0];
   const promoProduct = newArrivals[1] ?? newArrivals[0];
+  const promoVoucher = activeVouchers.find((item) => item.bannerImageUrl);
+  const promoVoucherImage = promoVoucher?.bannerImageUrl
+    ? normalizeProductImageUrl(promoVoucher.bannerImageUrl)
+    : null;
+  const promoTitle = promoVoucher
+    ? promoVoucher.type === "PERCENTAGE"
+      ? `Voucher ${promoVoucher.code} - Giam ${promoVoucher.value}%`
+      : `Voucher ${promoVoucher.code} - Giam ${promoVoucher.value.toLocaleString("vi-VN")}d`
+    : "Uu dai toi 50%";
+  const promoDescription =
+    promoVoucher?.description ||
+    "San gia tot cho cac item duoc yeu thich nhat tuan nay.";
 
   const categoryShowcases = useMemo(() => {
     const realShowcases = categoryShowcasesData.map((showcase) => ({
@@ -368,7 +388,7 @@ export default function Home() {
           className="relative min-h-85 overflow-hidden bg-black text-white md:min-h-105"
         >
           <Image
-            src={promoProduct?.imageUrl || FALLBACK_IMAGE}
+            src={promoVoucherImage || promoProduct?.imageUrl || FALLBACK_IMAGE}
             alt="Promo"
             fill
             className="object-cover opacity-35"
@@ -378,14 +398,12 @@ export default function Home() {
           <div className="relative mx-auto flex min-h-85 w-full max-w-330 items-center justify-between gap-6 px-4 md:min-h-105 md:px-6 lg:px-8">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.15em] text-white/70">
-                Limited Time Offer
+                {promoVoucher ? "Voucher Uu Dai" : "Limited Time Offer"}
               </p>
               <h3 className="mt-2 text-3xl font-black uppercase md:text-5xl">
-                Ưu đãi tới 50%
+                {promoTitle}
               </h3>
-              <p className="mt-3 text-white/85">
-                Săn giá tốt cho các item được yêu thích nhất tuần này.
-              </p>
+              <p className="mt-3 text-white/85">{promoDescription}</p>
             </div>
             <a
               href="#category-showcase-1"

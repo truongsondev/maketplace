@@ -15,6 +15,15 @@ const REFRESH_ENDPOINT = "api/auth/refresh-token";
 const LOGIN_PATH = "/login";
 const AUTH_PAGE_PATHS = new Set(["/login", "/register", "/verify-email"]);
 
+const PROTECTED_PAGE_PREFIXES = [
+  "/cart",
+  "/checkout",
+  "/orders",
+  "/profile",
+  "/favorites",
+  "/payment",
+];
+
 type AuthEventHandlers = {
   onSessionUpdated?: (params: {
     token: { accessToken: string; refreshToken: string };
@@ -120,6 +129,11 @@ class ApiClient {
 
     const { pathname, search, hash } = window.location;
     if (AUTH_PAGE_PATHS.has(pathname)) return;
+
+    const isProtectedPage = PROTECTED_PAGE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    );
+    if (!isProtectedPage) return;
 
     const returnTo = `${pathname}${search}${hash}`;
     const params = new URLSearchParams({ redirect: returnTo });

@@ -7,6 +7,7 @@ import LoginPage from "../page/auth/login";
 import Dashboard from "../page/dashboard";
 import NotFound from "../page/not-found";
 import OrdersPage from "../page/order/orders";
+import VouchersPage from "../page/voucher/vouchers";
 
 export default function AppRouter() {
   return (
@@ -58,6 +59,14 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <OrdersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/voucher"
+        element={
+          <ProtectedRoute>
+            <VouchersPage />
           </ProtectedRoute>
         }
       />

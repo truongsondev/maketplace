@@ -9,9 +9,11 @@ import {
 import { PaymentAPI } from './infrastructure/api';
 import { PrismaPaymentRepository } from './infrastructure/repositories';
 import { PaymentController } from './interface-adapter/controller';
+import { createVoucherCheckoutService } from '../voucher/di';
 
 export function createPaymentModule(): Router {
-  const paymentRepository = new PrismaPaymentRepository(prisma);
+  const voucherCheckoutService = createVoucherCheckoutService();
+  const paymentRepository = new PrismaPaymentRepository(prisma, voucherCheckoutService);
 
   const createPayosPaymentLinkUseCase = new CreatePayosPaymentLinkUseCase(paymentRepository);
   const handlePayosReturnUseCase = new HandlePayosReturnUseCase(paymentRepository);

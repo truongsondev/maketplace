@@ -21,6 +21,8 @@ export class CreatePayosPaymentLinkUseCase {
       userId: command.userId,
       amount: Math.round(command.amount),
       orderCode,
+      voucherCode: command.voucherCode,
+      cartItemIds: command.cartItemIds,
     });
 
     const description = this.buildDescription(orderCode, command.description);
@@ -28,7 +30,7 @@ export class CreatePayosPaymentLinkUseCase {
     try {
       const paymentLink = await payos.paymentRequests.create({
         orderCode: Number(orderCode),
-        amount: Math.round(command.amount),
+        amount: pendingTransaction.payableAmount,
         description,
         returnUrl: config.returnUrl,
         cancelUrl: config.cancelUrl,
@@ -38,7 +40,9 @@ export class CreatePayosPaymentLinkUseCase {
       logger.info('Created PayOS payment link', {
         orderCode,
         orderId: pendingTransaction.orderId,
-        amount: command.amount,
+        amount: pendingTransaction.payableAmount,
+        discountAmount: pendingTransaction.discountAmount,
+        appliedVoucherCode: pendingTransaction.appliedVoucherCode,
       });
 
       return {

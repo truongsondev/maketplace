@@ -2,6 +2,8 @@ export interface CreatePayosPaymentLinkCommand {
   userId: string;
   amount: number;
   description?: string;
+  voucherCode?: string;
+  cartItemIds?: string[];
 }
 
 export interface CreatePayosPaymentLinkResult {

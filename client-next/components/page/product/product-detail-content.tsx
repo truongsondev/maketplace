@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -26,6 +26,10 @@ import {
   useFavoriteIds,
   useToggleFavorite,
 } from "@/hooks/use-product-favorites";
+import {
+  voucherService,
+  type VoucherSummary,
+} from "@/services/voucher.service";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&h=600&fit=crop";
@@ -57,6 +61,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [activeTab, setActiveTab] = useState("description");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [activeVouchers, setActiveVouchers] = useState<VoucherSummary[]>([]);
   const { mutate: addToCart, isPending: isAddingToCart } = useAddToCart();
   const { favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
@@ -65,6 +70,24 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const isTogglingFavorite =
     toggleFavorite.isPending &&
     toggleFavorite.variables?.productId === product.id;
+
+  useEffect(() => {
+    let mounted = true;
+    voucherService
+      .getActiveVouchers()
+      .then((items) => {
+        if (mounted) {
+          setActiveVouchers(items.slice(0, 3));
+        }
+      })
+      .catch(() => {
+        if (mounted) setActiveVouchers([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const availableSizes = useMemo(
     () => [
@@ -615,12 +638,20 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                   Mã giảm giá
                 </span>
                 <div className="flex flex-wrap gap-2">
-                  <span className="rounded-sm border border-black/20 bg-white px-3 py-1 text-xs font-semibold text-black dark:border-white/30 dark:bg-neutral-900 dark:text-white">
-                    Giảm 10%
-                  </span>
-                  <span className="rounded-sm border border-black/20 bg-white px-3 py-1 text-xs font-semibold text-black dark:border-white/30 dark:bg-neutral-900 dark:text-white">
-                    Freeship 20K
-                  </span>
+                  {activeVouchers.length > 0 ? (
+                    activeVouchers.map((voucher) => (
+                      <span
+                        key={voucher.id}
+                        className="rounded-sm border border-black/20 bg-white px-3 py-1 text-xs font-semibold text-black dark:border-white/30 dark:bg-neutral-900 dark:text-white"
+                      >
+                        {voucher.code}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-neutral-500">
+                      Chưa có mã ưu đãi khả dụng
+                    </span>
+                  )}
                 </div>
               </div>
 

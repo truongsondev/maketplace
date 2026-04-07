@@ -4,6 +4,7 @@ import type { OrderStatus } from '@/generated/prisma/enums';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
+import type { OrderReturnsController } from '../../interface-adapter/controller/order-returns.controller';
 
 type OrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'completed' | 'canceled';
 
@@ -50,7 +51,10 @@ function safeAttributesToText(attributes: unknown): string {
 export class OrdersAPI {
   readonly router = express.Router();
 
-  constructor(private readonly prisma: PrismaClient) {
+  constructor(
+    private readonly prisma: PrismaClient,
+    private readonly orderReturnsController: OrderReturnsController,
+  ) {
     this.initializeRoutes();
   }
 
@@ -59,6 +63,90 @@ export class OrdersAPI {
     this.router.get('/counts', asyncHandler(this.getMyCounts.bind(this)));
     this.router.get('/:orderId', asyncHandler(this.getMyOrderDetail.bind(this)));
     this.router.post('/:orderId/cancel', asyncHandler(this.cancelMyOrder.bind(this)));
+    this.router.post('/:orderId/confirm-received', asyncHandler(this.confirmReceived.bind(this)));
+    this.router.post('/:orderId/return', asyncHandler(this.requestReturn.bind(this)));
+  }
+
+  private async confirmReceived(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      select: { id: true, status: true },
+    });
+
+    if (!order) {
+      throw new BadRequestError('Order not found');
+    }
+
+    if (order.status === 'DELIVERED') {
+      res.status(200).json(ResponseFormatter.success({ id: order.id, status: order.status }, 'OK'));
+      return;
+    }
+
+    if (order.status !== 'SHIPPED') {
+      throw new BadRequestError('Only shipped orders can be confirmed as received');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: { status: 'DELIVERED' },
+        select: { id: true, status: true },
+      });
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId,
+          oldStatus: order.status,
+          newStatus: 'DELIVERED',
+          changedBy: userId,
+        },
+      });
+
+      return updatedOrder;
+    });
+
+    res.status(200).json(ResponseFormatter.success(updated, 'Order confirmed as received'));
+  }
+
+  private async requestReturn(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const reason = (req.body as any)?.reason;
+
+    const result = await this.orderReturnsController.requestReturn({
+      userId,
+      orderId,
+      reason: typeof reason === 'string' ? reason : null,
+    });
+
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          { id: result.orderId, status: result.orderStatus, returnStatus: result.returnStatus },
+          'Return requested',
+        ),
+      );
   }
 
   private async listMyOrders(req: Request, res: Response): Promise<void> {
@@ -100,11 +188,21 @@ export class OrdersAPI {
         orderBy,
         skip,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          createdAt: true,
+          status: true,
+          returnStatus: true,
+          totalPrice: true,
           payment: { select: { method: true, status: true, paidAt: true } },
           paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
           items: {
-            include: {
+            select: {
+              id: true,
+              productId: true,
+              variantId: true,
+              quantity: true,
+              price: true,
               product: {
                 select: {
                   id: true,
@@ -129,6 +227,7 @@ export class OrdersAPI {
       id: o.id,
       createdAt: o.createdAt,
       status: o.status,
+      returnStatus: o.returnStatus ?? null,
       totalPrice: o.totalPrice,
       orderCode: o.paymentTransaction?.orderCode ?? null,
       payment: {
@@ -220,11 +319,21 @@ export class OrdersAPI {
 
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
+        status: true,
+        returnStatus: true,
+        totalPrice: true,
         payment: { select: { method: true, status: true, paidAt: true } },
         paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
         items: {
-          include: {
+          select: {
+            id: true,
+            productId: true,
+            variantId: true,
+            quantity: true,
+            price: true,
             product: {
               select: {
                 id: true,
@@ -252,6 +361,7 @@ export class OrdersAPI {
       id: order.id,
       createdAt: order.createdAt,
       status: order.status,
+      returnStatus: order.returnStatus ?? null,
       totalPrice: order.totalPrice,
       orderCode: order.paymentTransaction?.orderCode ?? null,
       payment: {

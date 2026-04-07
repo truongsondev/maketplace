@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCancelMyOrder, useMyOrderDetail } from "@/hooks/use-orders";
+import {
+  useCancelMyOrder,
+  useConfirmReceivedOrder,
+  useMyOrderDetail,
+  useRequestReturnOrder,
+} from "@/hooks/use-orders";
 
 function formatMoney(value: string) {
   const n = Number(value);
@@ -37,6 +42,8 @@ function statusText(status: string) {
       return "Đang giao";
     case "DELIVERED":
       return "Hoàn thành";
+    case "RETURNED":
+      return "Đang trả hàng";
     case "CANCELLED":
       return "Đã hủy";
     default:
@@ -47,11 +54,17 @@ function statusText(status: string) {
 export function OrderDetailClient({ orderId }: { orderId: string }) {
   const detailQuery = useMyOrderDetail(orderId);
   const cancelMutation = useCancelMyOrder();
+  const confirmReceivedMutation = useConfirmReceivedOrder();
+  const requestReturnMutation = useRequestReturnOrder();
 
   const order = detailQuery.data;
 
   const canCancel =
     order?.status === "PENDING" || order?.status === "CONFIRMED";
+
+  const canConfirmReceived =
+    order?.status === "SHIPPED" || order?.status === "DELIVERED";
+  const canRequestReturn = order?.status === "DELIVERED";
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
@@ -72,6 +85,39 @@ export function OrderDetailClient({ orderId }: { orderId: string }) {
           >
             Quay lại
           </Link>
+
+          <button
+            onClick={() => order && confirmReceivedMutation.mutate(order.id)}
+            disabled={
+              !order ||
+              !canConfirmReceived ||
+              confirmReceivedMutation.isPending ||
+              detailQuery.isLoading
+            }
+            className="inline-flex h-10 items-center rounded-xl bg-black px-5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Xác nhận đã nhận hàng
+          </button>
+
+          <button
+            onClick={() => {
+              if (!order) return;
+              const raw =
+                window.prompt("Lý do trả hàng/hoàn tiền (tuỳ chọn)") ?? "";
+              const reason = raw.trim() ? raw.trim() : undefined;
+              requestReturnMutation.mutate({ orderId: order.id, reason });
+            }}
+            disabled={
+              !order ||
+              !canRequestReturn ||
+              requestReturnMutation.isPending ||
+              detailQuery.isLoading
+            }
+            className="inline-flex h-10 items-center rounded-xl border border-neutral-300 bg-white px-5 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+          >
+            Trả hàng/Hoàn tiền
+          </button>
+
           <button
             onClick={() => order && cancelMutation.mutate(order.id)}
             disabled={!order || !canCancel || cancelMutation.isPending}

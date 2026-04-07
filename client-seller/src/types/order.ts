@@ -22,7 +22,14 @@ export interface AdminOrderListItem {
   id: string;
   createdAt: string;
   status: string;
+  returnStatus?: string | null;
   totalPrice: string;
+  returns?: {
+    requested: number;
+    approved: number;
+    rejected: number;
+    completed: number;
+  };
   user: {
     id: string;
     label: string;

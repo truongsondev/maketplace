@@ -33,6 +33,8 @@ export class PaymentAPI {
     const { amount, description } = req.body as {
       amount?: number;
       description?: string;
+      voucherCode?: string;
+      cartItemIds?: string[];
     };
 
     if (typeof amount !== 'number') {
@@ -43,10 +45,19 @@ export class PaymentAPI {
       throw new BadRequestError('description must be a string');
     }
 
+    const voucherCodeValue =
+      typeof req.body?.voucherCode === 'string' ? req.body.voucherCode.trim() : undefined;
+
+    const cartItemIdsValue = Array.isArray(req.body?.cartItemIds)
+      ? req.body.cartItemIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
     const result = await this.paymentController.createPayosPaymentLink({
       userId,
       amount,
       description,
+      voucherCode: voucherCodeValue || undefined,
+      cartItemIds: cartItemIdsValue,
     });
 
     res

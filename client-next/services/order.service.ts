@@ -87,4 +87,30 @@ export const orderService = {
 
     throw response as ApiErrorResponse;
   },
+
+  async confirmReceived(orderId: string): Promise<void> {
+    const response = await apiClient.post<{ id: string; status: string }>(
+      `api/orders/${encodeURIComponent(orderId)}/confirm-received`,
+      {},
+    );
+
+    if (response.success) {
+      return;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async requestReturn(orderId: string, reason?: string): Promise<void> {
+    const response = await apiClient.post<{ id: string; status: string }>(
+      `api/orders/${encodeURIComponent(orderId)}/return`,
+      reason ? { reason } : {},
+    );
+
+    if (response.success) {
+      return;
+    }
+
+    throw response as ApiErrorResponse;
+  },
 };

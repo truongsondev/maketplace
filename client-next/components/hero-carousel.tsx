@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { voucherService } from "@/services/voucher.service";
 
 interface Slide {
   id: number;
@@ -14,6 +16,7 @@ interface Slide {
   ctaPrimary: string;
   ctaSecondary: string;
   gradient: string;
+  imageUrl?: string;
 }
 
 const slides: Slide[] = [
@@ -72,24 +75,68 @@ const slides: Slide[] = [
 export function HeroCarousel() {
   const [current, setCurrent] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
+  const [dynamicSlides, setDynamicSlides] = useState<Slide[]>([]);
+
+  const allSlides = [...dynamicSlides, ...slides];
 
   useEffect(() => {
     if (!isAutoPlay) return;
 
     const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % slides.length);
+      setCurrent((prev) => (prev + 1) % allSlides.length);
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlay]);
+  }, [allSlides.length, isAutoPlay]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    voucherService
+      .getActiveVouchers()
+      .then((items) => {
+        if (!mounted) return;
+
+        const mapped = items
+          .filter((item) => item.bannerImageUrl)
+          .slice(0, 3)
+          .map((item, idx) => ({
+            id: 1000 + idx,
+            title: `Voucher ${item.code}`,
+            subtitle:
+              item.type === "PERCENTAGE"
+                ? `Giảm ${item.value}%`
+                : `Giảm ${item.value.toLocaleString("vi-VN")}đ`,
+            description:
+              item.description ||
+              "Ưu đãi giới hạn thời gian cho đơn hàng thời trang.",
+            bgColor: "from-neutral-900 to-black",
+            accentColor: "text-amber-300",
+            emoji: "🎟️",
+            ctaPrimary: "Mua ngay",
+            ctaSecondary: "Áp dụng tại checkout",
+            gradient: "from-black/70 to-black/20",
+            imageUrl: item.bannerImageUrl || undefined,
+          }));
+
+        setDynamicSlides(mapped);
+      })
+      .catch(() => {
+        if (mounted) setDynamicSlides([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const next = () => {
-    setCurrent((prev) => (prev + 1) % slides.length);
+    setCurrent((prev) => (prev + 1) % allSlides.length);
     setIsAutoPlay(false);
   };
 
   const prev = () => {
-    setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+    setCurrent((prev) => (prev - 1 + allSlides.length) % allSlides.length);
     setIsAutoPlay(false);
   };
 
@@ -108,7 +155,7 @@ export function HeroCarousel() {
     >
       {/* Slides Container */}
       <div className="relative w-full h-full">
-        {slides.map((s, index) => (
+        {allSlides.map((s, index) => (
           <div
             key={s.id}
             className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
@@ -117,6 +164,17 @@ export function HeroCarousel() {
           >
             {/* Background Gradient */}
             <div className={`absolute inset-0 bg-linear-to-r ${s.bgColor}`} />
+
+            {s.imageUrl && (
+              <Image
+                src={s.imageUrl}
+                alt={s.title}
+                fill
+                sizes="100vw"
+                className="object-cover opacity-70"
+                priority={index === 0}
+              />
+            )}
 
             {/* Content Overlay */}
             <div className={`absolute inset-0 bg-linear-to-r ${s.gradient}`} />
@@ -184,7 +242,7 @@ export function HeroCarousel() {
 
       {/* Navigation Dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 md:gap-3">
-        {slides.map((_, index) => (
+        {allSlides.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
@@ -204,7 +262,7 @@ export function HeroCarousel() {
           {String(current + 1).padStart(2, "0")}
         </span>
         <span className="mx-2">/</span>
-        <span>{String(slides.length).padStart(2, "0")}</span>
+        <span>{String(allSlides.length).padStart(2, "0")}</span>
       </div>
     </div>
   );

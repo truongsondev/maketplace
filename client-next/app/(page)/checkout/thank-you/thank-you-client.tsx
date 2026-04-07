@@ -188,14 +188,8 @@ export function ThankYouClient() {
 
           <div className="flex flex-wrap gap-3">
             <Link
-              href={`/orders/${encodeURIComponent(payload.orderId)}`}
-              className="inline-flex h-10 items-center rounded-xl bg-black px-5 font-semibold text-white hover:bg-neutral-800"
-            >
-              Theo dõi đơn hàng
-            </Link>
-            <Link
               href="/"
-              className="inline-flex h-10 items-center rounded-xl border border-neutral-300 px-5 font-semibold text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
+              className="inline-flex h-10 items-center rounded-xl bg-black px-5 font-semibold text-white hover:bg-neutral-800"
             >
               Tiếp tục mua sắm
             </Link>
