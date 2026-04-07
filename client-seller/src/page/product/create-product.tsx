@@ -88,7 +88,8 @@ export default function AddProductPage() {
   // Cloud upload function using React Query
   const uploadToCloudinary = async (file: File): Promise<string> => {
     try {
-      const signatureResponse = await getSignatureMutation.mutateAsync();
+      const signatureResponse =
+        await getSignatureMutation.mutateAsync("products");
       const imageUrl = await uploadImageMutation.mutateAsync({
         file,
         signature: signatureResponse.data,
