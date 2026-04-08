@@ -30,6 +30,7 @@ export function Header() {
     if (path === "/users") return "Users";
     if (path === "/logs") return "Logs";
     if (path === "/voucher") return "Voucher";
+    if (path === "/banner") return "Banner";
     if (path === "/events") return "Events";
     return "Aura";
   };

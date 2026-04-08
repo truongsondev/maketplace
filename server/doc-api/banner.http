@@ -1,0 +1,52 @@
+### Admin - list banners
+GET http://localhost:8080/api/admin/banners?page=1&limit=20
+Authorization: Bearer {{ADMIN_TOKEN}}
+
+### Admin - create banner
+POST http://localhost:8080/api/admin/banners
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+  "title": "Summer Drop 2026",
+  "subtitle": "Bo suu tap moi",
+  "description": "Giam toi da cho item streetwear.",
+  "imageUrl": "https://res.cloudinary.com/demo/image/upload/v1/banner/sample.jpg",
+  "isActive": true,
+  "sortOrder": 1
+}
+
+### Admin - update banner
+PUT http://localhost:8080/api/admin/banners/{{BANNER_ID}}
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+  "title": "Summer Drop 2026 Updated",
+  "subtitle": "Cap nhat",
+  "description": "Noi dung moi",
+  "imageUrl": "https://res.cloudinary.com/demo/image/upload/v1/banner/sample-updated.jpg",
+  "isActive": true,
+  "sortOrder": 2
+}
+
+### Admin - toggle status
+PATCH http://localhost:8080/api/admin/banners/{{BANNER_ID}}/status
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+  "isActive": false
+}
+
+### Admin - cloudinary signature
+POST http://localhost:8080/api/admin/banners/cloudinary/sign
+Authorization: Bearer {{ADMIN_TOKEN}}
+Content-Type: application/json
+
+{
+  "folder": "banners/homepage"
+}
+
+### Public - active banners
+GET http://localhost:8080/api/common/banners/active

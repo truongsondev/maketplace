@@ -324,3 +324,46 @@ export interface VoucherUpsertCommand {
   isActive?: boolean;
   bannerImageUrl?: string | null;
 }
+
+export interface BannerItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  imageUrl: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BannerListResponse {
+  success: boolean;
+  data: {
+    items: BannerItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface BannerResponse {
+  success: boolean;
+  data: BannerItem;
+  message: string;
+  timestamp: string;
+}
+
+export interface BannerUpsertCommand {
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  imageUrl: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}

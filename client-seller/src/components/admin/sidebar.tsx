@@ -7,6 +7,7 @@ import {
   Ticket,
   Calendar,
   Sparkles,
+  Image,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -20,6 +21,7 @@ export function Sidebar() {
     { icon: Users, label: "Users", to: "/users" },
     { icon: FileText, label: "Logs", to: "/logs" },
     { icon: Ticket, label: "Voucher", to: "/voucher" },
+    { icon: Image, label: "Banner", to: "/banner" },
     { icon: Calendar, label: "Events", to: "/events" },
   ];
 

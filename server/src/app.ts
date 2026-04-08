@@ -13,6 +13,8 @@ import { createAddressModule } from './module/address/di';
 import { createOrderModule } from './module/order/di';
 import { createMockOrdersModule } from './module/mock-orders/di';
 import { createAdminVoucherModule } from './module/admin/voucher/di';
+import { createAdminBannerModule } from './module/admin/banner/di';
+import { createPublicBannerModule } from './module/banner/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -76,6 +78,7 @@ app.use(requestLoggingMiddleware);
 
 app.use('/api/common', createCommonModule());
 app.use('/api/common/vouchers', createPublicVoucherModule());
+app.use('/api/common/banners', createPublicBannerModule());
 
 // NOTE: mock/manual endpoints for Postman testing (no auth)
 app.use('/api/mock/orders', createMockOrdersModule());
@@ -94,6 +97,7 @@ app.use('/api/vouchers', createVoucherModule());
 app.use('/api/admin', requireAdmin, createAdminModule());
 app.use('/api/admin/orders', requireAdmin, createAdminOrdersModule());
 app.use('/api/admin/vouchers', requireAdmin, createAdminVoucherModule());
+app.use('/api/admin/banners', requireAdmin, createAdminBannerModule());
 
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Endpoint not found' });

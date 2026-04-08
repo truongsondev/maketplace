@@ -3,19 +3,22 @@ import Image from "next/image";
 const TEAM_CARDS = [
   {
     title: 'TEAM "BẤT TỬ" (JEAN CÁC LOẠI)',
-    description: "Denim nguyên bản, jean sậm màu và item dễ phối cho mọi lịch trình.",
+    description:
+      "Denim nguyên bản, jean sậm màu và item dễ phối cho mọi lịch trình.",
     image:
       "https://images.unsplash.com/photo-1516826957135-700dedea698c?auto=format&fit=crop&w=1200&q=80",
   },
   {
     title: 'TEAM "LƯỜI CHỌN"',
-    description: "Set trung tính, thoải mái nhưng vẫn giữ được vibe lịch sự nam tính.",
+    description:
+      "Set trung tính, thoải mái nhưng vẫn giữ được vibe lịch sự nam tính.",
     image:
       "https://images.unsplash.com/photo-1617137968427-85924c800a22?auto=format&fit=crop&w=1200&q=80",
   },
   {
     title: "TEAM VẬN ĐỘNG",
-    description: "Vật liệu nhẹ, khô nhanh, gọn form cho ngày di chuyển liên tục.",
+    description:
+      "Vật liệu nhẹ, khô nhanh, gọn form cho ngày di chuyển liên tục.",
     image:
       "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80",
   },
@@ -76,36 +79,71 @@ export function TeamSection() {
             Tủ đồ của bạn cần gì, click vào đó. YaMe đã lên set sẵn sàng.
           </p>
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr,2fr]">
-            <div className="group relative overflow-hidden rounded-sm bg-neutral-100">
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
+            <a
+              href="#new-arrivals"
+              className="group relative overflow-hidden rounded-sm bg-neutral-100"
+            >
               <Image
-                src="https://images.unsplash.com/photo-1607345366928-199ea26cfe3e?auto=format&fit=crop&w=900&q=80"
-                alt="Outfit main"
-                width={900}
-                height={1200}
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                src="https://images.unsplash.com/photo-1516826957135-700dedea698c?auto=format&fit=crop&w=1200&q=80"
+                alt="Outfit đi làm"
+                width={1200}
+                height={900}
+                className="aspect-16/10 w-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/20 via-transparent to-transparent opacity-50 transition-opacity duration-500 group-hover:opacity-75" />
-            </div>
+              <div className="absolute inset-0 bg-linear-to-r from-black/75 via-black/35 to-transparent" />
+              <div className="absolute inset-0 flex flex-col justify-end p-5 text-white md:p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80">
+                  Work Fit
+                </p>
+                <h4 className="mt-2 text-2xl font-black uppercase">Đi làm</h4>
+                <p className="mt-2 max-w-sm text-sm text-white/85">
+                  Smart casual, gọn gàng và lịch sự để tự tin cả ngày.
+                </p>
+              </div>
+            </a>
 
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-              {OUTFIT_SHOWCASE_IMAGES.map((imageUrl, imageIndex) => (
-                <a
-                  key={`${imageUrl}-${imageIndex}`}
-                  href="#new-arrivals"
-                  className="group relative overflow-hidden rounded-sm bg-neutral-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-                >
-                  <Image
-                    src={imageUrl}
-                    alt={`Outfit ${imageIndex + 1}`}
-                    width={320}
-                    height={420}
-                    className="aspect-3/4 w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="pointer-events-none absolute inset-0 ring-0 ring-white/60 transition-all duration-300 group-hover:ring-2" />
-                </a>
-              ))}
-            </div>
+            <a
+              href="#new-arrivals"
+              className="group relative overflow-hidden rounded-sm bg-neutral-100"
+            >
+              <Image
+                src="https://images.unsplash.com/photo-1516257984-b1b4d707412e?auto=format&fit=crop&w=1200&q=80"
+                alt="Outfit đi chơi"
+                width={1200}
+                height={900}
+                className="aspect-16/10 w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-linear-to-r from-black/75 via-black/35 to-transparent" />
+              <div className="absolute inset-0 flex flex-col justify-end p-5 text-white md:p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80">
+                  Weekend Fit
+                </p>
+                <h4 className="mt-2 text-2xl font-black uppercase">Đi chơi</h4>
+                <p className="mt-2 max-w-sm text-sm text-white/85">
+                  Năng động, thoải mái và dễ phối cho mọi cuộc hẹn cuối tuần.
+                </p>
+              </div>
+            </a>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+            {OUTFIT_SHOWCASE_IMAGES.map((imageUrl, imageIndex) => (
+              <a
+                key={`${imageUrl}-${imageIndex}`}
+                href="#new-arrivals"
+                className="group relative overflow-hidden rounded-sm bg-neutral-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+              >
+                <Image
+                  src={imageUrl}
+                  alt={`Outfit ${imageIndex + 1}`}
+                  width={320}
+                  height={420}
+                  className="aspect-3/4 w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="pointer-events-none absolute inset-0 ring-0 ring-white/60 transition-all duration-300 group-hover:ring-2" />
+              </a>
+            ))}
           </div>
         </div>
       </div>

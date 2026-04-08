@@ -24,6 +24,7 @@ import { useCategories } from "@/hooks/use-categories";
 import { useProducts } from "@/hooks/use-products";
 import { cartService } from "@/services/cart.service";
 import { productService } from "@/services/product.service";
+import { bannerService } from "@/services/banner.service";
 import { voucherService } from "@/services/voucher.service";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -72,9 +73,21 @@ function formatCurrency(price: string | number) {
   }).format(Number(price));
 }
 
+function formatVoucherValue(
+  type: "PERCENTAGE" | "FIXED_AMOUNT",
+  value: number,
+) {
+  if (type === "PERCENTAGE") return `${value}%`;
+  return formatCurrency(value);
+}
+
 export default function Home() {
   const [isDark, setIsDark] = useState(false);
   const [newArrivalApi, setNewArrivalApi] = useState<CarouselApi>();
+  const [topBannerApi, setTopBannerApi] = useState<CarouselApi>();
+  const [topBannerCurrent, setTopBannerCurrent] = useState(0);
+  const [promoApi, setPromoApi] = useState<CarouselApi>();
+  const [promoCurrent, setPromoCurrent] = useState(0);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data: categories = [], isLoading: isCategoriesLoading } =
@@ -96,13 +109,20 @@ export default function Home() {
     isError: isCategoryShowcasesError,
     refetch: refetchCategoryShowcases,
   } = useQuery({
-    queryKey: ["category-showcases", { categoryLimit: 2, productLimit: 4 }],
+    queryKey: ["category-showcases", { categoryLimit: 2, productLimit: 6 }],
     queryFn: () =>
       productService.getCategoryShowcases({
         categoryLimit: 2,
-        productLimit: 4,
+        productLimit: 6,
       }),
     staleTime: 1000 * 60 * 5,
+    retry: false,
+  });
+
+  const { data: activeBanners = [] } = useQuery({
+    queryKey: ["active-homepage-banners"],
+    queryFn: () => bannerService.getActiveBanners(),
+    staleTime: 1000 * 60,
     retry: false,
   });
 
@@ -132,21 +152,62 @@ export default function Home() {
 
   const cartCount = cartSummary?.totalItems ?? 0;
 
-  const heroProduct = newArrivals[0];
   const promoProduct = newArrivals[1] ?? newArrivals[0];
-  const promoVoucher = activeVouchers.find((item) => item.bannerImageUrl);
-  const promoVoucherImage = promoVoucher?.bannerImageUrl
-    ? normalizeProductImageUrl(promoVoucher.bannerImageUrl)
-    : null;
-  const promoTitle = promoVoucher
-    ? promoVoucher.type === "PERCENTAGE"
-      ? `Voucher ${promoVoucher.code} - Giam ${promoVoucher.value}%`
-      : `Voucher ${promoVoucher.code} - Giam ${promoVoucher.value.toLocaleString("vi-VN")}d`
-    : "Uu dai toi 50%";
-  const promoDescription =
-    promoVoucher?.description ||
-    "San gia tot cho cac item duoc yeu thich nhat tuan nay.";
+  const topBannerSlides = useMemo(() => {
+    return activeBanners.map((banner) => ({
+      id: banner.id,
+      imageUrl: normalizeProductImageUrl(
+        banner.imageUrl || promoProduct?.imageUrl || FALLBACK_IMAGE,
+      ),
+      title: banner.title,
+      description:
+        banner.description ||
+        "Khám phá bộ sưu tập thời trang mới nhất được cập nhật liên tục.",
+      eyebrow: banner.subtitle || "FASHION NOW",
+    }));
+  }, [activeBanners, promoProduct?.imageUrl]);
 
+  const promoSlides = useMemo(() => {
+    const voucherSlides = activeVouchers.map((voucher) => {
+      const remainingSlots =
+        voucher.maxUsage !== null
+          ? Math.max(voucher.maxUsage - voucher.usedCount, 0)
+          : null;
+
+      return {
+        id: voucher.id,
+        imageUrl: normalizeProductImageUrl(
+          voucher.bannerImageUrl || promoProduct?.imageUrl || FALLBACK_IMAGE,
+        ),
+        eyebrow: "Voucher uu dai",
+        title:
+          voucher.type === "PERCENTAGE"
+            ? `Voucher ${voucher.code} - Giam ${voucher.value}%`
+            : `Voucher ${voucher.code} - Giam ${voucher.value.toLocaleString("vi-VN")}d`,
+        description:
+          voucher.description ||
+          "San gia tot cho cac item duoc yeu thich nhat tuan nay.",
+        codeLabel: voucher.code,
+        discountLabel: formatVoucherValue(voucher.type, voucher.value),
+        highlights: [
+          `Giam ${formatVoucherValue(voucher.type, voucher.value)}`,
+          voucher.minOrderAmount
+            ? `Don toi thieu ${formatCurrency(voucher.minOrderAmount)}`
+            : "Ap dung don hop le",
+          remainingSlots !== null
+            ? `Con lai ${Math.max(remainingSlots, 1)} suat`
+            : "Khong gioi han suat",
+        ],
+        endDate: new Date(voucher.endAt).toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }),
+      };
+    });
+
+    return voucherSlides;
+  }, [activeVouchers, promoProduct?.imageUrl]);
   const categoryShowcases = useMemo(() => {
     const realShowcases = categoryShowcasesData.map((showcase) => ({
       id: showcase.id,
@@ -170,13 +231,9 @@ export default function Home() {
       slug: category.slug,
       name: category.name,
       imageUrl: normalizeProductImageUrl(category.imageUrl),
-      products: newArrivals.slice(idx * 4, idx * 4 + 4),
+      products: newArrivals.slice(idx * 6, idx * 6 + 6),
     }));
   }, [categories, categoryShowcasesData, newArrivals]);
-
-  const heroImage =
-    heroProduct?.imageUrl ??
-    "https://images.unsplash.com/photo-1552374196-c4e7ffc6e126?auto=format&fit=crop&w=1800&q=80";
 
   const categoryItems = useMemo(() => {
     return categories.slice(0, 4).map((item, index) => ({
@@ -212,6 +269,56 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [newArrivalApi]);
 
+  useEffect(() => {
+    if (!topBannerApi) return;
+
+    const onSelect = () => {
+      setTopBannerCurrent(topBannerApi.selectedScrollSnap());
+    };
+
+    onSelect();
+    topBannerApi.on("select", onSelect);
+
+    return () => {
+      topBannerApi.off("select", onSelect);
+    };
+  }, [topBannerApi]);
+
+  useEffect(() => {
+    if (!topBannerApi || topBannerSlides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      topBannerApi.scrollNext();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [topBannerApi, topBannerSlides.length]);
+
+  useEffect(() => {
+    if (!promoApi) return;
+
+    const onSelect = () => {
+      setPromoCurrent(promoApi.selectedScrollSnap());
+    };
+
+    onSelect();
+    promoApi.on("select", onSelect);
+
+    return () => {
+      promoApi.off("select", onSelect);
+    };
+  }, [promoApi]);
+
+  useEffect(() => {
+    if (!promoApi || promoSlides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      promoApi.scrollNext();
+    }, 5500);
+
+    return () => clearInterval(interval);
+  }, [promoApi, promoSlides.length]);
+
   return (
     <div className="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-50 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
       <Header
@@ -221,51 +328,56 @@ export default function Home() {
       />
 
       <main className="flex-1 bg-[#f5f5f5] text-[#222222] dark:bg-neutral-950 dark:text-neutral-100">
-        <section
-          id="hero"
-          className="relative min-h-[72vh] overflow-hidden bg-black"
-        >
-          <Image
-            src={heroImage}
-            alt="Hero streetwear"
-            fill
-            priority
-            className="object-cover opacity-85"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-black/35" />
-          <div className="relative mx-auto flex min-h-[72vh] w-full max-w-330 items-end px-4 pb-14 pt-24 md:px-6 lg:px-8">
-            <div className="max-w-3xl text-white">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                New Collection 2026
-              </p>
-              <h1 className="mt-4 text-4xl font-black uppercase leading-tight md:text-6xl">
-                Streetwear Tối Giản
-                <br />
-                Cho Mọi Khoảnh Khắc
-              </h1>
-              <p className="mt-5 max-w-2xl text-base text-white/85 md:text-lg">
-                Thiết kế tập trung vào chất liệu, form và khả năng phối đồ linh
-                hoạt. Dữ liệu sản phẩm đồng bộ trực tiếp từ API để đảm bảo thông
-                tin luôn mới nhất.
-              </p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <a
-                  href="#new-arrivals"
-                  className="inline-flex h-11 items-center justify-center rounded-sm bg-white px-6 text-sm font-bold uppercase text-black transition-colors hover:bg-neutral-200"
-                >
-                  Shop Now
-                </a>
-                <a
-                  href="#category-showcase-1"
-                  className="inline-flex h-11 items-center justify-center rounded-sm border border-white/60 px-6 text-sm font-bold uppercase text-white transition-colors hover:bg-white/10"
-                >
-                  Mix Theo Danh Mục
-                </a>
+        {topBannerSlides.length > 0 ? (
+          <section
+            id="homepage-banner"
+            className="relative min-h-125 overflow-hidden bg-black text-white"
+          >
+            <Carousel
+              setApi={setTopBannerApi}
+              opts={{ align: "start", loop: topBannerSlides.length > 1 }}
+              className="h-full w-full"
+            >
+              <CarouselContent className="ml-0">
+                {topBannerSlides.map((slide) => (
+                  <CarouselItem key={slide.id} className="pl-0">
+                    <div className="relative min-h-125 overflow-hidden md:min-h-160">
+                      <Image
+                        src={slide.imageUrl}
+                        alt={slide.title}
+                        fill
+                        className="object-cover object-center opacity-80"
+                        sizes="100vw"
+                      />
+                      <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/35 to-black/15" />
+
+                      <div className="relative mx-auto flex min-h-125 w-full max-w-330 flex-col justify-center gap-4 px-4 py-8 md:min-h-160 md:px-6 lg:px-8">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
+                          {slide.eyebrow}
+                        </p>
+                        <h2 className="max-w-4xl text-3xl font-black uppercase leading-tight md:text-5xl">
+                          {slide.title}
+                        </h2>
+                        <p className="max-w-2xl text-sm text-white/90 md:text-base">
+                          {slide.description}
+                        </p>
+                        <span className="inline-flex w-fit rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wider text-white">
+                          {slide.eyebrow}
+                        </span>
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+
+            {topBannerSlides.length > 1 ? (
+              <div className="pointer-events-none absolute bottom-4 right-4 z-10 rounded-full border border-white/35 bg-black/45 px-3 py-1 text-xs font-semibold tracking-wider text-white md:bottom-5 md:right-6">
+                {topBannerCurrent + 1}/{topBannerSlides.length}
               </div>
-            </div>
-          </div>
-        </section>
+            ) : null}
+          </section>
+        ) : null}
 
         <section
           id="categories"
@@ -383,37 +495,115 @@ export default function Home() {
           </Carousel>
         </section>
 
-        <section
-          id="sale"
-          className="relative min-h-85 overflow-hidden bg-black text-white md:min-h-105"
-        >
-          <Image
-            src={promoVoucherImage || promoProduct?.imageUrl || FALLBACK_IMAGE}
-            alt="Promo"
-            fill
-            className="object-cover opacity-35"
-            sizes="100vw"
-          />
-          <div className="absolute inset-0 bg-black/55" />
-          <div className="relative mx-auto flex min-h-85 w-full max-w-330 items-center justify-between gap-6 px-4 md:min-h-105 md:px-6 lg:px-8">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-white/70">
-                {promoVoucher ? "Voucher Uu Dai" : "Limited Time Offer"}
-              </p>
-              <h3 className="mt-2 text-3xl font-black uppercase md:text-5xl">
-                {promoTitle}
-              </h3>
-              <p className="mt-3 text-white/85">{promoDescription}</p>
-            </div>
-            <a
-              href="#category-showcase-1"
-              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-sm bg-white px-6 text-sm font-bold uppercase text-black hover:bg-neutral-200"
+        {promoSlides.length > 0 ? (
+          <section
+            id="sale"
+            className="relative min-h-105 overflow-hidden bg-black text-white md:min-h-140"
+          >
+            <Carousel
+              setApi={setPromoApi}
+              opts={{ align: "start", loop: promoSlides.length > 1 }}
+              className="h-full w-full"
             >
-              Mua ngay
-              <ArrowRight className="size-4" />
-            </a>
-          </div>
-        </section>
+              <CarouselContent className="ml-0">
+                {promoSlides.map((slide) => (
+                  <CarouselItem key={slide.id} className="pl-0">
+                    <div className="relative min-h-105 overflow-hidden md:min-h-140">
+                      <Image
+                        src={slide.imageUrl}
+                        alt={slide.title}
+                        fill
+                        className="object-cover object-center opacity-35 blur-[2px]"
+                        sizes="100vw"
+                      />
+                      <Image
+                        src={slide.imageUrl}
+                        alt={slide.title}
+                        fill
+                        className="object-contain object-center px-4 py-6 opacity-95 md:px-10 md:py-8"
+                        sizes="100vw"
+                      />
+                      <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/35 to-black/20" />
+                      <div className="absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-black/20" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_25%,rgba(255,255,255,0.15),transparent_38%),radial-gradient(circle_at_85%_80%,rgba(255,120,0,0.24),transparent_40%)]" />
+
+                      <div className="relative mx-auto flex min-h-105 w-full max-w-330 flex-col justify-center gap-8 px-4 py-8 md:min-h-140 md:flex-row md:items-center md:justify-between md:px-6 lg:px-8">
+                        <div className="max-w-3xl">
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/75">
+                            {slide.eyebrow}
+                          </p>
+                          <h3 className="mt-3 text-3xl font-black leading-tight md:text-5xl">
+                            {slide.title}
+                          </h3>
+                          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base">
+                            {slide.description}
+                          </p>
+                          <div className="mt-5 flex flex-wrap gap-2">
+                            {slide.highlights.map((item) => (
+                              <span
+                                key={item}
+                                className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white"
+                              >
+                                {item}
+                              </span>
+                            ))}
+                            {slide.endDate ? (
+                              <span className="rounded-full border border-orange-300/60 bg-orange-300/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-orange-100">
+                                HSD: {slide.endDate}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="w-full max-w-sm rounded-xl border border-white/40 bg-black/35 p-4 backdrop-blur-[2px] md:p-5">
+                          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/80">
+                            Ma voucher
+                          </p>
+                          <p className="mt-2 text-2xl font-black uppercase tracking-wide text-orange-200 md:text-3xl">
+                            {slide.codeLabel}
+                          </p>
+                          <div className="mt-4 grid grid-cols-2 gap-3">
+                            <div className="rounded-lg border border-white/25 bg-white/10 p-3">
+                              <p className="text-[10px] uppercase tracking-widest text-white/70">
+                                Muc giam
+                              </p>
+                              <p className="mt-1 text-lg font-black text-white">
+                                {slide.discountLabel}
+                              </p>
+                            </div>
+                            <div className="rounded-lg border border-white/25 bg-white/10 p-3">
+                              <p className="text-[10px] uppercase tracking-widest text-white/70">
+                                Hieu luc
+                              </p>
+                              <p className="mt-1 text-sm font-bold text-white">
+                                {slide.endDate
+                                  ? `Den ${slide.endDate}`
+                                  : "Dang mo"}
+                              </p>
+                            </div>
+                          </div>
+                          <a
+                            href="#category-showcase-1"
+                            className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-white px-7 text-sm font-extrabold uppercase tracking-[0.08em] text-black shadow-[0_12px_30px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5 hover:bg-orange-300"
+                          >
+                            Mua ngay
+                            <ArrowRight className="size-4" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+
+            {promoSlides.length > 1 ? (
+              <div className="pointer-events-none absolute bottom-4 right-4 z-10 rounded-full border border-white/35 bg-black/45 px-3 py-1 text-xs font-semibold tracking-wider text-white md:bottom-5 md:right-6">
+                {promoCurrent + 1}/{promoSlides.length}
+              </div>
+            ) : null}
+          </section>
+        ) : null}
 
         {categoryShowcases.map((group, idx) => (
           <section
@@ -438,12 +628,12 @@ export default function Home() {
               </a>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12 lg:gap-5">
               <a
                 href={`/collection/${group.slug}`}
-                className="group relative block overflow-hidden rounded-sm lg:col-span-4"
+                className="group relative block overflow-hidden rounded-sm lg:col-span-4 lg:h-full"
               >
-                <div className="relative aspect-[4/5] min-h-[320px] w-full md:aspect-[16/10] lg:aspect-[4/5]">
+                <div className="relative aspect-4/5 min-h-80 w-full md:aspect-16/10 lg:h-full lg:min-h-152 lg:aspect-auto">
                   <Image
                     src={
                       group.imageUrl ||
@@ -455,7 +645,7 @@ export default function Home() {
                     sizes="(max-width: 1024px) 100vw, 34vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10" />
                   <div className="absolute inset-x-0 bottom-0 p-5 text-white">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
                       Outfit Gợi Ý
@@ -464,22 +654,37 @@ export default function Home() {
                       {group.name}
                     </h3>
                     <p className="mt-2 text-sm text-white/85">
-                      Phối nhanh theo danh mục, tối ưu cho trang phục đi làm và
-                      đi chơi.
+                      Outfit đi làm hay đi chơi?
                     </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="rounded-md border border-white/30 bg-black/25 px-3 py-2 backdrop-blur-sm">
+                        <p className="font-bold uppercase tracking-wider text-white">
+                          Đi làm
+                        </p>
+                        <p className="mt-1 text-white/80">
+                          Smart casual, tối giản
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-white/30 bg-black/25 px-3 py-2 backdrop-blur-sm">
+                        <p className="font-bold uppercase tracking-wider text-white">
+                          Đi chơi
+                        </p>
+                        <p className="mt-1 text-white/80">Năng động, dễ phối</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </a>
 
-              <div className="grid grid-cols-2 gap-4 lg:col-span-8 lg:grid-cols-3">
-                {group.products.map((item) => (
+              <div className="grid grid-cols-2 gap-4 lg:col-span-8 lg:h-full lg:grid-flow-col lg:grid-cols-3 lg:grid-rows-2">
+                {group.products.slice(0, 6).map((item) => (
                   <article
                     key={`${group.id}-${item.id}`}
-                    className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                    className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 lg:grid lg:h-full lg:grid-rows-[minmax(0,1fr)_auto]"
                   >
                     <a
                       href={`/product/${item.id}`}
-                      className="relative block aspect-4/5 overflow-hidden"
+                      className="relative block aspect-4/5 overflow-hidden lg:h-full lg:min-h-0 lg:aspect-auto"
                     >
                       <Image
                         src={item.imageUrl || FALLBACK_IMAGE}
@@ -489,7 +694,7 @@ export default function Home() {
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     </a>
-                    <div className="p-4">
+                    <div className="p-3 md:p-4">
                       <a
                         href={`/product/${item.id}`}
                         className="line-clamp-2 text-sm font-semibold uppercase hover:text-neutral-500"

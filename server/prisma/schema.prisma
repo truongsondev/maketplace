@@ -598,6 +598,22 @@ model Discount {
   @@map("discounts")
 }
 
+model Banner {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  title       String  @db.VarChar(255)
+  subtitle    String? @db.VarChar(255)
+  description String? @db.VarChar(500)
+  imageUrl    String  @map("image_url") @db.VarChar(1000)
+  isActive    Boolean @default(false) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
+}
+
 /// Lịch sử sử dụng mã giảm giá
 model DiscountUsage {
   id         String   @id @default(uuid()) @db.VarChar(36)

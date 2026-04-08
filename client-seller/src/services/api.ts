@@ -18,6 +18,9 @@ import type {
   VoucherListResponse,
   VoucherResponse,
   VoucherUpsertCommand,
+  BannerListResponse,
+  BannerResponse,
+  BannerUpsertCommand,
 } from "@/types/api";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
 import type {
@@ -254,6 +257,50 @@ export const voucherService = {
   ): Promise<VoucherResponse> => {
     const response = await apiClient.patch(`/admin/vouchers/${id}/status`, {
       isActive,
+    });
+    return response.data;
+  },
+};
+
+export const bannerService = {
+  getBanners: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+  }): Promise<BannerListResponse> => {
+    const response = await apiClient.get("/admin/banners", { params });
+    return response.data;
+  },
+
+  createBanner: async (data: BannerUpsertCommand): Promise<BannerResponse> => {
+    const response = await apiClient.post("/admin/banners", data);
+    return response.data;
+  },
+
+  updateBanner: async (
+    id: string,
+    data: BannerUpsertCommand,
+  ): Promise<BannerResponse> => {
+    const response = await apiClient.put(`/admin/banners/${id}`, data);
+    return response.data;
+  },
+
+  updateStatus: async (
+    id: string,
+    isActive: boolean,
+  ): Promise<BannerResponse> => {
+    const response = await apiClient.patch(`/admin/banners/${id}/status`, {
+      isActive,
+    });
+    return response.data;
+  },
+
+  getUploadSignature: async (
+    folder = "banners",
+  ): Promise<CloudinarySignatureResponse> => {
+    const response = await apiClient.post("/admin/banners/cloudinary/sign", {
+      folder,
     });
     return response.data;
   },

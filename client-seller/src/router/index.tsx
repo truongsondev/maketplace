@@ -8,6 +8,7 @@ import Dashboard from "../page/dashboard";
 import NotFound from "../page/not-found";
 import OrdersPage from "../page/order/orders";
 import VouchersPage from "../page/voucher/vouchers";
+import BannersPage from "../page/banner/banners";
 
 export default function AppRouter() {
   return (
@@ -67,6 +68,14 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <VouchersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/banner"
+        element={
+          <ProtectedRoute>
+            <BannersPage />
           </ProtectedRoute>
         }
       />
