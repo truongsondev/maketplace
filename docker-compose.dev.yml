@@ -79,6 +79,46 @@ services:
       - dev-network
     command: sh -c "npm ci && npx prisma generate && npx prisma migrate deploy && npm run dev"
 
+  # PayOS Reconcile Worker (periodic safety-net)
+  payos-reconcile-worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: dev-payos-reconcile-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PAYOS_RECONCILE_INTERVAL_MS: 60000
+      PAYOS_RECONCILE_BATCH_SIZE: 50
+      PAYOS_RECONCILE_CONCURRENCY: 6
+      PAYOS_RECONCILE_MIN_AGE_SECONDS: 30
+      PAYOS_RECONCILE_MAX_AGE_HOURS: 24
+      PAYOS_RECONCILE_LOCK_KEY: locks:payos-reconcile
+      PAYOS_RECONCILE_LOCK_TTL_MS: 55000
+      DATABASE_URL: mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: app_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: root
+    env_file:
+      - ./server/.env.development
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/generated
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dev-network
+    command: sh -c "npm ci && npx prisma generate && npm run payos:worker:dev"
+
   # Admin Frontend (React - client-seller)
   admin-client:
     build:

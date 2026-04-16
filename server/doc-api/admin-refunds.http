@@ -1,0 +1,14 @@
+### Get refunds
+GET http://localhost:8080/api/admin/refunds?page=1&limit=20&status=PENDING&type=CANCEL_REFUND
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}
+
+### Get refund detail
+GET http://localhost:8080/api/admin/refunds/{{REFUND_ID}}
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}
+
+### Retry refund
+POST http://localhost:8080/api/admin/refunds/{{REFUND_ID}}/retry
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}
+Content-Type: application/json
+
+{}

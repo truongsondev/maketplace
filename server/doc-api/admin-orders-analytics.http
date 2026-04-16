@@ -1,0 +1,7 @@
+### Admin Orders Analytics: Status breakdown
+GET http://localhost:8080/api/admin/orders/analytics/status?days=30
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}
+
+### Admin Orders Analytics: Timeseries
+GET http://localhost:8080/api/admin/orders/analytics/timeseries?days=30
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}

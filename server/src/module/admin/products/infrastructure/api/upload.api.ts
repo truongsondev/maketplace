@@ -52,6 +52,10 @@ export class UploadAPI {
     if (body.sortOrder !== undefined && typeof body.sortOrder !== 'number') {
       throw new BadRequestError('sortOrder must be a number');
     }
+
+    if (body.variantId !== undefined && typeof body.variantId !== 'string') {
+      throw new BadRequestError('variantId must be a string');
+    }
   }
 
   private validateDeleteProductImageInput(body: any): void {
@@ -80,7 +84,9 @@ export class UploadAPI {
 
     const command: SaveProductImageCommand = {
       productId: req.params.id as string,
+      publicId: req.body.publicId,
       url: req.body.url,
+      variantId: req.body.variantId,
       altText: req.body.altText,
       isPrimary: req.body.isPrimary,
       sortOrder: req.body.sortOrder,

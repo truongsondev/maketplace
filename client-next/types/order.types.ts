@@ -19,10 +19,47 @@ export type OrderStatus =
 
 export type ReturnFlowStatus =
   | "REQUESTED"
+  | "APPROVED"
   | "WAITING_PICKUP"
+  | "SHIPPING"
   | "RETURNING"
   | "COMPLETED"
   | "REJECTED";
+
+export type RefundType = "CANCEL_REFUND" | "RETURN_REFUND";
+export type RefundStatus = "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+export type CancelReasonCode =
+  | "NO_LONGER_NEEDED"
+  | "BUY_OTHER_ITEM"
+  | "FOUND_CHEAPER"
+  | "OTHER";
+export type CancelRequestStatus =
+  | "REQUESTED"
+  | "APPROVED"
+  | "REJECTED"
+  | "COMPLETED";
+
+export interface OrderRefundInfo {
+  id: string;
+  type: RefundType;
+  status: RefundStatus;
+  amount: string;
+  requestedAt: string;
+  processedAt: string | null;
+  failureReason: string | null;
+}
+
+export interface OrderCancelRequestInfo {
+  id: string;
+  status: CancelRequestStatus;
+  reasonCode: CancelReasonCode;
+  reasonText: string | null;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankName: string;
+  approvedAt: string | null;
+  completedAt: string | null;
+}
 
 export interface OrderListItemProduct {
   id: string;
@@ -40,6 +77,8 @@ export interface MyOrderListItem {
   createdAt: string;
   status: OrderStatus;
   returnStatus?: ReturnFlowStatus | null;
+  refund?: OrderRefundInfo | null;
+  cancelRequest?: OrderCancelRequestInfo | null;
   totalPrice: string;
   orderCode: string | null;
   payment: {

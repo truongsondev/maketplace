@@ -50,13 +50,13 @@ export function ProductsTable({
     onSortChange(field, newOrder);
   };
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
+    if (!confirm("Bạn có chắc muốn xóa sản phẩm này không?")) return;
     try {
       await productService.deleteProduct(id);
-      toast.success("Product deleted successfully");
+      toast.success("Đã xóa sản phẩm");
       onRefresh();
     } catch (error) {
-      toast.error("Failed to delete product");
+      toast.error("Xóa sản phẩm thất bại");
       console.error(error);
     }
   };
@@ -88,14 +88,14 @@ export function ProductsTable({
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="text-sm text-gray-600">
-          Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-          {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-          {pagination.total} products
+          Hiển thị {(pagination.page - 1) * pagination.limit + 1}–
+          {Math.min(pagination.page * pagination.limit, pagination.total)} /{" "}
+          {pagination.total} sản phẩm
         </div>
         <button
           onClick={onRefresh}
           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          title="Refresh"
+          title="Làm mới"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
@@ -115,46 +115,46 @@ export function ProductsTable({
                 />
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                Product
+                Sản phẩm
               </th>
               <th
                 className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort("basePrice")}
               >
                 <div className="flex items-center gap-2">
-                  Price
+                  Giá
                   <ArrowUpDown className="w-4 h-4" />
                 </div>
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                Variants
+                Biến thể
               </th>
               <th
                 className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort("totalStock")}
               >
                 <div className="flex items-center gap-2">
-                  Stock
+                  Tồn kho
                   <ArrowUpDown className="w-4 h-4" />
                 </div>
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                Category
+                Danh mục
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                Status
+                Trạng thái
               </th>
               <th
                 className="px-6 py-4 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort("createdAt")}
               >
                 <div className="flex items-center gap-2">
-                  Created
+                  Ngày tạo
                   <ArrowUpDown className="w-4 h-4" />
                 </div>
               </th>
               <th className="px-6 py-4 text-right text-xs font-semibold text-gray-900 uppercase tracking-wider">
-                Actions
+                Thao tác
               </th>
             </tr>
           </thead>
@@ -165,7 +165,7 @@ export function ProductsTable({
                   colSpan={9}
                   className="px-6 py-12 text-center text-gray-500"
                 >
-                  No products found. Create your first product to get started.
+                  Không tìm thấy sản phẩm. Hãy tạo sản phẩm đầu tiên để bắt đầu.
                 </td>
               </tr>
             ) : (
@@ -196,7 +196,7 @@ export function ProductsTable({
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            No image
+                            Chưa có ảnh
                           </div>
                         )}
                       </div>
@@ -205,8 +205,7 @@ export function ProductsTable({
                           {product.name}
                         </p>
                         <p className="text-xs text-gray-600">
-                          {product.variantsSummary.count} variant
-                          {product.variantsSummary.count !== 1 ? "s" : ""}
+                          {product.variantsSummary.count} biến thể
                         </p>
                       </div>
                     </Link>
@@ -236,7 +235,7 @@ export function ProductsTable({
                       </span>
                       {product.variantsSummary.lowStockCount > 0 && (
                         <span className="text-xs text-yellow-600">
-                          {product.variantsSummary.lowStockCount} low
+                          {product.variantsSummary.lowStockCount} sắp hết
                         </span>
                       )}
                     </div>
@@ -264,7 +263,11 @@ export function ProductsTable({
                         product.status,
                       )}`}
                     >
-                      {product.status}
+                      {product.status === "active"
+                        ? "Đang hoạt động"
+                        : product.status === "inactive"
+                          ? "Tạm ngưng"
+                          : "Đã xóa"}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -277,14 +280,14 @@ export function ProductsTable({
                       <Link
                         to={`/products/${product.id}`}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit"
+                        title="Sửa"
                       >
                         <Edit2 className="w-4 h-4" />
                       </Link>
                       <button
                         onClick={() => handleDelete(product.id)}
                         className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
+                        title="Xóa"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -307,7 +310,7 @@ export function ProductsTable({
             <ChevronLeft className="w-5 h-5" />
           </button>
           <span className="text-sm text-gray-700">
-            Page {pagination.page} of {pagination.totalPages}
+            Trang {pagination.page} / {pagination.totalPages}
           </span>
           <button
             onClick={() => onPageChange(pagination.page + 1)}
@@ -319,7 +322,7 @@ export function ProductsTable({
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Rows per page:</span>
+          <span className="text-sm text-gray-600">Số dòng mỗi trang:</span>
           <select
             value={pagination.limit}
             onChange={() => {

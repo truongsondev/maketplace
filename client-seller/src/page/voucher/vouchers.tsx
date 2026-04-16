@@ -60,6 +60,63 @@ function getErrorMessage(error: unknown, fallback: string): string {
   );
 }
 
+type VoucherDisplayStatus = "active" | "inactive" | "expired" | "depleted";
+
+function getVoucherDisplayStatus(item: VoucherItem): VoucherDisplayStatus {
+  const now = Date.now();
+  const endAtMs = new Date(item.endAt).getTime();
+
+  if (!Number.isNaN(endAtMs) && now > endAtMs) {
+    return "expired";
+  }
+
+  if (item.maxUsage !== null && item.usedCount >= item.maxUsage) {
+    return "depleted";
+  }
+
+  if (!item.isActive) {
+    return "inactive";
+  }
+
+  return "active";
+}
+
+function getVoucherStatusBadge(status: VoucherDisplayStatus): {
+  label: string;
+  className: string;
+} {
+  switch (status) {
+    case "expired":
+      return {
+        label: "Hết hạn",
+        className: "bg-red-100 text-red-700",
+      };
+    case "depleted":
+      return {
+        label: "Hết lượt",
+        className: "bg-amber-100 text-amber-700",
+      };
+    case "inactive":
+      return {
+        label: "Tạm tắt",
+        className: "bg-gray-100 text-gray-600",
+      };
+    default:
+      return {
+        label: "Đang hoạt động",
+        className: "bg-green-100 text-green-700",
+      };
+  }
+}
+
+function formatVoucherTypeLabel(type: VoucherType): string {
+  if (type === "PERCENTAGE") {
+    return "Phần trăm";
+  }
+
+  return "Số tiền cố định";
+}
+
 export default function VouchersPage() {
   const [items, setItems] = useState<VoucherItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +144,7 @@ export default function VouchersPage() {
       });
       setItems(response.data.items);
     } catch (error) {
-      toast.error("Failed to load vouchers");
+      toast.error("Không thể tải danh sách voucher");
       console.error(error);
     } finally {
       setLoading(false);
@@ -172,7 +229,7 @@ export default function VouchersPage() {
 
       const normalizedCode = form.code.trim().toUpperCase();
       if (!normalizedCode) {
-        toast.error("Voucher code is required");
+        toast.error("Vui lòng nhập mã voucher");
         return;
       }
 
@@ -206,16 +263,16 @@ export default function VouchersPage() {
 
       if (editingId) {
         await voucherService.updateVoucher(editingId, payload);
-        toast.success("Voucher updated successfully");
+        toast.success("Cập nhật voucher thành công");
       } else {
         await voucherService.createVoucher(payload);
-        toast.success("Voucher created successfully");
+        toast.success("Tạo voucher thành công");
       }
 
       resetForm();
       await loadVouchers();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to save voucher"));
+      toast.error(getErrorMessage(error, "Không thể lưu voucher"));
     } finally {
       setIsUploadingBanner(false);
       setSaving(false);
@@ -225,10 +282,10 @@ export default function VouchersPage() {
   const toggleStatus = async (item: VoucherItem) => {
     try {
       await voucherService.updateStatus(item.id, !item.isActive);
-      toast.success("Voucher status updated");
+      toast.success("Cập nhật trạng thái voucher thành công");
       await loadVouchers();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update status"));
+      toast.error(getErrorMessage(error, "Không thể cập nhật trạng thái"));
     }
   };
 
@@ -246,13 +303,13 @@ export default function VouchersPage() {
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 {editingItem
-                  ? `Edit Voucher ${editingItem.code}`
-                  : "Create Voucher"}
+                  ? `Chỉnh sửa voucher ${editingItem.code}`
+                  : "Tạo voucher"}
               </h2>
 
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <label className="block text-sm text-gray-700">
-                  Code
+                  Mã voucher
                   <input
                     value={form.code}
                     onChange={(e) =>
@@ -264,7 +321,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Type
+                  Loại
                   <select
                     value={form.type}
                     onChange={(e) =>
@@ -275,13 +332,13 @@ export default function VouchersPage() {
                     }
                     className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
                   >
-                    <option value="PERCENTAGE">PERCENTAGE</option>
-                    <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+                    <option value="PERCENTAGE">Phần trăm</option>
+                    <option value="FIXED_AMOUNT">Số tiền cố định</option>
                   </select>
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Value
+                  Giá trị
                   <input
                     type="number"
                     value={form.value}
@@ -296,7 +353,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Max Discount
+                  Giảm tối đa
                   <input
                     type="number"
                     value={form.maxDiscount ?? ""}
@@ -313,7 +370,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Min Order Amount
+                  Đơn tối thiểu
                   <input
                     type="number"
                     value={form.minOrderAmount ?? ""}
@@ -330,7 +387,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Max Usage
+                  Lượt dùng tối đa
                   <input
                     type="number"
                     value={form.maxUsage ?? ""}
@@ -347,7 +404,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  User Usage Limit
+                  Giới hạn mỗi người dùng
                   <input
                     type="number"
                     value={form.userUsageLimit ?? ""}
@@ -364,7 +421,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Start At
+                  Bắt đầu
                   <input
                     type="datetime-local"
                     value={toDateTimeLocalValue(form.startAt)}
@@ -379,7 +436,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  End At
+                  Kết thúc
                   <input
                     type="datetime-local"
                     value={toDateTimeLocalValue(form.endAt)}
@@ -394,7 +451,7 @@ export default function VouchersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700 md:col-span-2">
-                  Banner Image URL
+                  URL ảnh banner
                   <input
                     value={form.bannerImageUrl ?? ""}
                     onChange={(e) =>
@@ -435,14 +492,14 @@ export default function VouchersPage() {
                     </p>
                     <img
                       src={form.bannerImageUrl}
-                      alt="Voucher banner preview"
+                      alt="Xem trước banner voucher"
                       className="h-28 w-full max-w-xl rounded-lg border border-gray-200 object-cover"
                     />
                   </div>
                 ) : null}
 
                 <label className="block text-sm text-gray-700 md:col-span-3">
-                  Description
+                  Mô tả
                   <textarea
                     value={form.description ?? ""}
                     onChange={(e) =>
@@ -463,17 +520,17 @@ export default function VouchersPage() {
                   className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
                 >
                   {saving
-                    ? "Saving..."
+                    ? "Đang lưu..."
                     : editingId
-                      ? "Update Voucher"
-                      : "Create Voucher"}
+                      ? "Cập nhật voucher"
+                      : "Tạo voucher"}
                 </button>
                 {editingId && (
                   <button
                     onClick={resetForm}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700"
                   >
-                    Cancel Edit
+                    Hủy chỉnh sửa
                   </button>
                 )}
               </div>
@@ -485,13 +542,13 @@ export default function VouchersPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="h-10 flex-1 rounded-lg border border-gray-300 px-3"
-                  placeholder="Search voucher code or description"
+                  placeholder="Tìm theo mã hoặc mô tả voucher"
                 />
                 <button
                   onClick={onSearch}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700"
                 >
-                  Search
+                  Tìm kiếm
                 </button>
               </div>
 
@@ -499,74 +556,81 @@ export default function VouchersPage() {
                 <table className="w-full min-w-220 text-left text-sm">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
-                      <th className="px-3 py-2">Code</th>
-                      <th className="px-3 py-2">Type</th>
-                      <th className="px-3 py-2">Value</th>
-                      <th className="px-3 py-2">Usage</th>
-                      <th className="px-3 py-2">Time Range</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Actions</th>
+                      <th className="px-3 py-2">Mã</th>
+                      <th className="px-3 py-2">Loại</th>
+                      <th className="px-3 py-2">Giá trị</th>
+                      <th className="px-3 py-2">Lượt dùng</th>
+                      <th className="px-3 py-2">Thời gian áp dụng</th>
+                      <th className="px-3 py-2">Trạng thái</th>
+                      <th className="px-3 py-2">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
                         <td className="px-3 py-4" colSpan={7}>
-                          Loading vouchers...
+                          Đang tải danh sách voucher...
                         </td>
                       </tr>
                     ) : items.length === 0 ? (
                       <tr>
                         <td className="px-3 py-4" colSpan={7}>
-                          No vouchers found.
+                          Không tìm thấy voucher.
                         </td>
                       </tr>
                     ) : (
-                      items.map((item) => (
-                        <tr key={item.id} className="border-t border-gray-100">
-                          <td className="px-3 py-2 font-semibold text-gray-900">
-                            {item.code}
-                          </td>
-                          <td className="px-3 py-2">{item.type}</td>
-                          <td className="px-3 py-2">
-                            {item.type === "PERCENTAGE"
-                              ? `${item.value}%`
-                              : `${item.value.toLocaleString("vi-VN")} đ`}
-                          </td>
-                          <td className="px-3 py-2">
-                            {item.usedCount}/{item.maxUsage ?? "∞"}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-gray-600">
-                            {new Date(item.startAt).toLocaleString()} -{" "}
-                            {new Date(item.endAt).toLocaleString()}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span
-                              className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                item.isActive
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {item.isActive ? "Active" : "Inactive"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 space-x-2">
-                            <button
-                              onClick={() => onEdit(item)}
-                              className="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => toggleStatus(item)}
-                              className="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
-                            >
-                              {item.isActive ? "Disable" : "Enable"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))
+                      items.map((item) => {
+                        const displayStatus = getVoucherDisplayStatus(item);
+                        const statusBadge =
+                          getVoucherStatusBadge(displayStatus);
+
+                        return (
+                          <tr
+                            key={item.id}
+                            className="border-t border-gray-100"
+                          >
+                            <td className="px-3 py-2 font-semibold text-gray-900">
+                              {item.code}
+                            </td>
+                            <td className="px-3 py-2">
+                              {formatVoucherTypeLabel(item.type)}
+                            </td>
+                            <td className="px-3 py-2">
+                              {item.type === "PERCENTAGE"
+                                ? `${item.value}%`
+                                : `${item.value.toLocaleString("vi-VN")} đ`}
+                            </td>
+                            <td className="px-3 py-2">
+                              {item.usedCount}/{item.maxUsage ?? "∞"}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-gray-600">
+                              {new Date(item.startAt).toLocaleString()} -{" "}
+                              {new Date(item.endAt).toLocaleString()}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`rounded-full px-2 py-1 text-xs font-semibold ${statusBadge.className}`}
+                              >
+                                {statusBadge.label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 space-x-2">
+                              <button
+                                onClick={() => onEdit(item)}
+                                className="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => toggleStatus(item)}
+                                className="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
+                              >
+                                {item.isActive ? "Tắt" : "Bật"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

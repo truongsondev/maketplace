@@ -68,6 +68,7 @@ export class LoginUseCase implements ILoginUseCase {
     await Promise.all([
       this.redisCache.set(`session:${accessToken}`, user.id!, ACCESS_TOKEN_TTL_SECONDS),
       this.tokenRepo.saveToken(user.id!, hashedRefreshToken, deviceInfo),
+      this.userRepo.updateLastLogin(user.id!),
     ]);
 
     this.logger.info('User logged in successfully', { userId: user.id, email, deviceInfo });

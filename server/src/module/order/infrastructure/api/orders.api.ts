@@ -1,14 +1,11 @@
 import express, { Request, Response } from 'express';
-import type { Prisma, PrismaClient } from '@/generated/prisma/client';
-import type { OrderStatus } from '@/generated/prisma/enums';
+import type { CancelReason } from '@/generated/prisma/enums';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import type { OrderReturnsController } from '../../interface-adapter/controller/order-returns.controller';
-
-type OrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'completed' | 'canceled';
-
-type OrderSort = 'new' | 'old';
+import type { OrdersController } from '../../interface-adapter/controller/orders.controller';
+import type { OrderSort, OrderTab } from '../../applications/dto/order.dto';
 
 function parsePositiveInt(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -16,55 +13,100 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return Math.floor(n);
 }
 
-function mapTabToStatuses(tab: OrderTab | undefined): OrderStatus[] | undefined {
-  if (!tab || tab === 'all') return undefined;
-  if (tab === 'pending') return ['PENDING'];
-  if (tab === 'processing') return ['CONFIRMED', 'PAID'];
-  if (tab === 'shipped') return ['SHIPPED'];
-  if (tab === 'completed') return ['DELIVERED'];
-  if (tab === 'canceled') return ['CANCELLED'];
-  return undefined;
-}
-
-function pickPrimaryImageUrl(input: {
-  variantImages?: Array<{ url: string; isPrimary: boolean; sortOrder: number }>;
-  productImages?: Array<{ url: string; isPrimary: boolean; sortOrder: number }>;
-}): string | null {
-  const images = [...(input.variantImages ?? []), ...(input.productImages ?? [])];
-  if (images.length === 0) return null;
-
-  const sorted = images
-    .slice()
-    .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0) || a.sortOrder - b.sortOrder);
-
-  return sorted[0]?.url ?? null;
-}
-
-function safeAttributesToText(attributes: unknown): string {
-  if (!attributes || typeof attributes !== 'object') return '';
-  const entries = Object.entries(attributes as Record<string, unknown>)
-    .filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .slice(0, 6);
-  return entries.map(([k, v]) => `${k}: ${String(v)}`).join(' • ');
+function parseCancelReason(value: unknown): CancelReason {
+  const reason = String(value || '').toUpperCase();
+  if (reason === 'NO_LONGER_NEEDED') return 'NO_LONGER_NEEDED';
+  if (reason === 'BUY_OTHER_ITEM') return 'BUY_OTHER_ITEM';
+  if (reason === 'FOUND_CHEAPER') return 'FOUND_CHEAPER';
+  if (reason === 'OTHER') return 'OTHER';
+  throw new BadRequestError('Invalid cancel reason');
 }
 
 export class OrdersAPI {
   readonly router = express.Router();
 
   constructor(
-    private readonly prisma: PrismaClient,
+    private readonly ordersController: OrdersController,
     private readonly orderReturnsController: OrderReturnsController,
   ) {
     this.initializeRoutes();
   }
 
   private initializeRoutes(): void {
+    if (process.env.NODE_ENV === 'development') {
+      this.router.get('/_debug/me', asyncHandler(this.debugMe.bind(this)));
+    }
+
     this.router.get('/', asyncHandler(this.listMyOrders.bind(this)));
     this.router.get('/counts', asyncHandler(this.getMyCounts.bind(this)));
     this.router.get('/:orderId', asyncHandler(this.getMyOrderDetail.bind(this)));
     this.router.post('/:orderId/cancel', asyncHandler(this.cancelMyOrder.bind(this)));
+    this.router.post('/:orderId/cancel-request', asyncHandler(this.requestPaidCancel.bind(this)));
     this.router.post('/:orderId/confirm-received', asyncHandler(this.confirmReceived.bind(this)));
     this.router.post('/:orderId/return', asyncHandler(this.requestReturn.bind(this)));
+  }
+
+  private async debugMe(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    const user = (req as any).user as { id?: string; email?: string } | undefined;
+
+    res.status(200).json(
+      ResponseFormatter.success(
+        {
+          userId: userId ?? null,
+          email: user?.email ?? null,
+        },
+        'OK',
+      ),
+    );
+  }
+
+  private async requestPaidCancel(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const reasonCode = parseCancelReason((req.body as any)?.reasonCode);
+    const reasonTextRaw = String((req.body as any)?.reasonText || '').trim();
+    const reasonText = reasonTextRaw ? reasonTextRaw.slice(0, 500) : null;
+    const bankAccountName = String((req.body as any)?.bankAccountName || '').trim();
+    const bankAccountNumber = String((req.body as any)?.bankAccountNumber || '').trim();
+    const bankName = String((req.body as any)?.bankName || '').trim();
+
+    if (!bankAccountName || !bankAccountNumber || !bankName) {
+      throw new BadRequestError('bankAccountName, bankAccountNumber and bankName are required');
+    }
+
+    if (reasonCode === 'OTHER' && !reasonText) {
+      throw new BadRequestError('reasonText is required when reasonCode is OTHER');
+    }
+
+    const updated = await this.ordersController.requestPaidCancel(userId, {
+      orderId,
+      reasonCode,
+      reasonText,
+      bankAccountName,
+      bankAccountNumber,
+      bankName,
+    });
+
+    res.status(200).json(
+      ResponseFormatter.success(
+        {
+          id: updated.id,
+          status: updated.status,
+          cancelRequestStatus: updated.cancelRequestStatus,
+        },
+        'Cancellation request submitted, waiting for admin approval',
+      ),
+    );
   }
 
   private async confirmReceived(req: Request, res: Response): Promise<void> {
@@ -79,43 +121,7 @@ export class OrdersAPI {
       throw new BadRequestError('orderId is required');
     }
 
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
-      select: { id: true, status: true },
-    });
-
-    if (!order) {
-      throw new BadRequestError('Order not found');
-    }
-
-    if (order.status === 'DELIVERED') {
-      res.status(200).json(ResponseFormatter.success({ id: order.id, status: order.status }, 'OK'));
-      return;
-    }
-
-    if (order.status !== 'SHIPPED') {
-      throw new BadRequestError('Only shipped orders can be confirmed as received');
-    }
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'DELIVERED' },
-        select: { id: true, status: true },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          oldStatus: order.status,
-          newStatus: 'DELIVERED',
-          changedBy: userId,
-        },
-      });
-
-      return updatedOrder;
-    });
-
+    const updated = await this.ordersController.confirmReceived(userId, orderId);
     res.status(200).json(ResponseFormatter.success(updated, 'Order confirmed as received'));
   }
 
@@ -151,6 +157,7 @@ export class OrdersAPI {
 
   private async listMyOrders(req: Request, res: Response): Promise<void> {
     const userId = req.userId;
+    console.log('OrdersAPI.listMyOrders called with userId:', userId);
     if (!userId) {
       throw new BadRequestError('User ID not found');
     }
@@ -161,114 +168,15 @@ export class OrdersAPI {
 
     const page = parsePositiveInt(req.query.page, 1);
     const limit = Math.min(parsePositiveInt(req.query.limit, 10), 50);
-    const skip = (page - 1) * limit;
+    const result = await this.ordersController.listMyOrders(userId, {
+      tab,
+      search: search ?? null,
+      sort,
+      page,
+      limit,
+    });
 
-    const statuses = mapTabToStatuses(tab);
-
-    const where: Prisma.OrderWhereInput = {
-      userId,
-      ...(statuses ? { status: { in: statuses } } : {}),
-      ...(search
-        ? {
-            OR: [
-              { id: { contains: search } },
-              { paymentTransaction: { orderCode: { contains: search } } },
-            ],
-          }
-        : {}),
-    };
-
-    const orderBy: Prisma.OrderOrderByWithRelationInput =
-      sort === 'old' ? { createdAt: 'asc' } : { createdAt: 'desc' };
-
-    const [total, orders] = await Promise.all([
-      this.prisma.order.count({ where }),
-      this.prisma.order.findMany({
-        where,
-        orderBy,
-        skip,
-        take: limit,
-        select: {
-          id: true,
-          createdAt: true,
-          status: true,
-          returnStatus: true,
-          totalPrice: true,
-          payment: { select: { method: true, status: true, paidAt: true } },
-          paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
-          items: {
-            select: {
-              id: true,
-              productId: true,
-              variantId: true,
-              quantity: true,
-              price: true,
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  images: { select: { url: true, isPrimary: true, sortOrder: true } },
-                },
-              },
-              variant: {
-                select: {
-                  id: true,
-                  attributes: true,
-                  images: { select: { url: true, isPrimary: true, sortOrder: true } },
-                },
-              },
-            },
-          },
-        },
-      }),
-    ]);
-
-    const items = orders.map((o) => ({
-      id: o.id,
-      createdAt: o.createdAt,
-      status: o.status,
-      returnStatus: o.returnStatus ?? null,
-      totalPrice: o.totalPrice,
-      orderCode: o.paymentTransaction?.orderCode ?? null,
-      payment: {
-        method: o.payment?.method ?? null,
-        status: o.payment?.status ?? null,
-        paidAt: o.payment?.paidAt ?? null,
-        transactionStatus: o.paymentTransaction?.status ?? null,
-        transactionPaidAt: o.paymentTransaction?.paidAt ?? null,
-      },
-      items: o.items.map((it) => {
-        const imageUrl = pickPrimaryImageUrl({
-          variantImages: it.variant?.images,
-          productImages: it.product.images,
-        });
-        return {
-          id: it.id,
-          productId: it.productId,
-          variantId: it.variantId,
-          name: it.product.name,
-          imageUrl,
-          attributesText: safeAttributesToText(it.variant?.attributes),
-          quantity: it.quantity,
-          price: it.price,
-        };
-      }),
-    }));
-
-    res.status(200).json(
-      ResponseFormatter.success(
-        {
-          items,
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages: Math.ceil(total / limit),
-          },
-        },
-        'Orders fetched successfully',
-      ),
-    );
+    res.status(200).json(ResponseFormatter.success(result, 'Orders fetched successfully'));
   }
 
   private async getMyCounts(req: Request, res: Response): Promise<void> {
@@ -277,32 +185,8 @@ export class OrdersAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rows = await this.prisma.order.groupBy({
-      by: ['status'],
-      where: { userId },
-      _count: { _all: true },
-    });
-
-    const counts = rows.reduce(
-      (acc, r) => {
-        acc[r.status] = r._count._all;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-
-    const pending = counts.PENDING ?? 0;
-    const processing = (counts.CONFIRMED ?? 0) + (counts.PAID ?? 0);
-    const shipped = counts.SHIPPED ?? 0;
-    const completed = counts.DELIVERED ?? 0;
-    const canceled = counts.CANCELLED ?? 0;
-    const all = Object.values(counts).reduce((sum, n) => sum + n, 0);
-
-    res
-      .status(200)
-      .json(
-        ResponseFormatter.success({ all, pending, processing, shipped, completed, canceled }, 'OK'),
-      );
+    const result = await this.ordersController.getMyCounts(userId);
+    res.status(200).json(ResponseFormatter.success(result, 'OK'));
   }
 
   private async getMyOrderDetail(req: Request, res: Response): Promise<void> {
@@ -317,78 +201,7 @@ export class OrdersAPI {
       throw new BadRequestError('orderId is required');
     }
 
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
-      select: {
-        id: true,
-        createdAt: true,
-        status: true,
-        returnStatus: true,
-        totalPrice: true,
-        payment: { select: { method: true, status: true, paidAt: true } },
-        paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
-        items: {
-          select: {
-            id: true,
-            productId: true,
-            variantId: true,
-            quantity: true,
-            price: true,
-            product: {
-              select: {
-                id: true,
-                name: true,
-                images: { select: { url: true, isPrimary: true, sortOrder: true } },
-              },
-            },
-            variant: {
-              select: {
-                id: true,
-                attributes: true,
-                images: { select: { url: true, isPrimary: true, sortOrder: true } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!order) {
-      throw new BadRequestError('Order not found');
-    }
-
-    const dto = {
-      id: order.id,
-      createdAt: order.createdAt,
-      status: order.status,
-      returnStatus: order.returnStatus ?? null,
-      totalPrice: order.totalPrice,
-      orderCode: order.paymentTransaction?.orderCode ?? null,
-      payment: {
-        method: order.payment?.method ?? null,
-        status: order.payment?.status ?? null,
-        paidAt: order.payment?.paidAt ?? null,
-        transactionStatus: order.paymentTransaction?.status ?? null,
-        transactionPaidAt: order.paymentTransaction?.paidAt ?? null,
-      },
-      items: order.items.map((it) => {
-        const imageUrl = pickPrimaryImageUrl({
-          variantImages: it.variant?.images,
-          productImages: it.product.images,
-        });
-        return {
-          id: it.id,
-          productId: it.productId,
-          variantId: it.variantId,
-          name: it.product.name,
-          imageUrl,
-          attributesText: safeAttributesToText(it.variant?.attributes),
-          quantity: it.quantity,
-          price: it.price,
-        };
-      }),
-    };
-
+    const dto = await this.ordersController.getMyOrderDetail(userId, orderId);
     res.status(200).json(ResponseFormatter.success(dto, 'OK'));
   }
 
@@ -404,43 +217,7 @@ export class OrdersAPI {
       throw new BadRequestError('orderId is required');
     }
 
-    const order = await this.prisma.order.findFirst({
-      where: { id: orderId, userId },
-      select: { id: true, status: true },
-    });
-
-    if (!order) {
-      throw new BadRequestError('Order not found');
-    }
-
-    if (order.status === 'CANCELLED') {
-      res.status(200).json(ResponseFormatter.success({ id: order.id, status: order.status }, 'OK'));
-      return;
-    }
-
-    if (['SHIPPED', 'DELIVERED', 'RETURNED'].includes(order.status)) {
-      throw new BadRequestError('Cannot cancel an order that is already shipped/delivered');
-    }
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id: orderId },
-        data: { status: 'CANCELLED' },
-        select: { id: true, status: true },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          oldStatus: order.status,
-          newStatus: 'CANCELLED',
-          changedBy: userId,
-        },
-      });
-
-      return updatedOrder;
-    });
-
+    const updated = await this.ordersController.cancelMyOrder(userId, orderId);
     res.status(200).json(ResponseFormatter.success(updated, 'Order cancelled'));
   }
 }

@@ -12,4 +12,16 @@ export const addressService = {
 
     throw response as ApiErrorResponse;
   },
+
+  async getLastUsedAddress(): Promise<UserAddress | null> {
+    const response = await apiClient.get<UserAddress | null>(
+      "api/addresses/last-used",
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<UserAddress | null>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
 };

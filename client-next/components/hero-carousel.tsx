@@ -227,7 +227,7 @@ export function HeroCarousel() {
       <button
         onClick={prev}
         className="absolute left-6 md:left-8 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center size-12 md:size-14 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md transition-all hover:scale-110 text-white group"
-        aria-label="Previous slide"
+        aria-label="Slide trước"
       >
         <ChevronLeft className="size-6 md:size-7 group-hover:scale-125 transition-transform" />
       </button>
@@ -235,7 +235,7 @@ export function HeroCarousel() {
       <button
         onClick={next}
         className="absolute right-6 md:right-8 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center size-12 md:size-14 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md transition-all hover:scale-110 text-white group"
-        aria-label="Next slide"
+        aria-label="Slide tiếp theo"
       >
         <ChevronRight className="size-6 md:size-7 group-hover:scale-125 transition-transform" />
       </button>
@@ -251,7 +251,7 @@ export function HeroCarousel() {
                 ? "w-8 md:w-10 h-2 md:h-2.5 bg-orange-500"
                 : "w-2 md:w-2.5 h-2 md:h-2.5 bg-white/40 hover:bg-white/60"
             } rounded-full`}
-            aria-label={`Go to slide ${index + 1}`}
+            aria-label={`Chuyển đến slide ${index + 1}`}
           />
         ))}
       </div>

@@ -67,6 +67,13 @@
 }
 ```
 
+### POST /api/vouchers/apply
+
+- Auth: Required
+- Description: Apply voucher tại trang /cart (tính giảm giá theo giỏ hàng hiện tại).
+- Body: giống `/api/vouchers/validate`
+- Response: giống `/api/vouchers/validate`
+
 ## 2. Admin Voucher APIs
 
 ### GET /api/admin/vouchers?page=1&limit=20&search=&isActive=true

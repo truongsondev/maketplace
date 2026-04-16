@@ -4,9 +4,20 @@ import type {
   AdminOrderListItem,
   AdminOrderSort,
   AdminOrderTab,
+  OrderStatus,
+  AdminOrderStatusBreakdown,
+  AdminOrderTimeseries,
 } from "@/types/order";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
+type RowActionItem = {
+  key: string;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  tone?: "default" | "warning" | "success" | "danger";
+};
 
 function formatMoney(value: string) {
   const n = Number(value);
@@ -53,27 +64,181 @@ function statusText(status: string) {
   switch (status) {
     case "PENDING":
       return "Chờ xác nhận";
+    case "CONFIRMED":
+      return "Đang xử lý";
     case "PAID":
       return "Đã thanh toán";
-    case "CONFIRMED":
-      return "Đã xác nhận";
     case "SHIPPED":
       return "Đang giao";
     case "DELIVERED":
-      return "Đã giao";
+      return "Hoàn thành";
     case "CANCELLED":
       return "Đã hủy";
     case "RETURNED":
-      return "Đã trả";
+      return "Đang trả hàng";
     default:
       return status;
   }
 }
 
+const STATUS_ORDER: OrderStatus[] = [
+  "PENDING",
+  "CONFIRMED",
+  "PAID",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+  "RETURNED",
+];
+
+function buildSparklinePath(values: number[], width: number, height: number) {
+  if (values.length === 0) return "";
+  const max = Math.max(...values, 1);
+  const stepX = values.length === 1 ? 0 : width / (values.length - 1);
+  const points = values.map((v, idx) => {
+    const x = idx * stepX;
+    const y = height - (v / max) * height;
+    return [x, y] as const;
+  });
+  return points
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`)
+    .join(" ");
+}
+
 function primaryActionLabel(status: string) {
   if (status === "PAID") return "Xác nhận";
-  if (status === "CONFIRMED") return "Giao cho shipper";
+  if (status === "CONFIRMED") return "Bàn giao cho shipper";
   return "—";
+}
+
+function cancelReasonText(code: string) {
+  switch (code) {
+    case "NO_LONGER_NEEDED":
+      return "Không muốn mua nữa";
+    case "BUY_OTHER_ITEM":
+      return "Mua hàng khác";
+    case "FOUND_CHEAPER":
+      return "Có chỗ khác rẻ hơn";
+    case "OTHER":
+      return "Khác";
+    default:
+      return code;
+  }
+}
+
+function cancelRequestStatusText(status: string) {
+  switch (status) {
+    case "REQUESTED":
+      return "Chờ duyệt";
+    case "APPROVED":
+      return "Đã duyệt";
+    case "REJECTED":
+      return "Đã từ chối";
+    case "COMPLETED":
+      return "Đã hoàn tất";
+    default:
+      return status;
+  }
+}
+
+function paymentStatusText(status?: string | null) {
+  if (!status) {
+    return "Không rõ";
+  }
+
+  switch (status) {
+    case "PAID":
+    case "SUCCESS":
+      return "Thành công";
+    case "PENDING":
+      return "Đang chờ";
+    case "FAILED":
+      return "Thất bại";
+    case "EXPIRED":
+      return "Hết hạn";
+    default:
+      return status;
+  }
+}
+
+function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
+  if (actions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Mở danh sách tác vụ"
+      >
+        ...
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 top-11 z-30 min-w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+          {actions.map((action) => {
+            const toneClass =
+              action.tone === "danger"
+                ? "text-red-700 hover:bg-red-50"
+                : action.tone === "warning"
+                  ? "text-orange-700 hover:bg-orange-50"
+                  : action.tone === "success"
+                    ? "text-emerald-700 hover:bg-emerald-50"
+                    : "text-slate-700 hover:bg-slate-100";
+
+            return (
+              <button
+                key={action.key}
+                type="button"
+                disabled={action.disabled}
+                onClick={() => {
+                  if (action.disabled) {
+                    return;
+                  }
+                  setOpen(false);
+                  action.onClick();
+                }}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                  action.disabled
+                    ? "cursor-not-allowed text-slate-400"
+                    : toneClass
+                }`}
+              >
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export default function OrdersPage() {
@@ -83,26 +248,52 @@ export default function OrdersPage() {
   const [search, setSearch] = useState<string | undefined>(undefined);
 
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [orders, setOrders] = useState<AdminOrderListItem[]>([]);
   const [counts, setCounts] = useState({
     all: 0,
     pending: 0,
     processing: 0,
     shipped: 0,
+    completed: 0,
     canceled: 0,
   });
 
+  const analyticsDays = 30;
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [statusBreakdown, setStatusBreakdown] = useState<
+    AdminOrderStatusBreakdown | undefined
+  >(undefined);
+  const [timeseries, setTimeseries] = useState<
+    AdminOrderTimeseries | undefined
+  >(undefined);
+
+  const [hoveredStatus, setHoveredStatus] = useState<
+    { status: OrderStatus; value: number; pct: number } | undefined
+  >(undefined);
+  const [hoveredPoint, setHoveredPoint] = useState<
+    { index: number; date: string; total: number } | undefined
+  >(undefined);
+  const [hoveredPointPos, setHoveredPointPos] = useState<
+    { x: number; y: number } | undefined
+  >(undefined);
+
   const tabs = useMemo(
     () => [
-      { key: "all" as const, label: "All", count: counts.all },
-      { key: "pending" as const, label: "Pending", count: counts.pending },
+      { key: "all" as const, label: "Tất cả", count: counts.all },
+      { key: "pending" as const, label: "Chờ xác nhận", count: counts.pending },
       {
         key: "processing" as const,
-        label: "Processing",
+        label: "Đang xử lý",
         count: counts.processing,
       },
-      { key: "shipped" as const, label: "Shipped", count: counts.shipped },
-      { key: "canceled" as const, label: "Canceled", count: counts.canceled },
+      { key: "shipped" as const, label: "Đang giao", count: counts.shipped },
+      {
+        key: "completed" as const,
+        label: "Hoàn thành",
+        count: counts.completed,
+      },
+      { key: "canceled" as const, label: "Đã hủy", count: counts.canceled },
     ],
     [counts],
   );
@@ -113,6 +304,22 @@ export default function OrdersPage() {
       setCounts(res.data);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      setAnalyticsLoading(true);
+      const [statusRes, seriesRes] = await Promise.all([
+        orderService.getAnalyticsStatus({ days: analyticsDays }),
+        orderService.getAnalyticsTimeseries({ days: analyticsDays }),
+      ]);
+      setStatusBreakdown(statusRes.data);
+      setTimeseries(seriesRes.data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAnalyticsLoading(false);
     }
   };
 
@@ -128,7 +335,7 @@ export default function OrdersPage() {
       });
       setOrders(res.data.items);
     } catch (e) {
-      toast.error("Failed to load orders");
+      toast.error("Không thể tải danh sách đơn hàng");
       console.error(e);
     } finally {
       setLoading(false);
@@ -137,6 +344,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchCounts();
+    fetchAnalytics();
   }, []);
 
   useEffect(() => {
@@ -148,14 +356,34 @@ export default function OrdersPage() {
     setSearch(s ? s : undefined);
   };
 
+  const handleExport = async () => {
+    try {
+      setExporting(true);
+      const blob = await orderService.exportOrders({ tab, search, sort });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `danh-sach-don-hang-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success("Xuất file CSV thành công");
+    } catch (e) {
+      toast.error("Xuất file CSV thất bại");
+      console.error(e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleCancel = async (orderId: string) => {
     try {
       await orderService.cancelOrder(orderId);
-      toast.success("Order cancelled");
+      toast.success("Đã hủy đơn hàng");
       fetchCounts();
+      fetchAnalytics();
       fetchOrders();
     } catch (e) {
-      toast.error("Failed to cancel order");
+      toast.error("Hủy đơn hàng thất bại");
       console.error(e);
     }
   };
@@ -163,11 +391,12 @@ export default function OrdersPage() {
   const handleConfirm = async (orderId: string) => {
     try {
       await orderService.confirmOrder(orderId);
-      toast.success("Order confirmed");
+      toast.success("Đã xác nhận đơn hàng");
       fetchCounts();
+      fetchAnalytics();
       fetchOrders();
     } catch (e) {
-      toast.error("Failed to confirm order");
+      toast.error("Xác nhận đơn hàng thất bại");
       console.error(e);
     }
   };
@@ -175,11 +404,12 @@ export default function OrdersPage() {
   const handleShip = async (orderId: string) => {
     try {
       await orderService.shipOrder(orderId);
-      toast.success("Handed to shipper");
+      toast.success("Đã bàn giao cho shipper");
       fetchCounts();
+      fetchAnalytics();
       fetchOrders();
     } catch (e) {
-      toast.error("Failed to hand over to shipper");
+      toast.error("Bàn giao cho shipper thất bại");
       console.error(e);
     }
   };
@@ -187,10 +417,50 @@ export default function OrdersPage() {
   const handleApproveReturns = async (orderId: string) => {
     try {
       await orderService.approveReturns(orderId);
-      toast.success("Returns approved");
+      toast.success("Đã duyệt trả hàng");
       fetchOrders();
     } catch (e) {
-      toast.error("Failed to approve returns");
+      toast.error("Duyệt trả hàng thất bại");
+      console.error(e);
+    }
+  };
+
+  const handleApproveCancelRequest = async (orderId: string) => {
+    try {
+      await orderService.approveCancelRequest(orderId);
+      toast.success("Đã duyệt yêu cầu hủy đơn");
+      fetchOrders();
+    } catch (e) {
+      toast.error("Duyệt yêu cầu hủy thất bại");
+      console.error(e);
+    }
+  };
+
+  const handleRejectCancelRequest = async (orderId: string) => {
+    const reason = window.prompt("Nhập lý do từ chối yêu cầu hủy:")?.trim();
+    if (!reason) {
+      return;
+    }
+
+    try {
+      await orderService.rejectCancelRequest(orderId, reason);
+      toast.success("Đã từ chối yêu cầu hủy đơn");
+      fetchOrders();
+    } catch (e) {
+      toast.error("Từ chối yêu cầu hủy thất bại");
+      console.error(e);
+    }
+  };
+
+  const handleCompleteManualRefund = async (orderId: string) => {
+    try {
+      await orderService.completeCancelManualRefund(orderId);
+      toast.success("Đã xác nhận hoàn tiền thủ công thành công");
+      fetchCounts();
+      fetchAnalytics();
+      fetchOrders();
+    } catch (e) {
+      toast.error("Xác nhận hoàn tiền thủ công thất bại");
       console.error(e);
     }
   };
@@ -198,259 +468,611 @@ export default function OrdersPage() {
   const handleRejectReturns = async (orderId: string) => {
     try {
       await orderService.rejectReturns(orderId);
-      toast.success("Returns rejected");
+      toast.success("Đã từ chối trả hàng");
       fetchOrders();
     } catch (e) {
-      toast.error("Failed to reject returns");
+      toast.error("Từ chối trả hàng thất bại");
       console.error(e);
     }
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-slate-100">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Orders</h1>
-                <p className="text-gray-600 mt-1">Track and manage orders</p>
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <div className="mx-auto max-w-375">
+            <section className="rounded-3xl border border-slate-200 bg-linear-to-r from-white via-white to-cyan-50 px-6 py-6 shadow-sm">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">
+                    Trung tâm đơn hàng
+                  </p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-900">
+                    Quản lý đơn hàng
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Theo dõi luồng đơn và xử lý nhanh các hành động vận hành.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                    <p className="text-xs text-slate-500">Tổng đơn</p>
+                    <p className="mt-1 text-xl font-bold text-slate-900">
+                      {counts.all}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-xs text-amber-700">Chờ xác nhận</p>
+                    <p className="mt-1 text-xl font-bold text-amber-800">
+                      {counts.pending}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+                    <p className="text-xs text-blue-700">Đang xử lý</p>
+                    <p className="mt-1 text-xl font-bold text-blue-800">
+                      {counts.processing}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                    <p className="text-xs text-red-700">Đã hủy</p>
+                    <p className="mt-1 text-xl font-bold text-red-800">
+                      {counts.canceled}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Đơn hàng theo trạng thái
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {analyticsDays} ngày gần nhất
+                    </p>
+                  </div>
+                  {statusBreakdown ? (
+                    <p className="text-xs text-slate-600">
+                      Tổng:{" "}
+                      <span className="font-semibold">
+                        {statusBreakdown.total}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+
+                {analyticsLoading ? (
+                  <div className="mt-4 text-sm text-slate-600">Đang tải…</div>
+                ) : !statusBreakdown ? (
+                  <div className="mt-4 text-sm text-slate-600">
+                    Không thể tải thống kê.
+                  </div>
+                ) : (
+                  <div className="relative mt-4 space-y-3">
+                    {STATUS_ORDER.map((status) => {
+                      const value = statusBreakdown.counts[status] ?? 0;
+                      const pct = statusBreakdown.total
+                        ? Math.round((value / statusBreakdown.total) * 100)
+                        : 0;
+                      return (
+                        <div key={status} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-semibold text-slate-700">
+                              {statusText(status)}
+                            </span>
+                            <span className="text-slate-600">
+                              {value} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                            <div
+                              className="h-full rounded-full bg-cyan-600"
+                              style={{
+                                width: `${statusBreakdown.total ? (value / statusBreakdown.total) * 100 : 0}%`,
+                              }}
+                              onMouseEnter={() =>
+                                setHoveredStatus({ status, value, pct })
+                              }
+                              onMouseLeave={() => setHoveredStatus(undefined)}
+                              title={`${statusText(status)}: ${value} (${pct}%)`}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {hoveredStatus ? (
+                      <div className="pointer-events-none absolute right-0 top-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">
+                        <p className="font-semibold text-slate-900">
+                          {statusText(hoveredStatus.status)}
+                        </p>
+                        <p className="mt-0.5">
+                          Số lượng:{" "}
+                          <span className="font-semibold">
+                            {hoveredStatus.value}
+                          </span>
+                        </p>
+                        <p>
+                          Tỉ lệ:{" "}
+                          <span className="font-semibold">
+                            {hoveredStatus.pct}%
+                          </span>
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="relative">
+              <div className="rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Số lượng đơn theo thời gian
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {analyticsDays} ngày gần nhất
+                    </p>
+                  </div>
+                  {timeseries ? (
+                    <p className="text-xs text-slate-600">
+                      Tổng:{" "}
+                      <span className="font-semibold">
+                        {timeseries.points.reduce((s, p) => s + p.total, 0)}
+                      </span>
+                    </p>
+                  ) : null}
+                </div>
+
+                {analyticsLoading ? (
+                  <div className="mt-4 text-sm text-slate-600">Đang tải…</div>
+                ) : !timeseries ? (
+                  <div className="mt-4 text-sm text-slate-600">
+                    Không thể tải thống kê.
+                  </div>
+                ) : (
+                  <div className="mt-4">
+                    <div className="flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-slate-500">Hôm nay</p>
+                        <p className="mt-1 text-2xl font-bold text-slate-900">
+                          {timeseries.points[timeseries.points.length - 1]
+                            ?.total ?? 0}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">Đỉnh</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-900">
+                          {Math.max(
+                            ...timeseries.points.map((p) => p.total),
+                            0,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="relative mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <svg
+                        viewBox="0 0 360 120"
+                        className="h-32 w-full"
+                        onMouseMove={(e) => {
+                          const el = e.currentTarget;
+                          const rect = el.getBoundingClientRect();
+                          const x = e.clientX - rect.left;
+                          const y = e.clientY - rect.top;
+
+                          const n = timeseries.points.length;
+                          if (n <= 0) return;
+
+                          const ratio = rect.width > 0 ? x / rect.width : 0;
+                          const idx = Math.max(
+                            0,
+                            Math.min(n - 1, Math.round(ratio * (n - 1))),
+                          );
+
+                          const p = timeseries.points[idx];
+                          if (!p) return;
+
+                          setHoveredPoint({
+                            index: idx,
+                            date: p.date,
+                            total: p.total,
+                          });
+                          setHoveredPointPos({ x, y });
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredPoint(undefined);
+                          setHoveredPointPos(undefined);
+                        }}
+                      >
+                        <path
+                          d={buildSparklinePath(
+                            timeseries.points.map((p) => p.total),
+                            360,
+                            120,
+                          )}
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          className="text-cyan-600"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {hoveredPoint ? (
+                          <circle
+                            cx={
+                              (hoveredPoint.index * 360) /
+                              Math.max(timeseries.points.length - 1, 1)
+                            }
+                            cy={(() => {
+                              const max = Math.max(
+                                ...timeseries.points.map((p) => p.total),
+                                1,
+                              );
+                              const h = 120;
+                              return h - (hoveredPoint.total / max) * h;
+                            })()}
+                            r="4.5"
+                            className="fill-cyan-600"
+                          />
+                        ) : null}
+                      </svg>
+
+                      {hoveredPoint && hoveredPointPos ? (
+                        <div
+                          className="pointer-events-none absolute rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm"
+                          style={{
+                            left: Math.min(
+                              Math.max(hoveredPointPos.x + 12, 8),
+                              260,
+                            ),
+                            top: Math.min(
+                              Math.max(hoveredPointPos.y + 12, 8),
+                              92,
+                            ),
+                          }}
+                        >
+                          <p className="font-semibold text-slate-900">
+                            {hoveredPoint.date}
+                          </p>
+                          <p className="mt-0.5">
+                            Số lượng:{" "}
+                            <span className="font-semibold">
+                              {hoveredPoint.total}
+                            </span>
+                          </p>
+                        </div>
+                      ) : null}
+
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                        <span>{timeseries.points[0]?.date}</span>
+                        <span>
+                          {
+                            timeseries.points[timeseries.points.length - 1]
+                              ?.date
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-5 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-wrap gap-2">
+                  {tabs.map((t) => (
+                    <button
+                      key={t.key}
+                      onClick={() => setTab(t.key)}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                        tab === t.key
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      {t.label} ({t.count})
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <input
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleApplySearch();
                     }}
-                    placeholder="Search orders (id, email, code)"
-                    className="w-72 px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Tìm theo id, email, mã đơn"
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-cyan-500/30 sm:w-80"
                   />
+
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value as AdminOrderSort)}
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                  >
+                    <option value="new">Mới nhất</option>
+                    <option value="old">Cũ nhất</option>
+                  </select>
+
+                  <button
+                    onClick={handleApplySearch}
+                    className="h-11 rounded-xl bg-cyan-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700"
+                  >
+                    Tìm đơn
+                  </button>
+
+                  <button
+                    onClick={handleExport}
+                    disabled={loading || exporting}
+                    className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {exporting ? "Đang xuất..." : "Xuất CSV"}
+                  </button>
                 </div>
-
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value as AdminOrderSort)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm"
-                >
-                  <option value="new">New Order</option>
-                  <option value="old">Oldest</option>
-                </select>
-
-                <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                  Filter
-                </button>
-
-                <button
-                  onClick={handleApplySearch}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  Search
-                </button>
               </div>
-            </div>
+            </section>
 
-            <div className="flex items-center gap-3 mb-6">
-              {tabs.map((t) => (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                    tab === t.key
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  {t.label} ({t.count})
-                </button>
-              ))}
-            </div>
+            <section className="mt-5 rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <div className="min-w-325">
+                  <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-6 py-4 text-sm font-semibold text-slate-700">
+                    <div className="col-span-4">Sản phẩm</div>
+                    <div className="col-span-2">Giá trị đơn</div>
+                    <div className="col-span-2">Thanh toán</div>
+                    <div className="col-span-1">Trạng thái</div>
+                    <div className="col-span-3 text-right">Tác vụ</div>
+                  </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-12 px-6 py-4 border-b border-gray-200 text-sm font-semibold text-gray-700">
-                <div className="col-span-5">Product</div>
-                <div className="col-span-2">Price</div>
-                <div className="col-span-2">Payment</div>
-                <div className="col-span-1">Status</div>
-                <div className="col-span-2 text-right">Action</div>
-              </div>
+                  {loading ? (
+                    <div className="p-8 text-sm text-slate-600">
+                      Đang tải dữ liệu...
+                    </div>
+                  ) : orders.length === 0 ? (
+                    <div className="p-8 text-sm text-slate-600">
+                      Không có đơn hàng phù hợp.
+                    </div>
+                  ) : (
+                    <div>
+                      {orders.map((order) => {
+                        const first = order.items[0];
+                        const extraCount = Math.max(order.items.length - 1, 0);
+                        const canCancel = order.status === "PENDING";
 
-              {loading ? (
-                <div className="p-8 text-sm text-gray-600">Loading…</div>
-              ) : orders.length === 0 ? (
-                <div className="p-8 text-sm text-gray-600">
-                  No orders found.
-                </div>
-              ) : (
-                <div>
-                  {orders.map((order) => {
-                    const first = order.items[0];
-                    const extraCount = Math.max(order.items.length - 1, 0);
-                    const canCancel = order.status === "PENDING";
+                        const primaryLabel = primaryActionLabel(order.status);
+                        const handlePrimary = () => {
+                          if (order.status === "PAID")
+                            return handleConfirm(order.id);
+                          if (order.status === "CONFIRMED")
+                            return handleShip(order.id);
+                          return;
+                        };
 
-                    const primaryLabel = primaryActionLabel(order.status);
-                    const canPrimary =
-                      order.status === "PAID" || order.status === "CONFIRMED";
-                    const handlePrimary = () => {
-                      if (order.status === "PAID")
-                        return handleConfirm(order.id);
-                      if (order.status === "CONFIRMED")
-                        return handleShip(order.id);
-                      return;
-                    };
+                        const requestedReturns = order.returns?.requested ?? 0;
+                        const hasReturnRequest = requestedReturns > 0;
+                        const cancelRequest = order.cancelRequest;
+                        const cancelRefund = order.cancelRefund;
+                        const isCancelFlowApproved =
+                          cancelRequest?.status === "APPROVED" ||
+                          cancelRequest?.status === "COMPLETED";
 
-                    const requestedReturns = order.returns?.requested ?? 0;
-                    const hasReturnRequest = requestedReturns > 0;
+                        const canPrimary =
+                          (order.status === "PAID" ||
+                            order.status === "CONFIRMED") &&
+                          !isCancelFlowApproved;
 
-                    return (
-                      <div
-                        key={order.id}
-                        className="grid grid-cols-12 px-6 py-5 border-b border-gray-100"
-                      >
-                        <div className="col-span-5">
-                          <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center">
-                              {first?.imageUrl ? (
-                                <img
-                                  src={first.imageUrl}
-                                  alt={first.name}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="text-xs text-gray-500">
-                                  No image
+                        const secondaryActions: RowActionItem[] = [];
+
+                        if (hasReturnRequest) {
+                          secondaryActions.push(
+                            {
+                              key: `approve-return-${order.id}`,
+                              label: "Duyệt trả hàng",
+                              onClick: () => handleApproveReturns(order.id),
+                              tone: "success",
+                            },
+                            {
+                              key: `reject-return-${order.id}`,
+                              label: "Từ chối trả hàng",
+                              onClick: () => handleRejectReturns(order.id),
+                            },
+                          );
+                        }
+
+                        if (cancelRequest?.status === "REQUESTED") {
+                          secondaryActions.push(
+                            {
+                              key: `approve-cancel-${order.id}`,
+                              label: "Duyệt hủy",
+                              onClick: () =>
+                                handleApproveCancelRequest(order.id),
+                              tone: "warning",
+                            },
+                            {
+                              key: `reject-cancel-${order.id}`,
+                              label: "Từ chối hủy",
+                              onClick: () =>
+                                handleRejectCancelRequest(order.id),
+                            },
+                          );
+                        }
+
+                        if (cancelRequest?.status === "APPROVED") {
+                          secondaryActions.push({
+                            key: `complete-refund-${order.id}`,
+                            label: "Đã hoàn tiền thủ công",
+                            onClick: () => handleCompleteManualRefund(order.id),
+                            tone: "success",
+                          });
+                        }
+
+                        secondaryActions.push({
+                          key: `cancel-order-${order.id}`,
+                          label: "Hủy đơn",
+                          onClick: () => handleCancel(order.id),
+                          disabled: !canCancel,
+                          tone: "danger",
+                        });
+
+                        return (
+                          <div
+                            key={order.id}
+                            className="grid grid-cols-12 border-b border-slate-100 px-6 py-5 transition-colors hover:bg-slate-50/60"
+                          >
+                            <div className="col-span-4">
+                              <div className="flex items-start gap-4">
+                                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200">
+                                  {first?.imageUrl ? (
+                                    <img
+                                      src={first.imageUrl}
+                                      alt={first.name}
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="text-xs text-slate-500">
+                                      Không có ảnh
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                      {first?.name ?? "(Không có sản phẩm)"}
+                                    </p>
+                                    {first?.attributesText ? (
+                                      <p className="mt-1 text-xs text-slate-600">
+                                        {first.attributesText}
+                                      </p>
+                                    ) : null}
+                                    {first ? (
+                                      <p className="mt-1 text-xs text-slate-600">
+                                        Số lượng: {first.quantity}
+                                        {extraCount > 0
+                                          ? ` • +${extraCount} sản phẩm khác`
+                                          : ""}
+                                      </p>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+                                    <span className="font-semibold text-slate-900">
+                                      {order.user.label}
+                                    </span>
+                                    <span>•</span>
+                                    <span>{formatDate(order.createdAt)}</span>
+                                    <span>•</span>
+                                    <span className="font-mono text-[11px] text-slate-500">
+                                      {order.id}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
 
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {first?.name ?? "(No items)"}
+                            <div className="col-span-2 flex items-center">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {formatMoney(order.totalPrice)}
+                                </p>
+                                {order.items.length > 0 ? (
+                                  <p className="mt-1 text-xs text-slate-600">
+                                    {order.items.length} sản phẩm
                                   </p>
-                                  {first?.attributesText ? (
-                                    <p className="text-xs text-gray-600 mt-1">
-                                      {first.attributesText}
-                                    </p>
-                                  ) : null}
-                                  {first ? (
-                                    <p className="text-xs text-gray-600 mt-1">
-                                      Qty: {first.quantity}
-                                      {extraCount > 0
-                                        ? ` • +${extraCount} more item(s)`
-                                        : ""}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-
-                              <div className="mt-3 text-xs text-gray-600">
-                                <span className="font-medium text-gray-900">
-                                  {order.user.label}
-                                </span>
-                                <span className="mx-2">•</span>
-                                <span>{formatDate(order.createdAt)}</span>
-                                <span className="mx-2">•</span>
-                                <span className="font-mono">{order.id}</span>
+                                ) : null}
                               </div>
                             </div>
-                          </div>
-                        </div>
 
-                        <div className="col-span-2 flex items-center">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {formatMoney(order.totalPrice)}
-                            </p>
-                            {order.items.length > 0 ? (
-                              <p className="text-xs text-gray-600 mt-1">
-                                {order.items.length} item(s)
-                              </p>
+                            <div className="col-span-2 flex items-center">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">
+                                  {order.payment.method ?? "—"}
+                                </p>
+                                <p className="mt-1 inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">
+                                  {paymentStatusText(
+                                    order.payment.status ??
+                                      order.payment.transactionStatus,
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="col-span-1 flex items-center">
+                              <span
+                                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
+                                  order.status,
+                                )}`}
+                              >
+                                {statusText(order.status)}
+                              </span>
+                            </div>
+
+                            <div className="col-span-3 flex items-center justify-end gap-2">
+                              {canPrimary && primaryLabel !== "—" ? (
+                                <button
+                                  onClick={handlePrimary}
+                                  className="whitespace-nowrap rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                                >
+                                  {primaryLabel}
+                                </button>
+                              ) : null}
+
+                              <RowActionsMenu actions={secondaryActions} />
+                            </div>
+
+                            {cancelRequest ? (
+                              <div className="col-span-12 mt-3 rounded-xl border border-orange-200 bg-orange-50/80 px-3 py-3 text-xs text-orange-900">
+                                <p className="font-semibold text-sm">
+                                  Yêu cầu hủy:{" "}
+                                  {cancelRequestStatusText(
+                                    cancelRequest.status,
+                                  )}
+                                </p>
+                                <p className="mt-1">
+                                  Lý do:{" "}
+                                  {cancelReasonText(cancelRequest.reasonCode)}
+                                  {cancelRequest.reasonText
+                                    ? ` - ${cancelRequest.reasonText}`
+                                    : ""}
+                                </p>
+                                <p className="mt-1">
+                                  Tài khoản nhận hoàn:{" "}
+                                  {cancelRequest.bankAccountName} -{" "}
+                                  {cancelRequest.bankAccountNumber} -{" "}
+                                  {cancelRequest.bankName}
+                                </p>
+                                <p className="mt-1">
+                                  Số tiền cần hoàn tiền:{" "}
+                                  {formatMoney(
+                                    cancelRefund?.amount ?? order.totalPrice,
+                                  )}
+                                </p>
+                                {cancelRequest.rejectionReason ? (
+                                  <p className="mt-1 text-red-700">
+                                    Lý do từ chối:{" "}
+                                    {cancelRequest.rejectionReason}
+                                  </p>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
-                        </div>
-
-                        <div className="col-span-2 flex items-center">
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {order.payment.method ?? "—"}
-                            </p>
-                            <p className="text-xs text-gray-600 mt-1">
-                              {order.payment.status ??
-                                order.payment.transactionStatus ??
-                                "—"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="col-span-1 flex items-center">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-semibold ${statusBadge(
-                              order.status,
-                            )}`}
-                          >
-                            {statusText(order.status)}
-                          </span>
-                        </div>
-
-                        <div className="col-span-2 flex items-center justify-end gap-2">
-                          <button
-                            onClick={handlePrimary}
-                            disabled={
-                              !canPrimary ||
-                              !primaryLabel ||
-                              primaryLabel === "—"
-                            }
-                            className={`px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
-                              canPrimary && primaryLabel !== "—"
-                                ? "border-gray-300 text-gray-700 hover:bg-gray-50"
-                                : "border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50"
-                            }`}
-                          >
-                            {primaryLabel}
-                          </button>
-
-                          {hasReturnRequest ? (
-                            <>
-                              <button
-                                onClick={() => handleApproveReturns(order.id)}
-                                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                              >
-                                Duyệt trả hàng
-                              </button>
-                              <button
-                                onClick={() => handleRejectReturns(order.id)}
-                                className="px-3 py-2 rounded-lg text-sm font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
-                              >
-                                Từ chối
-                              </button>
-                            </>
-                          ) : null}
-
-                          <button
-                            onClick={() => handleCancel(order.id)}
-                            disabled={!canCancel}
-                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                              canCancel
-                                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            }`}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            </section>
           </div>
         </main>
       </div>

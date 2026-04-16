@@ -33,7 +33,7 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
         data: { status: 'APPROVED' },
       });
 
-      const returnStatus: ReturnFlowStatus = 'WAITING_PICKUP';
+      const returnStatus: ReturnFlowStatus = 'APPROVED';
       await tx.order.update({
         where: { id: params.orderId },
         data: { returnStatus },
@@ -109,12 +109,12 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       throw new BadRequestError('Order not found');
     }
 
-    if (order.returnStatus === 'RETURNING') {
+    if (order.returnStatus === 'SHIPPING' || order.returnStatus === 'RETURNING') {
       return { orderId: order.id, orderStatus: order.status, returnStatus: order.returnStatus };
     }
 
-    if (order.returnStatus !== 'WAITING_PICKUP') {
-      throw new BadRequestError('Return must be approved and waiting for pickup first');
+    if (order.returnStatus !== 'APPROVED' && order.returnStatus !== 'WAITING_PICKUP') {
+      throw new BadRequestError('Return must be approved before marking as shipping');
     }
 
     const hasApprovedReturn = order.items.some((it) =>
@@ -125,7 +125,7 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       throw new BadRequestError('No approved return items found');
     }
 
-    const returnStatus: ReturnFlowStatus = 'RETURNING';
+    const returnStatus: ReturnFlowStatus = 'SHIPPING';
 
     await this.prisma.order.update({
       where: { id: params.orderId },
@@ -145,7 +145,13 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       select: {
         id: true,
         status: true,
+        totalPrice: true,
         returnStatus: true,
+        payment: {
+          select: {
+            status: true,
+          },
+        },
         items: { select: { id: true } },
       },
     });
@@ -154,16 +160,12 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       throw new BadRequestError('Order not found');
     }
 
-    if (order.status === 'RETURNED' && order.returnStatus === 'COMPLETED') {
-      return { orderId: order.id, orderStatus: order.status, returnStatus: order.returnStatus };
-    }
-
     if (order.status !== 'DELIVERED') {
       throw new BadRequestError('Only delivered orders can be completed as returned');
     }
 
-    if (order.returnStatus !== 'RETURNING') {
-      throw new BadRequestError('Return must be in RETURNING status before completing');
+    if (order.returnStatus !== 'SHIPPING' && order.returnStatus !== 'RETURNING') {
+      throw new BadRequestError('Return must be in SHIPPING status before completing');
     }
 
     const itemIds = order.items.map((it) => it.id);
@@ -181,20 +183,33 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       const updatedOrder = await tx.order.update({
         where: { id: params.orderId },
         data: {
-          status: 'RETURNED',
           returnStatus,
         },
         select: { id: true, status: true, returnStatus: true },
       });
 
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId: params.orderId,
-          oldStatus: order.status,
-          newStatus: 'RETURNED',
-          changedBy: params.actorId,
-        },
-      });
+      if (order.payment?.status === 'PAID' || order.payment?.status === 'SUCCESS') {
+        await tx.refundTransaction.upsert({
+          where: {
+            orderId_type: {
+              orderId: params.orderId,
+              type: 'RETURN_REFUND',
+            },
+          },
+          create: {
+            orderId: params.orderId,
+            type: 'RETURN_REFUND',
+            amount: order.totalPrice,
+            status: 'PENDING',
+            initiatedBy: 'ADMIN',
+            reason: 'Return completed by admin',
+            idempotencyKey: `return-${params.orderId}`,
+          },
+          update: {
+            reason: 'Return completed by admin',
+          },
+        });
+      }
 
       return {
         orderId: updatedOrder.id,

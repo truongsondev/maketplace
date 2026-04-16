@@ -21,10 +21,14 @@ import { LoginUseCaseFactory } from './interface-adapter/pattern/login-usecase.f
 import { ForgotPasswordUseCaseFactory } from './interface-adapter/pattern/forgot-password-usecase.factory';
 import { PrismaTokenRepository } from './infrastructure/repositories/prisma-token.repository';
 import { RedisCache } from './infrastructure/security/redis-cache';
+import { PrismaOAuthAccountRepository } from './infrastructure/repositories/prisma-oauth-account.repository';
+import { GoogleOAuthLoginUseCase } from './applications/usecases/google-oauth-login.usecase';
+import { GoogleOAuthAPI } from './infrastructure/oauth/google-oauth.api';
 
 export function createAuthModule(): Router {
   const userRepository = new PrismaUserRepository(prisma);
   const tokenRepository = new PrismaTokenRepository(prisma);
+  const oauthAccountRepository = new PrismaOAuthAccountRepository(prisma);
   const emailVerificationTokenRepository = new PrismaEmailVerificationTokenRepository(prisma);
   const passwordResetTokenRepository = new PrismaPasswordResetTokenRepository(prisma);
 
@@ -83,6 +87,14 @@ export function createAuthModule(): Router {
     prisma,
   );
 
+  const googleOAuthLoginUseCase = new GoogleOAuthLoginUseCase(
+    userRepository,
+    oauthAccountRepository,
+    tokenGenerator,
+    tokenRepository,
+    redisCache,
+  );
+
   const controller = new AuthController(
     registerUseCaseFactory,
     verifyEmailUseCase,
@@ -91,9 +103,13 @@ export function createAuthModule(): Router {
     resetPasswordUseCase,
     logoutUseCase,
     refreshTokenUseCase,
+    googleOAuthLoginUseCase,
   );
 
   const authAPI = new AuthAPI(controller);
+
+  const googleOAuthAPI = new GoogleOAuthAPI(controller);
+  authAPI.router.use(googleOAuthAPI.router);
 
   return authAPI.router;
 }

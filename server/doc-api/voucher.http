@@ -12,6 +12,16 @@ Authorization: Bearer {{USER_ACCESS_TOKEN}}
   "cartItemIds": ["{{CART_ITEM_ID_1}}", "{{CART_ITEM_ID_2}}"]
 }
 
+### 2.1) Apply voucher (cart page)
+POST http://localhost:8080/api/vouchers/apply
+Content-Type: application/json
+Authorization: Bearer {{USER_ACCESS_TOKEN}}
+
+{
+  "code": "WELCOME10",
+  "cartItemIds": ["{{CART_ITEM_ID_1}}", "{{CART_ITEM_ID_2}}"]
+}
+
 ### 3) Admin list vouchers
 GET http://localhost:8080/api/admin/vouchers?page=1&limit=20
 Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}

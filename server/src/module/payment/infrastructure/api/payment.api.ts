@@ -35,6 +35,7 @@ export class PaymentAPI {
       description?: string;
       voucherCode?: string;
       cartItemIds?: string[];
+      shipping?: unknown;
     };
 
     if (typeof amount !== 'number') {
@@ -52,12 +53,69 @@ export class PaymentAPI {
       ? req.body.cartItemIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0)
       : undefined;
 
+    const shippingRaw = (req.body as any)?.shipping;
+    const shippingValue =
+      shippingRaw && typeof shippingRaw === 'object'
+        ? {
+            recipient: (shippingRaw as any).recipient,
+            phone: (shippingRaw as any).phone,
+            addressLine: (shippingRaw as any).addressLine,
+            ward: (shippingRaw as any).ward,
+            // Some clients may only send ward + city; default district to ward.
+            district: (shippingRaw as any).district ?? (shippingRaw as any).ward,
+            city: (shippingRaw as any).city,
+            addressId: (shippingRaw as any).addressId,
+          }
+        : undefined;
+
+    if (shippingValue) {
+      const fields: Array<keyof typeof shippingValue> = [
+        'recipient',
+        'phone',
+        'addressLine',
+        'ward',
+        'district',
+        'city',
+      ];
+
+      for (const field of fields) {
+        if (
+          typeof shippingValue[field] !== 'string' ||
+          String(shippingValue[field]).trim() === ''
+        ) {
+          throw new BadRequestError(`shipping.${String(field)} is required`);
+        }
+      }
+
+      if (
+        shippingValue.addressId !== undefined &&
+        shippingValue.addressId !== null &&
+        typeof shippingValue.addressId !== 'string'
+      ) {
+        throw new BadRequestError('shipping.addressId must be a string');
+      }
+    }
+
     const result = await this.paymentController.createPayosPaymentLink({
       userId,
       amount,
       description,
       voucherCode: voucherCodeValue || undefined,
       cartItemIds: cartItemIdsValue,
+      shipping: shippingValue
+        ? {
+            recipient: String(shippingValue.recipient).trim(),
+            phone: String(shippingValue.phone).trim(),
+            addressLine: String(shippingValue.addressLine).trim(),
+            ward: String(shippingValue.ward).trim(),
+            district: String(shippingValue.district).trim(),
+            city: String(shippingValue.city).trim(),
+            addressId:
+              typeof shippingValue.addressId === 'string'
+                ? shippingValue.addressId.trim()
+                : (shippingValue.addressId ?? undefined),
+          }
+        : undefined,
     });
 
     res

@@ -1,5 +1,4 @@
-export interface GetCategoriesQuery {
-}
+export interface GetCategoriesQuery {}
 
 export interface CategoryDto {
   id: string;
@@ -7,6 +6,7 @@ export interface CategoryDto {
   slug: string;
   description?: string;
   imageUrl?: string;
+  parentId?: string | null;
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;

@@ -58,10 +58,10 @@ export function BasicInformationTab({
         categoryIds: selectedCategories,
         tagIds: selectedTags,
       });
-      toast.success("Product updated successfully");
+      toast.success("Đã cập nhật sản phẩm");
       onUpdate();
     } catch (error) {
-      toast.error("Failed to update product");
+      toast.error("Cập nhật sản phẩm thất bại");
       console.error(error);
     } finally {
       setSaving(false);
@@ -72,33 +72,33 @@ export function BasicInformationTab({
     <div className="space-y-6">
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
-          Product Name <span className="text-red-500">*</span>
+          Tên sản phẩm <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter product name"
+          placeholder="Nhập tên sản phẩm"
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
-          Description
+          Mô tả
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={6}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter product description"
+          placeholder="Nhập mô tả sản phẩm"
         />
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
-          Base Price (VND)
+          Giá gốc (VND)
         </label>
         <input
           type="number"
@@ -108,13 +108,13 @@ export function BasicInformationTab({
           placeholder="0"
         />
         <p className="text-sm text-gray-600 mt-1">
-          Display: {basePrice.toLocaleString()} đ
+          Hiển thị: {basePrice.toLocaleString()} đ
         </p>
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
-          Categories
+          Danh mục
         </label>
         <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
           {categories.map((cat) => (
@@ -144,7 +144,7 @@ export function BasicInformationTab({
 
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
-          Tags
+          Thẻ
         </label>
         <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
           {tags.map((tag) => (
@@ -172,7 +172,7 @@ export function BasicInformationTab({
 
       <div>
         <label className="block text-sm font-medium text-gray-900 mb-2">
-          Status
+          Trạng thái
         </label>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -183,7 +183,7 @@ export function BasicInformationTab({
               onChange={(e) => setStatus(e.target.value as "active")}
               className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700">Active</span>
+            <span className="text-sm text-gray-700">Đang hoạt động</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -193,7 +193,7 @@ export function BasicInformationTab({
               onChange={(e) => setStatus(e.target.value as "inactive")}
               className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
             />
-            <span className="text-sm text-gray-700">Inactive</span>
+            <span className="text-sm text-gray-700">Tạm ngưng</span>
           </label>
         </div>
       </div>
@@ -209,7 +209,7 @@ export function BasicInformationTab({
           ) : (
             <Save className="w-5 h-5" />
           )}
-          Save Changes
+          Lưu thay đổi
         </button>
       </div>
     </div>

@@ -62,7 +62,7 @@ export function PayosReturnClient() {
         if (!cancelled) {
           setState({
             kind: "error",
-            message: "Khong tim thay orderCode tren URL tra ve.",
+            message: "Không tìm thấy orderCode trên URL trả về.",
           });
         }
         return;
@@ -80,7 +80,7 @@ export function PayosReturnClient() {
         if (!cancelled) {
           setState({
             kind: "error",
-            message: "Khong the lay trang thai thanh toan. Vui long thu lai.",
+            message: "Không thể lấy trạng thái thanh toán. Vui lòng thử lại.",
           });
         }
       }
@@ -99,7 +99,7 @@ export function PayosReturnClient() {
         <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
           <Loader2 className="mx-auto size-8 animate-spin text-primary" />
           <p className="mt-4 text-slate-600">
-            Dang kiem tra ket qua thanh toan...
+            Đang kiểm tra kết quả thanh toán...
           </p>
         </div>
       </main>
@@ -111,13 +111,13 @@ export function PayosReturnClient() {
       <main className="mx-auto max-w-3xl px-4 py-14">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center">
           <AlertCircle className="mx-auto size-8 text-red-500" />
-          <p className="mt-3 font-semibold text-red-600">Co loi xay ra</p>
+          <p className="mt-3 font-semibold text-red-600">Có lỗi xảy ra</p>
           <p className="mt-2 text-red-500">{state.message}</p>
           <Link
             href="/"
             className="mt-5 inline-flex h-10 items-center rounded-lg bg-primary px-5 font-semibold text-white"
           >
-            Ve trang chu
+            Về trang chủ
           </Link>
         </div>
       </main>
@@ -138,7 +138,7 @@ export function PayosReturnClient() {
     <main className="mx-auto max-w-3xl px-4 py-14">
       <div className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8">
         <h1 className="text-2xl font-bold text-slate-900">
-          Ket qua thanh toan PayOS
+          Kết quả thanh toán PayOS
         </h1>
 
         <div className="mt-6 rounded-xl border border-slate-200 p-5">
@@ -146,8 +146,8 @@ export function PayosReturnClient() {
             <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-700">
               <CheckCircle2 className="mt-0.5 size-5" />
               <div>
-                <p className="font-semibold">Thanh toan thanh cong</p>
-                <p className="text-sm">Dang chuyen den trang cam on...</p>
+                <p className="font-semibold">Thanh toán thành công</p>
+                <p className="text-sm">Đang chuyển đến trang cảm ơn...</p>
               </div>
             </div>
           )}
@@ -156,9 +156,9 @@ export function PayosReturnClient() {
             <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
               <XCircle className="mt-0.5 size-5" />
               <div>
-                <p className="font-semibold">Thanh toan that bai</p>
+                <p className="font-semibold">Thanh toán thất bại</p>
                 <p className="text-sm">
-                  Giao dich khong thanh cong hoac da bi huy.
+                  Giao dịch không thành công hoặc đã bị hủy.
                 </p>
               </div>
             </div>
@@ -168,9 +168,9 @@ export function PayosReturnClient() {
             <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-700">
               <Clock3 className="mt-0.5 size-5" />
               <div>
-                <p className="font-semibold">Dang cho xac nhan</p>
+                <p className="font-semibold">Đang chờ xác nhận</p>
                 <p className="text-sm">
-                  Vui long cho trong giay lat, hoac tai lai trang.
+                  Vui lòng chờ trong giây lát, hoặc tải lại trang.
                 </p>
               </div>
             </div>
@@ -179,17 +179,17 @@ export function PayosReturnClient() {
           <div className="mt-5 space-y-2 text-sm text-slate-600">
             <p>
               <span className="font-semibold text-slate-900">
-                Ma giao dich:
+                Mã giao dịch:
               </span>{" "}
               {state.verifyResult.orderCode}
             </p>
             <p>
-              <span className="font-semibold text-slate-900">So tien:</span>{" "}
+              <span className="font-semibold text-slate-900">Số tiền:</span>{" "}
               {formatPrice(state.verifyResult.amount)}
             </p>
             <p>
               <span className="font-semibold text-slate-900">
-                Trang thai gateway:
+                Trạng thái gateway:
               </span>{" "}
               {state.verifyResult.gatewayStatus}
             </p>
@@ -201,13 +201,13 @@ export function PayosReturnClient() {
             href="/"
             className="inline-flex h-10 items-center rounded-lg bg-primary px-5 font-semibold text-white"
           >
-            Tiep tuc mua sam
+            Tiếp tục mua sắm
           </Link>
           <Link
             href="/cart"
             className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-5 font-semibold text-slate-700"
           >
-            Quay lai gio hang
+            Quay lại giỏ hàng
           </Link>
         </div>
       </div>

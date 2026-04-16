@@ -2,12 +2,14 @@ import { apiClient } from "@/lib/api";
 import type {
   CategoryResponse,
   TagResponse,
+  ProductTypeSchemaResponse,
   CreateProductCommand,
   CreateProductResult,
   CloudinarySignature,
   CloudinarySignatureResponse,
   ProductListResponse,
   ProductDetailResponse,
+  UpdateProductResponse,
   ProductListFilters,
   UpdateProductCommand,
   BulkDeleteRequest,
@@ -15,6 +17,7 @@ import type {
   BulkAssignTagsRequest,
   AdjustStockRequest,
   InventoryLogsResponse,
+  AdminLogsResponse,
   VoucherListResponse,
   VoucherResponse,
   VoucherUpsertCommand,
@@ -22,13 +25,41 @@ import type {
   BannerResponse,
   BannerUpsertCommand,
 } from "@/types/api";
+import type {
+  AdminProductLeastBoughtResponse,
+  AdminProductTopFavoritedResponse,
+  AdminProductTopSellingResponse,
+} from "@/types/product-analytics";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
 import type {
   AdminOrdersCountsResponse,
   AdminOrdersListResponse,
   AdminOrderTab,
   AdminOrderSort,
+  AdminOrderStatusBreakdownResponse,
+  AdminOrderTimeseriesResponse,
 } from "@/types/order";
+import type {
+  AdminUserAuditsResponse,
+  AdminUserDetailResponse,
+  AdminUserMutationResponse,
+  AdminUserRole,
+  AdminUsersResponse,
+  AdminUserStatus,
+  AdminUserCustomerCohortsResponse,
+  AdminUserTopSpendersResponse,
+} from "@/types/user";
+import type {
+  AdminRefundDetailResponse,
+  AdminRefundListResponse,
+  AdminRefundStatus,
+  AdminRefundType,
+} from "@/types/refund";
+import type {
+  DashboardOverview,
+  DashboardRecentOrder,
+  DashboardTimeseries,
+} from "../types/dashboard";
 
 export const authService = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
@@ -62,6 +93,15 @@ export const tagService = {
   },
 };
 
+export const productTypeSchemaService = {
+  getSchema: async (categoryId: string): Promise<ProductTypeSchemaResponse> => {
+    const response = await apiClient.get("/common/product-type-schema", {
+      params: { categoryId },
+    });
+    return response.data;
+  },
+};
+
 export const productService = {
   getProducts: async (
     filters: ProductListFilters,
@@ -87,7 +127,7 @@ export const productService = {
   updateProduct: async (
     id: string,
     data: UpdateProductCommand,
-  ): Promise<ProductDetailResponse> => {
+  ): Promise<UpdateProductResponse> => {
     const response = await apiClient.put(`/admin/products/${id}`, data);
     return response.data;
   },
@@ -120,6 +160,43 @@ export const productService = {
       params: filters,
       responseType: "blob",
     });
+    return response.data;
+  },
+
+  getTopSelling: async (params?: {
+    days?: number;
+    limit?: number;
+  }): Promise<AdminProductTopSellingResponse> => {
+    const response = await apiClient.get(
+      "/admin/products/analytics/top-selling",
+      {
+        params,
+      },
+    );
+    return response.data;
+  },
+
+  getTopFavorited: async (params?: {
+    days?: number;
+    limit?: number;
+  }): Promise<AdminProductTopFavoritedResponse> => {
+    const response = await apiClient.get(
+      "/admin/products/analytics/top-favorited",
+      { params },
+    );
+    return response.data;
+  },
+
+  getLeastBought: async (params?: {
+    days?: number;
+    limit?: number;
+  }): Promise<AdminProductLeastBoughtResponse> => {
+    const response = await apiClient.get(
+      "/admin/products/analytics/least-bought",
+      {
+        params,
+      },
+    );
     return response.data;
   },
 
@@ -191,13 +268,62 @@ export const orderService = {
     return response.data;
   },
 
+  exportOrders: async (params: {
+    tab?: AdminOrderTab;
+    search?: string;
+    sort?: AdminOrderSort;
+  }): Promise<Blob> => {
+    const response = await apiClient.get("/admin/orders/export", {
+      params,
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
   getCounts: async (): Promise<AdminOrdersCountsResponse> => {
     const response = await apiClient.get("/admin/orders/counts");
     return response.data;
   },
 
+  getAnalyticsStatus: async (params?: {
+    days?: number;
+  }): Promise<AdminOrderStatusBreakdownResponse> => {
+    const response = await apiClient.get("/admin/orders/analytics/status", {
+      params,
+    });
+    return response.data;
+  },
+
+  getAnalyticsTimeseries: async (params?: {
+    days?: number;
+  }): Promise<AdminOrderTimeseriesResponse> => {
+    const response = await apiClient.get("/admin/orders/analytics/timeseries", {
+      params,
+    });
+    return response.data;
+  },
+
   cancelOrder: async (orderId: string): Promise<void> => {
     await apiClient.post(`/admin/orders/${orderId}/cancel`);
+  },
+
+  approveCancelRequest: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/cancel-requests/approve`);
+  },
+
+  rejectCancelRequest: async (
+    orderId: string,
+    rejectionReason: string,
+  ): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/cancel-requests/reject`, {
+      rejectionReason,
+    });
+  },
+
+  completeCancelManualRefund: async (orderId: string): Promise<void> => {
+    await apiClient.post(
+      `/admin/orders/${orderId}/cancel-requests/complete-refund`,
+    );
   },
 
   confirmOrder: async (orderId: string): Promise<void> => {
@@ -302,6 +428,155 @@ export const bannerService = {
     const response = await apiClient.post("/admin/banners/cloudinary/sign", {
       folder,
     });
+    return response.data;
+  },
+};
+
+export const userService = {
+  getUsers: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: AdminUserStatus;
+    role?: AdminUserRole;
+    emailVerified?: boolean;
+    sortBy?: "createdAt" | "lastLogin" | "email";
+    sortOrder?: "asc" | "desc";
+  }): Promise<AdminUsersResponse> => {
+    const response = await apiClient.get("/admin/users", { params });
+    return response.data;
+  },
+
+  getUserById: async (id: string): Promise<AdminUserDetailResponse> => {
+    const response = await apiClient.get(`/admin/users/${id}`);
+    return response.data;
+  },
+
+  updateStatus: async (
+    id: string,
+    payload: { status: AdminUserStatus; reason: string },
+  ): Promise<AdminUserMutationResponse> => {
+    const response = await apiClient.patch(
+      `/admin/users/${id}/status`,
+      payload,
+    );
+    return response.data;
+  },
+
+  updateRole: async (
+    id: string,
+    payload: { role: AdminUserRole; reason: string },
+  ): Promise<AdminUserMutationResponse> => {
+    const response = await apiClient.patch(`/admin/users/${id}/role`, payload);
+    return response.data;
+  },
+
+  getAudits: async (
+    id: string,
+    params?: { page?: number; limit?: number },
+  ): Promise<AdminUserAuditsResponse> => {
+    const response = await apiClient.get(`/admin/users/${id}/audits`, {
+      params,
+    });
+    return response.data;
+  },
+
+  getCustomerCohorts: async (params?: {
+    days?: number;
+  }): Promise<AdminUserCustomerCohortsResponse> => {
+    const response = await apiClient.get(
+      "/admin/users/analytics/customer-cohorts",
+      { params },
+    );
+    return response.data;
+  },
+
+  getTopSpenders: async (params?: {
+    days?: number;
+    limit?: number;
+  }): Promise<AdminUserTopSpendersResponse> => {
+    const response = await apiClient.get(
+      "/admin/users/analytics/top-spenders",
+      {
+        params,
+      },
+    );
+    return response.data;
+  },
+
+  exportUsers: async (params?: {
+    search?: string;
+    status?: AdminUserStatus;
+    role?: AdminUserRole;
+    emailVerified?: boolean;
+    sortBy?: "createdAt" | "lastLogin" | "email";
+    sortOrder?: "asc" | "desc";
+  }): Promise<Blob> => {
+    const response = await apiClient.get("/admin/users/export", {
+      params,
+      responseType: "blob",
+    });
+    return response.data;
+  },
+};
+
+export const refundService = {
+  getRefunds: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: AdminRefundStatus;
+    type?: AdminRefundType;
+    sortBy?: "requestedAt" | "processedAt" | "amount";
+    sortOrder?: "asc" | "desc";
+  }): Promise<AdminRefundListResponse> => {
+    const response = await apiClient.get("/admin/refunds", { params });
+    return response.data;
+  },
+
+  getRefundById: async (id: string): Promise<AdminRefundDetailResponse> => {
+    const response = await apiClient.get(`/admin/refunds/${id}`);
+    return response.data;
+  },
+
+  retryRefund: async (id: string): Promise<AdminRefundDetailResponse> => {
+    const response = await apiClient.post(`/admin/refunds/${id}/retry`);
+    return response.data;
+  },
+};
+
+export const dashboardService = {
+  getOverview: async (): Promise<DashboardOverview> => {
+    const response = await apiClient.get("/admin/dashboard/overview");
+    return response.data.data;
+  },
+  getTimeseries: async (days: number): Promise<DashboardTimeseries> => {
+    const response = await apiClient.get("/admin/dashboard/timeseries", {
+      params: { days },
+    });
+    return response.data.data;
+  },
+  getRecentOrders: async (limit = 5): Promise<DashboardRecentOrder[]> => {
+    const response = await apiClient.get("/admin/dashboard/recent-orders", {
+      params: { limit },
+    });
+    return response.data.data.items;
+  },
+};
+
+export const logsService = {
+  getLogs: async (params?: {
+    page?: number;
+    limit?: number;
+    actorType?: "ADMIN" | "USER" | "SYSTEM";
+    actorId?: string;
+    action?: string;
+    targetType?: string;
+    targetId?: string;
+    from?: string;
+    to?: string;
+  }): Promise<AdminLogsResponse> => {
+    const response = await apiClient.get("/admin/logs", { params });
     return response.data;
   },
 };

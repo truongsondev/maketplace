@@ -3,9 +3,19 @@ export type AdminOrderTab =
   | "pending"
   | "processing"
   | "shipped"
+  | "completed"
   | "canceled";
 
 export type AdminOrderSort = "new" | "old";
+
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PAID"
+  | "SHIPPED"
+  | "DELIVERED"
+  | "CANCELLED"
+  | "RETURNED";
 
 export interface AdminOrderItem {
   id: string;
@@ -24,6 +34,30 @@ export interface AdminOrderListItem {
   status: string;
   returnStatus?: string | null;
   totalPrice: string;
+  cancelRequest?: {
+    id: string;
+    status: "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
+    reasonCode:
+      | "NO_LONGER_NEEDED"
+      | "BUY_OTHER_ITEM"
+      | "FOUND_CHEAPER"
+      | "OTHER";
+    reasonText: string | null;
+    bankAccountName: string;
+    bankAccountNumber: string;
+    bankName: string;
+    rejectionReason: string | null;
+    approvedAt: string | null;
+    completedAt: string | null;
+  } | null;
+  cancelRefund?: {
+    id: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+    amount: string;
+    failureReason: string | null;
+    requestedAt: string;
+    processedAt: string | null;
+  } | null;
   returns?: {
     requested: number;
     approved: number;
@@ -69,8 +103,45 @@ export interface AdminOrdersCountsResponse {
     pending: number;
     processing: number;
     shipped: number;
+    completed: number;
     canceled: number;
   };
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrderStatusBreakdown {
+  from: string;
+  to: string;
+  days: number;
+  total: number;
+  counts: Record<OrderStatus, number>;
+  updatedAt: string;
+}
+
+export interface AdminOrderTimeseriesPoint {
+  date: string;
+  total: number;
+}
+
+export interface AdminOrderTimeseries {
+  from: string;
+  to: string;
+  days: number;
+  points: AdminOrderTimeseriesPoint[];
+  updatedAt: string;
+}
+
+export interface AdminOrderStatusBreakdownResponse {
+  success: boolean;
+  data: AdminOrderStatusBreakdown;
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrderTimeseriesResponse {
+  success: boolean;
+  data: AdminOrderTimeseries;
   message: string;
   timestamp: string;
 }

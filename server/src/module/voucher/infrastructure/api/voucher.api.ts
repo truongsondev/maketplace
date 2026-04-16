@@ -14,6 +14,7 @@ export class VoucherAPI {
   private initializeRoutes(): void {
     this.router.get('/active', asyncHandler(this.getActiveVouchers.bind(this)));
     this.router.post('/validate', asyncHandler(this.validateVoucher.bind(this)));
+    this.router.post('/apply', asyncHandler(this.applyVoucher.bind(this)));
   }
 
   private async getActiveVouchers(req: Request, res: Response): Promise<void> {
@@ -47,5 +48,31 @@ export class VoucherAPI {
     });
 
     res.status(200).json(ResponseFormatter.success(result, 'Voucher validated successfully'));
+  }
+
+  private async applyVoucher(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const code = String((req.body as any)?.code ?? '').trim();
+    const cartItemIdsRaw = (req.body as any)?.cartItemIds;
+
+    if (!code) {
+      throw new BadRequestError('code is required');
+    }
+
+    const cartItemIds = Array.isArray(cartItemIdsRaw)
+      ? cartItemIdsRaw.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
+    const result = await this.voucherController.validateVoucher({
+      userId,
+      code,
+      cartItemIds,
+    });
+
+    res.status(200).json(ResponseFormatter.success(result, 'Voucher applied successfully'));
   }
 }

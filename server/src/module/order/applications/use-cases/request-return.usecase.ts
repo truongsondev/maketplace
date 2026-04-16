@@ -1,11 +1,12 @@
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
+import type { IRequestReturnUseCase } from '../ports/input/request-return.usecase';
 import type {
   IOrderReturnRepository,
   RequestReturnInput,
   RequestReturnResult,
 } from '../ports/output/order-return.repository';
 
-export class RequestReturnUseCase {
+export class RequestReturnUseCase implements IRequestReturnUseCase {
   constructor(private readonly repo: IOrderReturnRepository) {}
 
   async execute(input: RequestReturnInput): Promise<RequestReturnResult> {

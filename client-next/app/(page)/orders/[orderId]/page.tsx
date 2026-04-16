@@ -1,4 +1,4 @@
-import { OrderDetailClient } from "@/app/(page)/orders/order-detail-client";
+import { redirect } from "next/navigation";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -6,5 +6,7 @@ type PageProps = {
 
 export default async function OrderStatusPage(props: PageProps) {
   const { orderId } = await props.params;
-  return <OrderDetailClient orderId={orderId} />;
+
+  // Use modal-only UX: keep users on /orders and open detail via query.
+  redirect(`/orders?orderId=${encodeURIComponent(orderId)}`);
 }

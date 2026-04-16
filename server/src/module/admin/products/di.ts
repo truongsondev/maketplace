@@ -57,6 +57,13 @@ import {
   UploadAPI,
 } from './infrastructure/api';
 
+import { AdminProductAnalyticsController } from './interface-adapter/controller/admin-product-analytics.controller';
+import { PrismaAdminProductAnalyticsRepository } from './infrastructure/repositories/prisma-admin-product-analytics.repository';
+import { ProductAnalyticsAPI } from './infrastructure/api/product-analytics.api';
+import { GetAdminProductTopSellingUseCase } from './applications/usecases/get-admin-product-top-selling.usecase';
+import { GetAdminProductTopFavoritedUseCase } from './applications/usecases/get-admin-product-top-favorited.usecase';
+import { GetAdminProductLeastBoughtUseCase } from './applications/usecases/get-admin-product-least-bought.usecase';
+
 export function createAdminModule(): Router {
   const router = Router();
 
@@ -69,6 +76,8 @@ export function createAdminModule(): Router {
   const tagRepository = new PrismaTagRepository(prisma);
   const priceHistoryRepository = new PrismaPriceHistoryRepository(prisma);
   const cloudinaryService = new CloudinaryServiceImpl();
+
+  const productAnalyticsRepository = new PrismaAdminProductAnalyticsRepository(prisma);
 
   // Initialize Use Cases
   const createProductUseCase = new CreateProductUseCase(productRepository);
@@ -144,6 +153,12 @@ export function createAdminModule(): Router {
     deleteProductImageUseCase,
   );
 
+  const productAnalyticsController = new AdminProductAnalyticsController(
+    new GetAdminProductTopSellingUseCase(productAnalyticsRepository),
+    new GetAdminProductTopFavoritedUseCase(productAnalyticsRepository),
+    new GetAdminProductLeastBoughtUseCase(productAnalyticsRepository),
+  );
+
   // Initialize APIs
   const productAPI = new ProductAPI(productController);
   const variantAPI = new VariantAPI(variantController);
@@ -151,6 +166,7 @@ export function createAdminModule(): Router {
   const categoryTagAPI = new CategoryTagAPI(categoryTagController);
   const inventoryAPI = new InventoryAPI(inventoryController);
   const uploadAPI = new UploadAPI(uploadController);
+  const productAnalyticsAPI = new ProductAnalyticsAPI(productAnalyticsController);
 
   // Register routes
   router.use(productAPI.router);
@@ -159,6 +175,7 @@ export function createAdminModule(): Router {
   router.use(categoryTagAPI.router);
   router.use(inventoryAPI.router);
   router.use(uploadAPI.router);
+  router.use(productAnalyticsAPI.router);
 
   return router;
 }

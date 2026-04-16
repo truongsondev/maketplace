@@ -47,7 +47,7 @@ export class UpdateCartItemUseCase implements IUpdateCartItemUseCase {
         throw new CartItemNotFoundError(command.itemId);
       }
 
-      const availableStock = variant.stockAvailable - variant.stockReserved;
+      const availableStock = variant.stockOnHand - variant.stockReserved;
       if (availableStock < delta) {
         throw new InsufficientStockError({
           variantId: variant.id,

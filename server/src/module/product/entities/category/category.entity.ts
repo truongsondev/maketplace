@@ -3,6 +3,7 @@ export interface CategoryProps {
   name: string;
   slug: string;
   imageUrl: string | null;
+  parentId: string | null;
   productCount: number;
 }
 
@@ -20,6 +21,9 @@ export class Category {
   }
   get imageUrl(): string | null {
     return this.props.imageUrl;
+  }
+  get parentId(): string | null {
+    return this.props.parentId;
   }
   get productCount(): number {
     return this.props.productCount;

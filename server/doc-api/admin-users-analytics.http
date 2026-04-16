@@ -1,0 +1,7 @@
+### Admin Users Analytics: customer cohorts
+GET http://localhost:8080/api/admin/users/analytics/customer-cohorts?days=30
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}
+
+### Admin Users Analytics: top spenders
+GET http://localhost:8080/api/admin/users/analytics/top-spenders?days=30&limit=10
+Authorization: Bearer {{ADMIN_ACCESS_TOKEN}}

@@ -25,14 +25,14 @@ export default function LoginPage() {
     <main className="flex flex-col md:flex-row min-h-screen overflow-hidden">
       <section className="hidden md:flex md:w-1/2 relative overflow-hidden bg-[#F5F5DC]">
         <img
-          alt="High-quality fashion model"
+          alt="Mẫu thời trang chất lượng cao"
           className="absolute inset-0 w-full h-full object-cover"
           src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxl762Bk_kcod5mgxiAzghFxrIFcQkOznl7F3lker5w578fJl0FkqzHBRCvEMYk42h0Vyqx34sLA8LpoR1WT2HJbeimeuUKrf9CQdeFyvU-UKzgya6ccx50youx3zn_B9g29lhsGPMuAPQ1PXu1HXsIW6c7KvKnoy7JjVeeL1_C4pqcy-eurpFMENkBdi_fFVlucS_OyOIwo16wE4KjFwbA9yCu-o4mPeCRyKiMppcYnQcDQmqw6d78xOsxtntP13Ctpqk6fqQPZM"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[rgba(245,245,220,0.4)] to-[rgba(245,245,220,0.4)]"></div>
         <div className="relative z-10 flex items-center justify-center w-full h-full p-12 text-center">
           <h1 className="font-serif text-5xl lg:text-7xl text-[#1A1A1A] tracking-[0.15em] uppercase leading-tight">
-            Discover <br /> <span className="italic">Your</span> Style
+            Khám phá <br /> <span className="italic">phong cách</span> của bạn
           </h1>
         </div>
       </section>
@@ -46,9 +46,9 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-10">
-            <h3 className="text-2xl font-light mb-2">Welcome Back</h3>
+            <h3 className="text-2xl font-light mb-2">Chào mừng trở lại</h3>
             <p className="text-gray-500 text-sm">
-              Please enter your credentials to access the dashboard.
+              Vui lòng nhập thông tin đăng nhập để truy cập trang quản trị.
             </p>
           </div>
 
@@ -58,7 +58,7 @@ export default function LoginPage() {
                 className="block text-xs uppercase tracking-widest text-gray-400 mb-2"
                 htmlFor="email"
               >
-                Email Address
+                Địa chỉ email
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
@@ -83,7 +83,7 @@ export default function LoginPage() {
                 className="block text-xs uppercase tracking-widest text-gray-400 mb-2"
                 htmlFor="password"
               >
-                Password
+                Mật khẩu
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
@@ -119,7 +119,7 @@ export default function LoginPage() {
                   className="ml-2 block text-gray-600"
                   htmlFor="remember-me"
                 >
-                  Remember me
+                  Ghi nhớ đăng nhập
                 </label>
               </div>
               <div className="text-sm">
@@ -127,7 +127,7 @@ export default function LoginPage() {
                   className="font-medium text-[#D4AF37] hover:text-yellow-700 transition-colors"
                   href="#"
                 >
-                  Forgot password?
+                  Quên mật khẩu?
                 </a>
               </div>
             </div>
@@ -141,10 +141,10 @@ export default function LoginPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Signing In...
+                    Đang đăng nhập...
                   </>
                 ) : (
-                  "Sign In"
+                  "Đăng nhập"
                 )}
               </button>
 
@@ -156,7 +156,7 @@ export default function LoginPage() {
                   <div className="w-full border-t border-gray-100"></div>
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-400">Or</span>
+                  <span className="bg-white px-2 text-gray-400">Hoặc</span>
                 </div>
               </div>
 
@@ -183,13 +183,13 @@ export default function LoginPage() {
                     fill="#EA4335"
                   />
                 </svg>
-                Continue with Google
+                Tiếp tục với Google
               </button>
             </div>
           </form>
 
           <p className="mt-10 text-center text-xs text-gray-400 uppercase tracking-widest">
-            © 2024 Luxury Fashion Group. All Rights Reserved.
+            © 2024 Luxury Fashion Group. Bảo lưu mọi quyền.
           </p>
         </div>
       </section>

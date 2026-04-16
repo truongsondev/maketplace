@@ -6,6 +6,7 @@ import {
   CategoryDetail,
   TagDetail,
   ReviewSummary,
+  ReviewItem,
 } from '../dto/result/product-detail.result';
 import { IGetProductDetailUseCase } from '../ports/input/get-product-detail.usecase';
 import { IProductRepository } from '../ports/output/product.repository';
@@ -98,6 +99,25 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
     // Calculate review summary
     const reviews: ReviewSummary = this.calculateReviewSummary(product.reviews || []);
 
+    const reviewItems: ReviewItem[] = (product.reviews || []).map((review: any) => {
+      const authorLabel = this.toMaskedUserLabel(review?.user);
+      const images = (review?.images || [])
+        .map((img: any) => ({
+          url: String(img.url),
+          sortOrder: Number(img.sortOrder) || 0,
+        }))
+        .sort((a: any, b: any) => a.sortOrder - b.sortOrder);
+
+      return {
+        id: review.id,
+        rating: Number(review.rating) || 0,
+        comment: review.comment ?? null,
+        createdAt: review.createdAt || new Date(),
+        author: { label: authorLabel },
+        images,
+      };
+    });
+
     return {
       id: product.id,
       name: product.name,
@@ -108,9 +128,31 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       categories,
       tags,
       reviews,
+      reviewItems,
       createdAt: product.createdAt || new Date(),
       updatedAt: product.updatedAt || new Date(),
     };
+  }
+
+  private toMaskedUserLabel(user: any): string {
+    const email = (user?.email || '').toString().trim();
+    if (email && email.includes('@')) {
+      const [local, domain] = email.split('@');
+      const localPrefix = local.slice(0, 2);
+      const domainPrefix = domain.slice(0, 1);
+      return `${localPrefix || '*'}***@${domainPrefix || '*'}***`;
+    }
+
+    const phone = (user?.phone || '').toString().trim();
+    if (phone) {
+      const digits = phone.replace(/\D/g, '');
+      if (digits.length >= 7) {
+        return `${digits.slice(0, 3)}***${digits.slice(-2)}`;
+      }
+      return `${digits.slice(0, 2) || '*'}***`;
+    }
+
+    return 'Khách hàng';
   }
 
   private calculateReviewSummary(reviews: any[]): ReviewSummary {

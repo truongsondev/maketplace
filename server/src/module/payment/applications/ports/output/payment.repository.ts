@@ -1,4 +1,4 @@
-export type PaymentTransactionStatus = 'PENDING' | 'PAID' | 'FAILED';
+export type PaymentTransactionStatus = 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
 
 export interface PaymentTransactionRecord {
   orderId: string;

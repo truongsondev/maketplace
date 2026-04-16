@@ -73,14 +73,14 @@ export function ProductFilters({
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+        <h3 className="text-sm font-semibold text-gray-900">Bộ lọc</h3>
         {activeFilterCount > 0 && (
           <button
             onClick={handleClearFilters}
             className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
           >
             <X className="w-4 h-4" />
-            Clear all ({activeFilterCount})
+            Xóa tất cả ({activeFilterCount})
           </button>
         )}
       </div>
@@ -90,7 +90,7 @@ export function ProductFilters({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search by name, SKU, tags..."
+            placeholder="Tìm theo tên, SKU, thẻ..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -105,7 +105,7 @@ export function ProductFilters({
             }
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">All Categories</option>
+            <option value="">Tất cả danh mục</option>
             {categories.map((cat) => (
               <option key={cat.id} value={cat.id}>
                 {cat.name}
@@ -130,15 +130,15 @@ export function ProductFilters({
             }}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">All Status</option>
+            <option value="">Tất cả trạng thái</option>
             <option value="active">
-              Active ({aggregations.statusCount.active})
+              Đang hoạt động ({aggregations.statusCount.active})
             </option>
             <option value="inactive">
-              Inactive ({aggregations.statusCount.inactive})
+              Tạm ngưng ({aggregations.statusCount.inactive})
             </option>
             <option value="deleted">
-              Deleted ({aggregations.statusCount.deleted})
+              Đã xóa ({aggregations.statusCount.deleted})
             </option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -156,13 +156,13 @@ export function ProductFilters({
             className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">
-              All Stock ({aggregations.stockStatus.all})
+              Tất cả tồn kho ({aggregations.stockStatus.all})
             </option>
             <option value="low">
-              Low Stock ({aggregations.stockStatus.low})
+              Sắp hết hàng ({aggregations.stockStatus.low})
             </option>
             <option value="out">
-              Out of Stock ({aggregations.stockStatus.out})
+              Hết hàng ({aggregations.stockStatus.out})
             </option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
@@ -171,7 +171,7 @@ export function ProductFilters({
         <div className="flex gap-2">
           <input
             type="number"
-            placeholder="Min price"
+            placeholder="Giá tối thiểu"
             value={filters.minPrice || ""}
             onChange={(e) =>
               onFilterChange({
@@ -182,7 +182,7 @@ export function ProductFilters({
           />
           <input
             type="number"
-            placeholder="Max price"
+            placeholder="Giá tối đa"
             value={filters.maxPrice || ""}
             onChange={(e) =>
               onFilterChange({

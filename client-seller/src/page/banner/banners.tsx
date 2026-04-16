@@ -67,7 +67,7 @@ export default function BannersPage() {
       });
       setItems(response.data.items);
     } catch (error) {
-      toast.error("Failed to load banners");
+      toast.error("Không tải được danh sách banner");
       console.error(error);
     } finally {
       setLoading(false);
@@ -168,22 +168,22 @@ export default function BannersPage() {
       };
 
       if (!payload.title) {
-        toast.error("Title is required");
+        toast.error("Tiêu đề là bắt buộc");
         return;
       }
 
       if (editingId) {
         await bannerService.updateBanner(editingId, payload);
-        toast.success("Banner updated successfully");
+        toast.success("Cập nhật banner thành công");
       } else {
         await bannerService.createBanner(payload);
-        toast.success("Banner created successfully");
+        toast.success("Tạo banner thành công");
       }
 
       resetForm();
       await loadBanners();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to save banner"));
+      toast.error(getErrorMessage(error, "Lưu banner thất bại"));
     } finally {
       setIsUploadingBanner(false);
       setSaving(false);
@@ -193,10 +193,10 @@ export default function BannersPage() {
   const toggleStatus = async (item: BannerItem) => {
     try {
       await bannerService.updateStatus(item.id, !item.isActive);
-      toast.success("Banner status updated");
+      toast.success("Đã cập nhật trạng thái banner");
       await loadBanners();
     } catch (error: unknown) {
-      toast.error(getErrorMessage(error, "Failed to update status"));
+      toast.error(getErrorMessage(error, "Cập nhật trạng thái thất bại"));
     }
   };
 
@@ -214,37 +214,37 @@ export default function BannersPage() {
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 {editingItem
-                  ? `Edit Banner ${editingItem.title}`
-                  : "Create Banner"}
+                  ? `Sửa banner: ${editingItem.title}`
+                  : "Tạo banner"}
               </h2>
 
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <label className="block text-sm text-gray-700">
-                  Title
+                  Tiêu đề
                   <input
                     value={form.title}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, title: e.target.value }))
                     }
                     className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
-                    placeholder="Summer Collection"
+                    placeholder="Ví dụ: Bộ sưu tập mùa hè"
                   />
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Subtitle
+                  Phụ đề
                   <input
                     value={form.subtitle ?? ""}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, subtitle: e.target.value }))
                     }
                     className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
-                    placeholder="New Arrivals"
+                    placeholder="Mới nhất"
                   />
                 </label>
 
                 <label className="block text-sm text-gray-700">
-                  Sort Order
+                  Thứ tự hiển thị
                   <input
                     type="number"
                     value={form.sortOrder ?? 0}
@@ -259,7 +259,7 @@ export default function BannersPage() {
                 </label>
 
                 <label className="block text-sm text-gray-700 md:col-span-2">
-                  Banner Image URL
+                  URL ảnh banner
                   <input
                     value={form.imageUrl}
                     onChange={(e) =>
@@ -282,7 +282,7 @@ export default function BannersPage() {
                     }
                     className="size-4"
                   />
-                  Active on buyer homepage
+                  Hiển thị trên trang chủ người mua
                 </label>
 
                 <div className="md:col-span-1">
@@ -312,14 +312,14 @@ export default function BannersPage() {
                     </p>
                     <img
                       src={form.imageUrl}
-                      alt="Banner preview"
+                      alt="Xem trước banner"
                       className="h-32 w-full max-w-2xl rounded-lg border border-gray-200 object-cover"
                     />
                   </div>
                 ) : null}
 
                 <label className="block text-sm text-gray-700 md:col-span-3">
-                  Description
+                  Mô tả
                   <textarea
                     value={form.description ?? ""}
                     onChange={(e) =>
@@ -340,17 +340,17 @@ export default function BannersPage() {
                   className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
                 >
                   {saving
-                    ? "Saving..."
+                    ? "Đang lưu..."
                     : editingId
-                      ? "Update Banner"
-                      : "Create Banner"}
+                      ? "Cập nhật banner"
+                      : "Tạo banner"}
                 </button>
                 {editingId && (
                   <button
                     onClick={resetForm}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700"
                   >
-                    Cancel Edit
+                    Huỷ sửa
                   </button>
                 )}
               </div>
@@ -362,13 +362,13 @@ export default function BannersPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="h-10 flex-1 rounded-lg border border-gray-300 px-3"
-                  placeholder="Search title/subtitle"
+                  placeholder="Tìm theo tiêu đề/phụ đề"
                 />
                 <button
                   onClick={onSearch}
                   className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700"
                 >
-                  Search
+                  Tìm
                 </button>
               </div>
 
@@ -376,24 +376,24 @@ export default function BannersPage() {
                 <table className="w-full min-w-220 text-left text-sm">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
-                      <th className="px-3 py-2">Title</th>
-                      <th className="px-3 py-2">Image</th>
-                      <th className="px-3 py-2">Sort</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Actions</th>
+                      <th className="px-3 py-2">Tiêu đề</th>
+                      <th className="px-3 py-2">Ảnh</th>
+                      <th className="px-3 py-2">Thứ tự</th>
+                      <th className="px-3 py-2">Trạng thái</th>
+                      <th className="px-3 py-2">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <tr>
                         <td className="px-3 py-4" colSpan={5}>
-                          Loading banners...
+                          Đang tải banner...
                         </td>
                       </tr>
                     ) : items.length === 0 ? (
                       <tr>
                         <td className="px-3 py-4" colSpan={5}>
-                          No banners found.
+                          Không tìm thấy banner.
                         </td>
                       </tr>
                     ) : (
@@ -425,7 +425,7 @@ export default function BannersPage() {
                                   : "bg-gray-100 text-gray-600"
                               }`}
                             >
-                              {item.isActive ? "Active" : "Inactive"}
+                              {item.isActive ? "Đang bật" : "Tạm tắt"}
                             </span>
                           </td>
                           <td className="px-3 py-2 space-x-2">
@@ -433,13 +433,13 @@ export default function BannersPage() {
                               onClick={() => onEdit(item)}
                               className="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
                             >
-                              Edit
+                              Sửa
                             </button>
                             <button
                               onClick={() => toggleStatus(item)}
                               className="rounded-md border border-gray-300 px-2 py-1 text-gray-700"
                             >
-                              {item.isActive ? "Disable" : "Enable"}
+                              {item.isActive ? "Tắt" : "Bật"}
                             </button>
                           </td>
                         </tr>

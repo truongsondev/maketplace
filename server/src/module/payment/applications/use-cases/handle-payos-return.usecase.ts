@@ -18,40 +18,49 @@ export class HandlePayosReturnUseCase {
     const paymentLink = await payos.paymentRequests.get(Number(orderCode));
     const payment = await this.paymentRepository.findByOrderCode(orderCode);
 
-    // Safety net: if PayOS already confirms PAID but webhook hasn't updated DB yet,
-    // reconcile the DB status using PayOS server-to-server lookup.
-    if (paymentLink.status === 'PAID' && payment?.status === 'PENDING') {
-      const paidAt = (() => {
-        const raw = (paymentLink as any)?.transactionDateTime;
-        if (typeof raw === 'string' && raw.trim()) {
-          const parsed = new Date(raw);
-          if (!Number.isNaN(parsed.getTime())) {
-            return parsed;
+    // Safety net: reconcile DB if webhook hasn't updated yet.
+    // - PayOS confirms PAID -> mark DB PAID
+    // - PayOS confirms CANCELLED/EXPIRED/FAILED -> mark DB FAILED
+    if (payment?.status === 'PENDING') {
+      const isPaid = paymentLink.status === 'PAID';
+      const isExpired = paymentLink.status === 'EXPIRED';
+      const isTerminalFailure = ['FAILED', 'CANCELLED', 'EXPIRED'].includes(paymentLink.status);
+
+      if (isPaid || isTerminalFailure) {
+        const paidAt = (() => {
+          if (!isPaid) return null;
+
+          const raw = (paymentLink as any)?.transactionDateTime;
+          if (typeof raw === 'string' && raw.trim()) {
+            const parsed = new Date(raw);
+            if (!Number.isNaN(parsed.getTime())) {
+              return parsed;
+            }
           }
-        }
-        return new Date();
-      })();
+          return new Date();
+        })();
 
-      const updated = await this.paymentRepository.updateFromWebhookIfPending({
-        orderCode,
-        status: 'PAID',
-        paymentLinkId: paymentLink.id ?? null,
-        gatewayReference: (paymentLink as any)?.reference ?? null,
-        gatewayCode: '00',
-        bankCode: (paymentLink as any)?.counterAccountBankId ?? null,
-        paidAt,
-        rawPayload: {
-          source: 'return-reconcile',
-          paymentLink,
-        },
-      });
+        const updated = await this.paymentRepository.updateFromWebhookIfPending({
+          orderCode,
+          status: isPaid ? 'PAID' : isExpired ? 'EXPIRED' : 'FAILED',
+          paymentLinkId: paymentLink.id ?? null,
+          gatewayReference: (paymentLink as any)?.reference ?? null,
+          gatewayCode: isPaid ? '00' : paymentLink.status,
+          bankCode: (paymentLink as any)?.counterAccountBankId ?? null,
+          paidAt,
+          rawPayload: {
+            source: 'return-reconcile',
+            paymentLink,
+          },
+        });
 
-      logger.info('PayOS return reconcile attempted', {
-        orderCode,
-        gatewayStatus: paymentLink.status,
-        dbStatus: payment.status,
-        updated,
-      });
+        logger.info('PayOS return reconcile attempted', {
+          orderCode,
+          gatewayStatus: paymentLink.status,
+          dbStatus: payment.status,
+          updated,
+        });
+      }
     }
 
     const refreshedPayment = await this.paymentRepository.findByOrderCode(orderCode);

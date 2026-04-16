@@ -32,6 +32,7 @@ export class GetCategoryStatsUseCase implements IGetCategoryStatsUseCase {
       name: category.name,
       slug: category.slug,
       imageUrl: category.imageUrl,
+      parentId: category.parentId,
       productCount: category.productCount,
     };
   }

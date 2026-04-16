@@ -8,4 +8,6 @@ export interface IUserRepository {
   save(user: User): Promise<User>;
 
   existsByEmail(email: string): Promise<boolean>;
+
+  updateLastLogin(userId: string): Promise<void>;
 }

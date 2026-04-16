@@ -17,6 +17,8 @@ import { IRemoveProductFavoriteUseCase } from '../../applications/ports/input/re
 import { GetFavoriteProductsQuery } from '../../applications/dto/query/get-favorite-products.query';
 import { FavoriteProductListResult } from '../../applications/dto/result/favorite-product-list.result';
 import { IGetFavoriteProductsUseCase } from '../../applications/ports/input/get-favorite-products.usecase';
+import { IGetRelatedProductsFromOrdersUseCase } from '../../applications/ports/input/get-related-products-from-orders.usecase';
+import { RelatedProductsFromOrdersResult } from '../../applications/dto/result/related-products-from-orders.result';
 
 export class ProductController {
   constructor(
@@ -27,6 +29,7 @@ export class ProductController {
     private readonly addProductFavoriteUseCase: IAddProductFavoriteUseCase,
     private readonly removeProductFavoriteUseCase: IRemoveProductFavoriteUseCase,
     private readonly getFavoriteProductsUseCase: IGetFavoriteProductsUseCase,
+    private readonly getRelatedProductsFromOrdersUseCase: IGetRelatedProductsFromOrdersUseCase,
   ) {}
 
   async getCategoryStats(query: GetCategoryStatsQuery): Promise<CategoryStatsResult[]> {
@@ -61,5 +64,12 @@ export class ProductController {
     query: GetFavoriteProductsQuery,
   ): Promise<FavoriteProductListResult> {
     return this.getFavoriteProductsUseCase.execute(userId, query);
+  }
+
+  async getRelatedProductsFromMyOrders(
+    userId: string,
+    limit?: number,
+  ): Promise<RelatedProductsFromOrdersResult> {
+    return this.getRelatedProductsFromOrdersUseCase.execute(userId, { limit });
   }
 }

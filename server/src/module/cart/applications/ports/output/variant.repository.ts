@@ -10,6 +10,7 @@ export interface VariantWithProduct {
   attributes: any;
   price: number;
   stockAvailable: number;
+  stockOnHand: number;
   stockReserved: number;
   isDeleted: boolean;
   product: {

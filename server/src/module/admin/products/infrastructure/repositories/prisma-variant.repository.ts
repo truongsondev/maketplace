@@ -1,9 +1,72 @@
-import { PrismaClient } from '../../../../../../generated/prisma/client';
+import { PrismaClient, Prisma } from '../../../../../../generated/prisma/client';
 import { ProductVariant, ProductImageProps } from '../../entities/product/product.entity';
 import { IVariantRepository } from '../../applications/ports/output';
+import { buildVariantOptionKeyFromAttributes } from '@/shared/util/variant-option-key';
+
+function normalizeOptionValue(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  const value = String(raw).trim();
+  if (!value) return null;
+
+  const ascii = value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+
+  const normalized = ascii
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_\-]/g, '');
+
+  return normalized || null;
+}
 
 export class PrismaVariantRepository implements IVariantRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async syncVariantAxisAttributes(
+    variantId: string,
+    attributes: Record<string, any>,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const prisma = tx ?? this.prisma;
+
+    const defs = await prisma.attributeDefinition.findMany({
+      where: { code: { in: ['color', 'size'] } },
+      select: { id: true, code: true },
+    });
+
+    const attrIdByCode = new Map(defs.map((d) => [d.code, d.id] as const));
+
+    for (const code of ['color', 'size'] as const) {
+      const attributeId = attrIdByCode.get(code);
+      if (!attributeId) continue;
+
+      const raw = attributes?.[code];
+      const normalized = normalizeOptionValue(raw);
+
+      if (!normalized) {
+        await prisma.variantAttributeValue.deleteMany({
+          where: { variantId, attributeId },
+        });
+        continue;
+      }
+
+      const option = await prisma.attributeOption.upsert({
+        where: { attributeId_value: { attributeId, value: normalized } },
+        update: { label: String(raw).trim() },
+        create: { attributeId, value: normalized, label: String(raw).trim() },
+        select: { id: true },
+      });
+
+      await prisma.variantAttributeValue.upsert({
+        where: { variantId_attributeId: { variantId, attributeId } },
+        update: { optionId: option.id },
+        create: { variantId, attributeId, optionId: option.id },
+      });
+    }
+  }
 
   async findById(variantId: string): Promise<ProductVariant | null> {
     const variant = await this.prisma.productVariant.findFirst({
@@ -15,6 +78,7 @@ export class PrismaVariantRepository implements IVariantRepository {
         attributes: true,
         price: true,
         stockAvailable: true,
+        stockOnHand: true,
         stockReserved: true,
         minStock: true,
         isDeleted: true,
@@ -56,6 +120,7 @@ export class PrismaVariantRepository implements IVariantRepository {
         attributes: true,
         price: true,
         stockAvailable: true,
+        stockOnHand: true,
         stockReserved: true,
         minStock: true,
         isDeleted: true,
@@ -88,17 +153,29 @@ export class PrismaVariantRepository implements IVariantRepository {
   }
 
   async create(productId: string, variant: ProductVariant): Promise<ProductVariant> {
-    const created = await this.prisma.productVariant.create({
-      data: {
-        productId,
-        sku: variant.sku,
-        attributes: variant.attributes,
-        price: variant.price,
-        stockAvailable: variant.stockAvailable,
-        stockReserved: variant.stockReserved,
-        minStock: variant.minStock,
-        isDeleted: false,
-      },
+    const optionKey = buildVariantOptionKeyFromAttributes(variant.attributes, variant.sku);
+    const created = await this.prisma.$transaction(async (tx) => {
+      const v = await tx.productVariant.create({
+        data: {
+          productId,
+          sku: variant.sku,
+          attributes: variant.attributes,
+          optionKey,
+          price: variant.price,
+          stockAvailable: variant.stockAvailable,
+          stockOnHand: variant.stockAvailable,
+          stockReserved: variant.stockReserved,
+          minStock: variant.minStock,
+          isDeleted: false,
+        },
+      });
+
+      await this.syncVariantAxisAttributes(
+        v.id,
+        (variant.attributes ?? {}) as Record<string, any>,
+        tx,
+      );
+      return v;
     });
 
     return ProductVariant.fromPersistence({
@@ -120,12 +197,43 @@ export class PrismaVariantRepository implements IVariantRepository {
     if (data.sku !== undefined) updateData.sku = data.sku;
     if (data.attributes !== undefined) updateData.attributes = data.attributes;
     if (data.price !== undefined) updateData.price = data.price;
-    if (data.stockAvailable !== undefined) updateData.stockAvailable = data.stockAvailable;
+    if (data.stockAvailable !== undefined) {
+      updateData.stockAvailable = data.stockAvailable;
+      updateData.stockOnHand = data.stockAvailable;
+    }
     if (data.minStock !== undefined) updateData.minStock = data.minStock;
 
-    const updated = await this.prisma.productVariant.update({
-      where: { id: variantId },
-      data: updateData,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (data.attributes !== undefined || data.sku !== undefined) {
+        const current = await tx.productVariant.findUnique({
+          where: { id: variantId },
+          select: { sku: true, attributes: true },
+        });
+
+        if (!current) {
+          throw new Error(`Variant not found: ${variantId}`);
+        }
+
+        const nextSku = (data.sku ?? current.sku) as string;
+        const nextAttrs = (data.attributes ??
+          (current.attributes as Record<string, any>)) as unknown;
+        updateData.optionKey = buildVariantOptionKeyFromAttributes(nextAttrs, nextSku);
+      }
+
+      const v = await tx.productVariant.update({
+        where: { id: variantId },
+        data: updateData,
+      });
+
+      if (data.attributes !== undefined) {
+        await this.syncVariantAxisAttributes(
+          v.id,
+          (data.attributes ?? {}) as Record<string, any>,
+          tx,
+        );
+      }
+
+      return v;
     });
 
     return ProductVariant.fromPersistence({
@@ -177,14 +285,14 @@ export class PrismaVariantRepository implements IVariantRepository {
       // Get current stock
       const variant = await tx.productVariant.findFirst({
         where: { id: variantId },
-        select: { stockAvailable: true },
+        select: { stockAvailable: true, stockOnHand: true },
       });
 
       if (!variant) {
         throw new Error('Variant not found');
       }
 
-      const oldStock = variant.stockAvailable;
+      const oldStock = variant.stockOnHand;
       let newStock = oldStock;
 
       // Calculate new stock based on action
@@ -199,7 +307,7 @@ export class PrismaVariantRepository implements IVariantRepository {
       // Update stock
       await tx.productVariant.update({
         where: { id: variantId },
-        data: { stockAvailable: newStock },
+        data: { stockAvailable: newStock, stockOnHand: newStock },
       });
 
       // Create inventory log

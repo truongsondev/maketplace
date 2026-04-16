@@ -84,6 +84,13 @@ export class PrismaUserRepository implements IUserRepository {
     return count > 0;
   }
 
+  async updateLastLogin(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLogin: new Date() },
+    });
+  }
+
   async existsByPhone(phone: string): Promise<boolean> {
     const count = await this.prisma.user.count({
       where: { phone },

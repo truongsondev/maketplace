@@ -58,4 +58,20 @@ export const voucherService = {
 
     throw response as ApiErrorResponse;
   },
+
+  async applyVoucher(payload: {
+    code: string;
+    cartItemIds?: string[];
+  }): Promise<VoucherValidationResult> {
+    const response = await apiClient.post<VoucherValidationResult>(
+      "api/vouchers/apply",
+      payload,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<VoucherValidationResult>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
 };

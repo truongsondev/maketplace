@@ -30,4 +30,11 @@ export class PrismaAdminUserRepository implements IAdminUserRepository {
       roleCodes: user.userRoles.map((userRole) => userRole.role.code),
     };
   }
+
+  async updateLastLogin(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLogin: new Date() },
+    });
+  }
 }

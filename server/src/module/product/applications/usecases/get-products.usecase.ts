@@ -24,6 +24,11 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       sortOrder: 'desc',
     };
 
+    const normalizedSearch = query.search?.trim();
+    if (normalizedSearch) {
+      filters.search = normalizedSearch;
+    }
+
     if (query.sort) {
       const [field, order] = query.sort.split(':');
       if (field === 'createdAt') {
@@ -46,10 +51,13 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       }
     }
 
-    const { products, total } = await this.productRepository.findWithFilters(filters, {
-      page,
-      limit,
-    });
+    const { products, total, aggregations } = await this.productRepository.findWithFilters(
+      filters,
+      {
+        page,
+        limit,
+      },
+    );
 
     this.logger.info('Products fetched successfully', {
       total,
@@ -67,6 +75,7 @@ export class GetProductsUseCase implements IGetProductsUseCase {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      aggregations,
     };
   }
 

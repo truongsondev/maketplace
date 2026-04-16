@@ -21,6 +21,7 @@ export interface CategoryStat {
   name: string;
   slug: string;
   imageUrl: string | null;
+  parentId: string | null;
   productCount: number;
 }
 
@@ -42,6 +43,11 @@ export interface ProductListResponse {
     limit: number;
     total: number;
     totalPages: number;
+  };
+
+  aggregations?: {
+    sizes: { value: string; label: string; count: number }[];
+    colors: { value: string; label: string; count: number }[];
   };
 }
 
@@ -122,6 +128,24 @@ export interface ProductReviews {
   ratingDistribution: Record<string, number>;
 }
 
+export interface ProductReviewImageItem {
+  url: string;
+  sortOrder: number;
+}
+
+export interface ProductReviewAuthor {
+  label: string;
+}
+
+export interface ProductReviewItem {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  author: ProductReviewAuthor;
+  images: ProductReviewImageItem[];
+}
+
 export interface ProductDetail {
   id: string;
   name: string;
@@ -132,6 +156,7 @@ export interface ProductDetail {
   categories: ProductCategory[];
   tags: ProductTag[];
   reviews: ProductReviews;
+  reviewItems: ProductReviewItem[];
   createdAt: string;
   updatedAt: string;
 }

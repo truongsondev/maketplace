@@ -9,9 +9,54 @@ import {
   useCreateProduct,
   useCloudinarySignature,
   useImageUpload,
+  useProductTypeSchema,
 } from "@/hooks/api";
 import type { CreateProductCommand } from "@/types/api";
 import { toast } from "sonner";
+
+function buildVariantOptionKeyFromAttributes(
+  attributes: unknown,
+  sku?: string,
+): string {
+  const fallbackSku = typeof sku === "string" ? sku.trim() : "";
+
+  if (
+    !attributes ||
+    typeof attributes !== "object" ||
+    Array.isArray(attributes)
+  ) {
+    return fallbackSku ? `sku=${fallbackSku}` : "default";
+  }
+
+  const entries = Object.entries(attributes as Record<string, unknown>)
+    .filter(([key, value]) => {
+      if (!key || key.trim() === "") return false;
+      if (value === null || value === undefined) return false;
+      const str = String(value).trim();
+      return str.length > 0;
+    })
+    .map(([key, value]) => [key.trim(), String(value).trim()] as const);
+
+  if (entries.length === 0)
+    return fallbackSku ? `sku=${fallbackSku}` : "default";
+  entries.sort(([a], [b]) => a.localeCompare(b));
+  return entries.map(([key, value]) => `${key}=${value}`).join("|");
+}
+
+function normalizeAttributesForApi(
+  attributes: Record<string, string | number | boolean>,
+): Record<string, string | number | boolean> {
+  const entries = Object.entries(attributes).filter(([key, value]) => {
+    if (!key || key.trim() === "") return false;
+    if (value === null || value === undefined) return false;
+    const str = String(value).trim();
+    return str.length > 0;
+  });
+
+  return Object.fromEntries(
+    entries.map(([key, value]) => [key.trim(), value] as const),
+  );
+}
 
 // UI Form Data Interface
 interface ProductFormData {
@@ -72,6 +117,13 @@ export default function AddProductPage() {
     ],
   });
 
+  const { data: productTypeSchemaResponse } = useProductTypeSchema(
+    formData.categoryId,
+  );
+
+  const axisAttributes =
+    productTypeSchemaResponse?.data?.variantAxisAttributes ?? [];
+
   const handleFormChange = (
     field: keyof ProductFormData,
     value:
@@ -96,7 +148,7 @@ export default function AddProductPage() {
       });
       return imageUrl;
     } catch {
-      throw new Error("Upload failed");
+      throw new Error("Tải ảnh thất bại");
     }
   };
 
@@ -105,19 +157,19 @@ export default function AddProductPage() {
     const previewUrl = URL.createObjectURL(file);
 
     if (variantId === "product") {
-      // Add to product images (main image)
+      // Product main image: only 1 image is allowed. Replace existing.
       const newImage: ProductImage = {
         id: `img-${Date.now()}`,
         file: file,
         url: previewUrl,
         altText: file.name,
-        sortOrder: formData.productImages.length,
+        sortOrder: 0,
         uploading: false,
       };
 
       setFormData((prev) => ({
         ...prev,
-        productImages: [...prev.productImages, newImage],
+        productImages: [newImage],
       }));
     } else {
       // Add to variant images
@@ -233,9 +285,44 @@ export default function AddProductPage() {
         return;
       }
 
+      if (!formData.categoryId) {
+        toast.error("Vui lòng chọn danh mục sản phẩm");
+        return;
+      }
+
       if (formData.variants.length === 0) {
         toast.error("Cần có ít nhất một phiên bản sản phẩm");
         return;
+      }
+
+      // Validate variants to avoid unique constraint violations on optionKey.
+      const optionKeyToVariantId = new Map<string, string>();
+      for (const variant of formData.variants) {
+        if ((variant.stockAvailable ?? 0) < 0 || (variant.minStock ?? 0) < 0) {
+          toast.error("Tồn kho và tồn kho tối thiểu phải >= 0");
+          return;
+        }
+
+        const effectiveSku =
+          variant.sku?.trim() ||
+          `${formData.name.replace(/\s+/g, "-").toUpperCase()}-${variant.id}`;
+
+        const normalizedAttributes = normalizeAttributesForApi(
+          variant.attributes,
+        );
+
+        const optionKey = buildVariantOptionKeyFromAttributes(
+          normalizedAttributes,
+          effectiveSku,
+        );
+        const prev = optionKeyToVariantId.get(optionKey);
+        if (prev) {
+          toast.error(
+            "Các phiên bản đang bị trùng tổ hợp thuộc tính (color/size/thuộc tính). Vui lòng chỉnh để khác nhau.",
+          );
+          return;
+        }
+        optionKeyToVariantId.set(optionKey, variant.id);
       }
 
       // Upload all images first
@@ -243,7 +330,7 @@ export default function AddProductPage() {
 
       // Upload product images (main images)
       const uploadedProductImages = await Promise.all(
-        formData.productImages.map(async (img) => {
+        formData.productImages.map(async (img, idx) => {
           if (img.file) {
             try {
               const url = await uploadToCloudinary(img.file);
@@ -251,7 +338,7 @@ export default function AddProductPage() {
                 url,
                 altText: img.altText,
                 sortOrder: img.sortOrder,
-                isPrimary: true,
+                isPrimary: idx === 0,
               };
             } catch (error) {
               console.error("Error uploading product image:", error);
@@ -262,7 +349,7 @@ export default function AddProductPage() {
             url: img.url!,
             altText: img.altText,
             sortOrder: img.sortOrder,
-            isPrimary: true,
+            isPrimary: idx === 0,
           };
         }),
       );
@@ -282,7 +369,7 @@ export default function AddProductPage() {
                   };
                 } catch (error) {
                   console.error("Error uploading variant image:", error);
-                  throw new Error("Không thể tải ảnh variant lên");
+                  throw new Error("Không thể tải ảnh phiên bản lên");
                 }
               }
               return {
@@ -293,11 +380,15 @@ export default function AddProductPage() {
             }),
           );
 
+          const normalizedAttributes = normalizeAttributesForApi(
+            variant.attributes,
+          );
+
           return {
             sku:
-              variant.sku ||
+              variant.sku?.trim() ||
               `${formData.name.replace(/\s+/g, "-").toUpperCase()}-${variant.id}`,
-            attributes: variant.attributes,
+            attributes: normalizedAttributes,
             price: variant.price || formData.basePrice,
             stockAvailable: variant.stockAvailable,
             minStock: variant.minStock,
@@ -313,7 +404,7 @@ export default function AddProductPage() {
         basePrice: formData.basePrice,
         images: uploadedProductImages.filter((img) => img.url),
         variants: variantsWithUploadedImages,
-        categoryIds: formData.categoryId ? [formData.categoryId] : [],
+        categoryIds: [formData.categoryId],
         tagIds: formData.tagIds,
       };
 
@@ -368,6 +459,7 @@ export default function AddProductPage() {
                 onVariantChange={handleVariantChange}
                 onAddVariant={addVariant}
                 onRemoveVariant={removeVariant}
+                axisAttributes={axisAttributes}
               />
             </div>
 

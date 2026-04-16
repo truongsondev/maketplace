@@ -1,5 +1,6 @@
 import { X, Loader2 } from "lucide-react";
 import { useCategories, useTags } from "@/hooks/api";
+import { useMemo, useState } from "react";
 
 interface Category {
   id: string;
@@ -86,9 +87,88 @@ export function ProductSidebar({
   } = useTags();
 
   // Extract data from responses
-  const categories = categoriesResponse?.data?.categories || [];
+  const categories = (categoriesResponse?.data?.categories || []).filter(
+    (category) => category.slug !== "cua-hang",
+  );
   const tags = tagsResponse?.data?.tags || [];
   const isLoadingData = isLoadingCategories || isLoadingTags;
+
+  const categoriesById = useMemo(() => {
+    const map = new Map<string, Category>();
+    categories.forEach((c) => map.set(c.id, c));
+    return map;
+  }, [categories]);
+
+  const childrenByParentId = useMemo(() => {
+    const map = new Map<string, Category[]>();
+    categories.forEach((c) => {
+      const parentKey = c.parentId ?? "__root__";
+      const list = map.get(parentKey) ?? [];
+      list.push(c);
+      map.set(parentKey, list);
+    });
+
+    // Ensure stable ordering
+    for (const [key, list] of map.entries()) {
+      list.sort(
+        (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+      );
+      map.set(key, list);
+    }
+
+    return map;
+  }, [categories]);
+
+  const rootCategories = useMemo(() => {
+    return childrenByParentId.get("__root__") ?? [];
+  }, [childrenByParentId]);
+
+  const [selectedRootId, setSelectedRootId] = useState<string>("");
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+
+  // Derive selector values from categoryId when available (no setState in effect).
+  const derivedSelection = useMemo(() => {
+    if (!formData.categoryId) return null;
+
+    const leaf = categoriesById.get(formData.categoryId);
+    if (!leaf) return null;
+
+    const parent = leaf.parentId ? categoriesById.get(leaf.parentId) : null;
+    const grandParent = parent?.parentId
+      ? categoriesById.get(parent.parentId)
+      : null;
+
+    // Expected depth: root -> group -> leaf
+    if (grandParent) {
+      return { rootId: grandParent.id, groupId: parent?.id ?? "" };
+    }
+
+    // root -> leaf (2 levels): the 2nd dropdown is the leaf itself
+    if (parent) {
+      return { rootId: parent.id, groupId: leaf.id };
+    }
+
+    // leaf is actually root
+    return { rootId: leaf.id, groupId: "" };
+  }, [categoriesById, formData.categoryId]);
+
+  const effectiveRootId = derivedSelection?.rootId ?? selectedRootId;
+  const effectiveGroupId = derivedSelection?.groupId ?? selectedGroupId;
+
+  const groupCategories = useMemo(() => {
+    if (!effectiveRootId) return [];
+    return childrenByParentId.get(effectiveRootId) ?? [];
+  }, [childrenByParentId, effectiveRootId]);
+
+  const rootHasChildren = useMemo(() => {
+    if (!effectiveRootId) return false;
+    return (childrenByParentId.get(effectiveRootId) ?? []).length > 0;
+  }, [childrenByParentId, effectiveRootId]);
+
+  const leafCategories = useMemo(() => {
+    if (!effectiveGroupId) return [];
+    return childrenByParentId.get(effectiveGroupId) ?? [];
+  }, [childrenByParentId, effectiveGroupId]);
 
   const handleRemoveTag = (tagId: string) => {
     const newTagIds = formData.tagIds.filter((id) => id !== tagId);
@@ -134,18 +214,85 @@ export function ProductSidebar({
             <span className="ml-2 text-sm text-gray-500">Đang tải...</span>
           </div>
         ) : (
-          <select
-            value={formData.categoryId}
-            onChange={(e) => onFormChange("categoryId", e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="">Chọn danh mục</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-3">
+            <select
+              value={effectiveRootId}
+              onChange={(e) => {
+                const nextRootId = e.target.value;
+                setSelectedRootId(nextRootId);
+                setSelectedGroupId("");
+
+                if (!nextRootId) {
+                  onFormChange("categoryId", "");
+                  return;
+                }
+
+                // If the selected root category has no children, treat it as the final category.
+                const children = childrenByParentId.get(nextRootId) ?? [];
+                if (children.length === 0) {
+                  onFormChange("categoryId", nextRootId);
+                } else {
+                  onFormChange("categoryId", "");
+                }
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+            >
+              <option value="">Chọn danh mục lớn</option>
+              {rootCategories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+
+            {effectiveRootId && rootHasChildren ? (
+              <>
+                <select
+                  value={effectiveGroupId}
+                  onChange={(e) => {
+                    const nextGroupId = e.target.value;
+                    setSelectedGroupId(nextGroupId);
+
+                    if (!nextGroupId) {
+                      onFormChange("categoryId", "");
+                      return;
+                    }
+
+                    // If the selected group has no children, treat it as the final category.
+                    const children = childrenByParentId.get(nextGroupId) ?? [];
+                    if (children.length === 0) {
+                      onFormChange("categoryId", nextGroupId);
+                    } else {
+                      onFormChange("categoryId", "");
+                    }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                >
+                  <option value="">Chọn nhóm danh mục</option>
+                  {groupCategories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+
+                {effectiveGroupId && leafCategories.length > 0 ? (
+                  <select
+                    value={formData.categoryId}
+                    onChange={(e) => onFormChange("categoryId", e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  >
+                    <option value="">Chọn danh mục con</option>
+                    {leafCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </>
+            ) : null}
+          </div>
         )}
       </div>
 
@@ -214,15 +361,15 @@ export function ProductSidebar({
 
       {/* Summary Section */}
       <div className="bg-white rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">TổNG QUAN</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Tổng quan</h3>
 
         <div className="space-y-4">
           <div className="flex gap-4">
             {mainImage?.url && (
-              <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+              <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                 <img
                   src={mainImage.url}
-                  alt="Product"
+                  alt="Sản phẩm"
                   className="w-full h-full object-cover"
                 />
               </div>

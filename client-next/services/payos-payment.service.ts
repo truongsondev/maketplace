@@ -6,6 +6,15 @@ export interface CreatePayosPaymentLinkRequest {
   description?: string;
   cartItemIds?: string[];
   voucherCode?: string;
+  shipping?: {
+    recipient: string;
+    phone: string;
+    addressLine: string;
+    ward: string;
+    district?: string;
+    city: string;
+    addressId?: string | null;
+  };
 }
 
 export interface CreatePayosPaymentLinkResponse {

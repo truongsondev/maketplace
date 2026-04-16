@@ -1,6 +1,7 @@
 import { apiClient } from "@/lib/api-client";
 import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/api.types";
 import type {
+  CancelReasonCode,
   MyOrdersCountsData,
   MyOrdersListData,
   MyOrderListItem,
@@ -80,6 +81,33 @@ export const orderService = {
       `api/orders/${encodeURIComponent(orderId)}/cancel`,
       {},
     );
+
+    if (response.success) {
+      return;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async requestPaidCancel(params: {
+    orderId: string;
+    reasonCode: CancelReasonCode;
+    reasonText?: string;
+    bankAccountName: string;
+    bankAccountNumber: string;
+    bankName: string;
+  }): Promise<void> {
+    const response = await apiClient.post<{
+      id: string;
+      status: string;
+      cancelRequestStatus: string;
+    }>(`api/orders/${encodeURIComponent(params.orderId)}/cancel-request`, {
+      reasonCode: params.reasonCode,
+      reasonText: params.reasonText,
+      bankAccountName: params.bankAccountName,
+      bankAccountNumber: params.bankAccountNumber,
+      bankName: params.bankName,
+    });
 
     if (response.success) {
       return;

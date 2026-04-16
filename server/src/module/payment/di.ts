@@ -10,12 +10,17 @@ import { PaymentAPI } from './infrastructure/api';
 import { PrismaPaymentRepository } from './infrastructure/repositories';
 import { PaymentController } from './interface-adapter/controller';
 import { createVoucherCheckoutService } from '../voucher/di';
+import { createUserShippingInfoService } from '../address/di';
 
 export function createPaymentModule(): Router {
   const voucherCheckoutService = createVoucherCheckoutService();
+  const shippingInfoService = createUserShippingInfoService();
   const paymentRepository = new PrismaPaymentRepository(prisma, voucherCheckoutService);
 
-  const createPayosPaymentLinkUseCase = new CreatePayosPaymentLinkUseCase(paymentRepository);
+  const createPayosPaymentLinkUseCase = new CreatePayosPaymentLinkUseCase(
+    paymentRepository,
+    shippingInfoService,
+  );
   const handlePayosReturnUseCase = new HandlePayosReturnUseCase(paymentRepository);
   const handlePayosWebhookUseCase = new HandlePayosWebhookUseCase(paymentRepository);
   const getPaymentStatusUseCase = new GetPaymentStatusUseCase(paymentRepository);

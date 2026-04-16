@@ -4,6 +4,15 @@ export interface CreatePayosPaymentLinkCommand {
   description?: string;
   voucherCode?: string;
   cartItemIds?: string[];
+  shipping?: {
+    recipient: string;
+    phone: string;
+    addressLine: string;
+    ward: string;
+    district: string;
+    city: string;
+    addressId?: string | null;
+  };
 }
 
 export interface CreatePayosPaymentLinkResult {
@@ -23,7 +32,7 @@ export interface PayosReturnResult {
   amountRemaining: number;
   paymentLinkId: string;
   gatewayStatus: string;
-  dbStatus?: 'PENDING' | 'PAID' | 'FAILED';
+  dbStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
   message: string;
 }
 
@@ -31,7 +40,7 @@ export interface PaymentStatusResult {
   orderId: string;
   orderCode: string;
   amount: number;
-  status: 'PENDING' | 'PAID' | 'FAILED';
+  status: 'PENDING' | 'PAID' | 'FAILED' | 'EXPIRED';
   bankCode?: string;
   gatewayReference?: string;
   gatewayCode?: string;

@@ -20,10 +20,31 @@ export class ProductAPI {
     this.router.get('/categories/stats', asyncHandler(this.getCategoryStats.bind(this)));
     this.router.get('/category-showcases', asyncHandler(this.getCategoryShowcases.bind(this)));
     this.router.get('/home/category-showcases', asyncHandler(this.getCategoryShowcases.bind(this)));
+    this.router.get('/related/my-orders', asyncHandler(this.getRelatedFromMyOrders.bind(this)));
     this.router.get('/favorites', asyncHandler(this.getFavoriteProducts.bind(this)));
     this.router.post('/:id/favorite', asyncHandler(this.addProductToFavorite.bind(this)));
     this.router.delete('/:id/favorite', asyncHandler(this.removeProductFromFavorite.bind(this)));
     this.router.get('/:id', asyncHandler(this.getProductDetail.bind(this)));
+  }
+
+  private async getRelatedFromMyOrders(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+    if (limit !== undefined && (!Number.isFinite(limit) || limit <= 0)) {
+      throw new BadRequestError('limit must be a positive integer');
+    }
+
+    const result = await this.productController.getRelatedProductsFromMyOrders(userId, limit);
+    const response = ResponseFormatter.success(result, 'Related products retrieved successfully');
+    res.status(200).json(response);
   }
 
   private parsePositiveIntegerQueryParam(value: unknown, fieldName: string): number | undefined {
@@ -78,6 +99,11 @@ export class ProductAPI {
     const color = getStringParam(req.query.cl);
     const priceRange = getStringParam(req.query.p);
     const sort = getStringParam(req.query.sort);
+    const search = getStringParam(req.query.q) ?? getStringParam(req.query.search);
+
+    if (search && search.length > 120) {
+      throw new BadRequestError('search is too long');
+    }
 
     const result = await this.productController.getProducts({
       page,
@@ -86,6 +112,7 @@ export class ProductAPI {
       size,
       color,
       priceRange,
+      search,
       sort,
     });
 

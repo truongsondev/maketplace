@@ -12,9 +12,15 @@ import { createPublicVoucherModule, createVoucherModule } from './module/voucher
 import { createAddressModule } from './module/address/di';
 import { createOrderModule } from './module/order/di';
 import { createMockOrdersModule } from './module/mock-orders/di';
+import { createReviewModule } from './module/review/di';
 import { createAdminVoucherModule } from './module/admin/voucher/di';
 import { createAdminBannerModule } from './module/admin/banner/di';
+import { createAdminUsersModule } from './module/admin/users/di';
+import { createAdminRefundModule } from './module/admin/refund/di';
+import { createAdminDashboardModule } from './module/admin/dashboard/di';
+import { createAdminLogsModule } from './module/admin/logs/di';
 import { createPublicBannerModule } from './module/banner/di';
+import { createPublicLocationModule } from './module/location/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
@@ -79,6 +85,7 @@ app.use(requestLoggingMiddleware);
 app.use('/api/common', createCommonModule());
 app.use('/api/common/vouchers', createPublicVoucherModule());
 app.use('/api/common/banners', createPublicBannerModule());
+app.use('/api/common/locations', createPublicLocationModule());
 
 // NOTE: mock/manual endpoints for Postman testing (no auth)
 app.use('/api/mock/orders', createMockOrdersModule());
@@ -90,14 +97,19 @@ app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
 app.use('/api/addresses', createAddressModule());
 app.use('/api/cart', createCartModule());
 app.use('/api/orders', createOrderModule());
+app.use('/api/reviews', createReviewModule());
 app.use('/api/products', createProductModule());
 app.use('/api/payments', createPaymentModule());
 app.use('/api/vouchers', createVoucherModule());
 
 app.use('/api/admin', requireAdmin, createAdminModule());
 app.use('/api/admin/orders', requireAdmin, createAdminOrdersModule());
+app.use('/api/admin/dashboard', requireAdmin, createAdminDashboardModule());
+app.use('/api/admin/logs', requireAdmin, createAdminLogsModule());
 app.use('/api/admin/vouchers', requireAdmin, createAdminVoucherModule());
 app.use('/api/admin/banners', requireAdmin, createAdminBannerModule());
+app.use('/api/admin/users', requireAdmin, createAdminUsersModule());
+app.use('/api/admin/refunds', requireAdmin, createAdminRefundModule());
 
 app.use((req, res) => {
   res.status(404).json({ status: 'error', message: 'Endpoint not found' });

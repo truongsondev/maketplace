@@ -112,6 +112,24 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
       });
 
+      await tx.auditLog.create({
+        data: {
+          actorType: 'USER',
+          actorId: input.userId,
+          targetType: 'Order',
+          targetId: order.id,
+          action: 'USER_CHECKOUT_CREATED',
+          newData: {
+            orderCode: input.orderCode,
+            subtotalAmount: checkoutPricing.subtotalAmount,
+            discountAmount: checkoutPricing.discountAmount,
+            payableAmount: checkoutPricing.payableAmount,
+            voucherCode: checkoutPricing.appliedVoucherCode ?? null,
+            cartItemIds: cartItems.map((i) => i.id),
+          } as Prisma.InputJsonValue,
+        },
+      });
+
       return {
         orderId: order.id,
         payableAmount: checkoutPricing.payableAmount,
@@ -195,7 +213,11 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.paymentTransaction.findUnique({
         where: { orderCode },
-        select: { orderId: true, status: true },
+        select: {
+          orderId: true,
+          status: true,
+          order: { select: { userId: true } },
+        },
       });
 
       if (!existing || existing.status !== 'PENDING') {
@@ -218,10 +240,23 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
       });
 
-      await tx.order.update({
-        where: { id: existing.orderId },
+      // Payment create-link failed should only cancel an order that is still pending.
+      await tx.order.updateMany({
+        where: { id: existing.orderId, status: 'PENDING' },
+        data: { status: 'CANCELLED' },
+      });
+
+      await tx.auditLog.create({
         data: {
-          status: 'CANCELLED',
+          actorType: 'USER',
+          actorId: existing.order.userId,
+          targetType: 'Order',
+          targetId: existing.orderId,
+          action: 'USER_PAYMENT_LINK_FAILED',
+          newData: {
+            orderCode,
+            reason,
+          } as Prisma.InputJsonValue,
         },
       });
     });
@@ -235,6 +270,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
           orderId: true,
           status: true,
           rawPayload: true,
+          order: { select: { userId: true } },
         },
       });
 
@@ -267,24 +303,59 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       await tx.payment.update({
         where: { orderId: current.orderId },
         data: {
-          status: input.status === 'PAID' ? 'SUCCESS' : 'FAILED',
+          status:
+            input.status === 'PAID' ? 'PAID' : input.status === 'EXPIRED' ? 'EXPIRED' : 'FAILED',
           transactionId: input.paymentLinkId ?? input.gatewayReference,
           paidAt: input.paidAt,
         },
       });
 
-      await tx.order.update({
-        where: { id: current.orderId },
-        data: {
-          status: input.status === 'PAID' ? 'PAID' : 'CANCELLED',
-        },
-      });
+      // Mapping Payment -> Order (spec):
+      // - If payment PAID: only promote PENDING -> PAID (never downgrade higher states)
+      // - If payment FAILED/EXPIRED: only cancel when order is still PENDING
+      if (input.status === 'PAID') {
+        await tx.order.updateMany({
+          where: { id: current.orderId, status: 'PENDING' },
+          data: { status: 'PAID' },
+        });
+      } else {
+        await tx.order.updateMany({
+          where: { id: current.orderId, status: 'PENDING' },
+          data: { status: 'CANCELLED' },
+        });
+      }
 
       if (input.status === 'PAID') {
         await this.voucherCheckoutService.recordUsageForPaidOrder(tx, current.orderId);
         await this.consumeStockForPaidOrder(tx, current.orderId);
         await this.removePurchasedCartItems(tx, current.orderId, current.rawPayload);
       }
+
+      await tx.auditLog.create({
+        data: {
+          actorType: 'USER',
+          actorId: current.order.userId,
+          targetType: 'Order',
+          targetId: current.orderId,
+          action:
+            input.status === 'PAID'
+              ? 'USER_PAYMENT_PAID'
+              : input.status === 'EXPIRED'
+                ? 'USER_PAYMENT_EXPIRED'
+                : 'USER_PAYMENT_FAILED',
+          oldData: {
+            paymentTransactionStatus: current.status,
+          } as Prisma.InputJsonValue,
+          newData: {
+            paymentTransactionStatus: input.status,
+            orderCode: input.orderCode,
+            bankCode: input.bankCode ?? null,
+            gatewayCode: input.gatewayCode ?? null,
+            gatewayReference: input.gatewayReference ?? input.paymentLinkId ?? null,
+            paidAt: input.paidAt ?? null,
+          } as Prisma.InputJsonValue,
+        },
+      });
 
       return true;
     });
@@ -331,10 +402,11 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       const updated = await tx.productVariant.updateMany({
         where: {
           id: variantId,
-          stockAvailable: { gte: quantity },
+          stockOnHand: { gte: quantity },
           stockReserved: { gte: quantity },
         },
         data: {
+          stockOnHand: { decrement: quantity },
           stockAvailable: { decrement: quantity },
           stockReserved: { decrement: quantity },
         },
@@ -346,7 +418,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
 
       const current = await tx.productVariant.findUnique({
         where: { id: variantId },
-        select: { stockAvailable: true, stockReserved: true },
+        select: { stockOnHand: true, stockAvailable: true, stockReserved: true },
       });
 
       if (!current) {
@@ -356,6 +428,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       await tx.productVariant.update({
         where: { id: variantId },
         data: {
+          stockOnHand: Math.max(0, current.stockOnHand - quantity),
           stockAvailable: Math.max(0, current.stockAvailable - quantity),
           stockReserved: Math.max(0, current.stockReserved - quantity),
         },

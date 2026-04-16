@@ -19,5 +19,10 @@ export class CommonAPI {
       '/tags',
       asyncHandler(this.commonController.getTags.bind(this.commonController)),
     );
+
+    this.router.get(
+      '/product-type-schema',
+      asyncHandler(this.commonController.getProductTypeSchema.bind(this.commonController)),
+    );
   }
 }

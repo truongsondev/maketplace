@@ -16,6 +16,20 @@ export interface ProductSummary {
   isSale: boolean;
 }
 
+export interface ProductListAggregationItem {
+  /** Key ổn định (thường là option.value đã normalize) */
+  value: string;
+  /** Nhãn hiển thị (option.label) */
+  label: string;
+  /** Số lượng variant phù hợp */
+  count: number;
+}
+
+export interface ProductListAggregations {
+  sizes: ProductListAggregationItem[];
+  colors: ProductListAggregationItem[];
+}
+
 export interface ProductListResult {
   products: ProductSummary[];
   pagination: {
@@ -24,4 +38,7 @@ export interface ProductListResult {
     total: number;
     totalPages: number;
   };
+
+  /** Facets/aggregations để build UI filter (không bắt buộc) */
+  aggregations?: ProductListAggregations;
 }

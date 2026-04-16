@@ -29,7 +29,7 @@ export default function ProductDetailPage() {
       const response = await productService.getProduct(id);
       setProduct(response.data);
     } catch (error) {
-      toast.error("Failed to load product");
+      toast.error("Không tải được sản phẩm");
       console.error(error);
     } finally {
       setLoading(false);
@@ -41,18 +41,18 @@ export default function ProductDetailPage() {
   }, [id]);
 
   const tabs = [
-    { id: "basic" as TabType, label: "Basic Information" },
+    { id: "basic" as TabType, label: "Thông tin cơ bản" },
     {
       id: "variants" as TabType,
-      label: "Variants",
+      label: "Biến thể",
       badge: product?.stats.totalVariants,
     },
     {
       id: "images" as TabType,
-      label: "Images",
+      label: "Hình ảnh",
       badge: product?.stats.totalImages,
     },
-    { id: "inventory" as TabType, label: "Inventory" },
+    { id: "inventory" as TabType, label: "Tồn kho" },
   ];
 
   if (loading) {
@@ -68,13 +68,13 @@ export default function ProductDetailPage() {
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Product not found
+            Không tìm thấy sản phẩm
           </h2>
           <button
             onClick={() => navigate("/products")}
             className="text-blue-600 hover:text-blue-700"
           >
-            Back to products
+            Quay lại danh sách sản phẩm
           </button>
         </div>
       </div>
@@ -94,14 +94,16 @@ export default function ProductDetailPage() {
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Back to Products
+                Quay lại danh sách sản phẩm
               </button>
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">
                     {product.name}
                   </h1>
-                  <p className="text-gray-600 mt-1">Product ID: {product.id}</p>
+                  <p className="text-gray-600 mt-1">
+                    Mã sản phẩm: {product.id}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span
@@ -113,8 +115,13 @@ export default function ProductDetailPage() {
                           : "bg-red-100 text-red-700"
                     }`}
                   >
-                    {product.status.charAt(0).toUpperCase() +
-                      product.status.slice(1)}
+                    {product.status === "active"
+                      ? "Đang hoạt động"
+                      : product.status === "inactive"
+                        ? "Tạm ngưng"
+                        : product.status === "deleted"
+                          ? "Đã xoá"
+                          : product.status}
                   </span>
                 </div>
               </div>

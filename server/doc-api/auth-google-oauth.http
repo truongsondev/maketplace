@@ -1,0 +1,12 @@
+@baseUrl = http://localhost:8080
+
+### Start Google OAuth (will redirect)
+GET {{baseUrl}}/api/auth/google?redirect=/
+
+### Exchange code (replace code from frontend callback URL)
+POST {{baseUrl}}/api/auth/google/exchange
+Content-Type: application/json
+
+{
+  "code": "REPLACE_ME"
+}

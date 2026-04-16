@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@/generated/prisma/client';
+import { Prisma, type PrismaClient } from '@/generated/prisma/client';
 import type { ReturnFlowStatus } from '@/generated/prisma/enums';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import type {
@@ -61,6 +61,21 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
           })),
         });
       }
+
+      await tx.auditLog.create({
+        data: {
+          actorType: 'USER',
+          actorId: input.userId,
+          targetType: 'Order',
+          targetId: input.orderId,
+          action: 'USER_ORDER_RETURN_REQUESTED',
+          oldData: { returnStatus: order.returnStatus ?? null } as Prisma.InputJsonValue,
+          newData: {
+            returnStatus: returnStatusToSet,
+            reason: safeReason,
+          } as Prisma.InputJsonValue,
+        },
+      });
 
       return {
         orderId: order.id,

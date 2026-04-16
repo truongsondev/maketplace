@@ -36,6 +36,29 @@ export interface TagResponse {
   timestamp: string;
 }
 
+export interface ProductTypeSchema {
+  productType: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  variantAxisAttributes: Array<{
+    id: string;
+    code: string;
+    name: string;
+    dataType: string;
+    unit: string | null;
+    axisOrder: number | null;
+  }>;
+}
+
+export interface ProductTypeSchemaResponse {
+  success: boolean;
+  data: ProductTypeSchema;
+  message: string;
+  timestamp: string;
+}
+
 // Server API Interfaces
 export interface CreateProductCommand {
   name: string;
@@ -190,6 +213,19 @@ export interface ProductDetailResponse {
   data: ProductDetail;
 }
 
+export interface UpdateProductResult {
+  productId: string;
+  message: string;
+  priceChanged: boolean;
+}
+
+export interface UpdateProductResponse {
+  success: boolean;
+  data: UpdateProductResult;
+  message: string;
+  timestamp: string;
+}
+
 export interface InventoryLog {
   id: string;
   variantId: string;
@@ -208,6 +244,35 @@ export interface InventoryLogsResponse {
   success: boolean;
   data: {
     items: InventoryLog[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+}
+
+export type AuditActorType = "ADMIN" | "USER" | "SYSTEM";
+
+export interface AdminLogItem {
+  id: string;
+  actorType: AuditActorType;
+  actorId: string | null;
+  actorEmail: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  targetLabel: string | null;
+  oldData: unknown | null;
+  newData: unknown | null;
+  createdAt: string;
+}
+
+export interface AdminLogsResponse {
+  success: boolean;
+  data: {
+    items: AdminLogItem[];
     pagination: {
       page: number;
       limit: number;

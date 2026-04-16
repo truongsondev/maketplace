@@ -1,9 +1,128 @@
 import { PrismaClient, Prisma } from '../../../../../../generated/prisma/client';
 import { Product, ProductVariant, ProductImageProps } from '../../entities/product/product.entity';
 import { IProductRepository } from '../../applications/ports/output/product.repository';
+import { buildVariantOptionKeyFromAttributes } from '@/shared/util/variant-option-key';
+
+function normalizeOptionValue(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  const value = String(raw).trim();
+  if (!value) return null;
+
+  const ascii = value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+
+  const normalized = ascii
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_\-]/g, '');
+
+  return normalized || null;
+}
 
 export class PrismaProductRepository implements IProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private async resolveRootCategorySlug(
+    tx: Prisma.TransactionClient,
+    categoryId: string,
+  ): Promise<string | null> {
+    type CategoryNode = { id: string; parentId: string | null; slug: string };
+
+    const start = await tx.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true, parentId: true, slug: true },
+    });
+
+    if (!start) return null;
+    let current: CategoryNode = start;
+
+    const seen = new Set<string>();
+    while (current.parentId) {
+      if (seen.has(current.id)) return null;
+      seen.add(current.id);
+
+      const parent: CategoryNode | null = await tx.category.findUnique({
+        where: { id: current.parentId },
+        select: { id: true, parentId: true, slug: true },
+      });
+      if (!parent) return current.slug ?? null;
+      current = parent;
+    }
+
+    return current.slug ?? null;
+  }
+
+  private mapRootSlugToProductTypeCode(rootSlug: string | null): string {
+    if (rootSlug === 'ao') return 'ao';
+    if (rootSlug === 'quan') return 'quan';
+    if (rootSlug === 'vong-tay' || rootSlug === 'vong_tay') return 'vong_tay';
+    return 'phu_kien';
+  }
+
+  private async resolveProductTypeIdFromCategoryIds(
+    tx: Prisma.TransactionClient,
+    categoryIds: string[] | undefined,
+  ): Promise<string | undefined> {
+    if (!categoryIds || categoryIds.length === 0) return undefined;
+
+    const rootSlug = await this.resolveRootCategorySlug(tx, categoryIds[0]);
+    const typeCode = this.mapRootSlugToProductTypeCode(rootSlug);
+
+    const direct = await tx.productType.findUnique({
+      where: { code: typeCode },
+      select: { id: true },
+    });
+    if (direct) return direct.id;
+
+    const fallback = await tx.productType.findUnique({
+      where: { code: 'phu_kien' },
+      select: { id: true },
+    });
+
+    return fallback?.id;
+  }
+
+  private async syncVariantAxisAttributes(
+    tx: Prisma.TransactionClient,
+    variantId: string,
+    attributes: Record<string, any>,
+  ): Promise<void> {
+    const defs = await tx.attributeDefinition.findMany({
+      where: { code: { in: ['color', 'size'] } },
+      select: { id: true, code: true },
+    });
+
+    const attrIdByCode = new Map(defs.map((d) => [d.code, d.id] as const));
+
+    for (const code of ['color', 'size'] as const) {
+      const attributeId = attrIdByCode.get(code);
+      if (!attributeId) continue;
+
+      const raw = attributes?.[code];
+      const normalized = normalizeOptionValue(raw);
+
+      if (!normalized) {
+        await tx.variantAttributeValue.deleteMany({ where: { variantId, attributeId } });
+        continue;
+      }
+
+      const option = await tx.attributeOption.upsert({
+        where: { attributeId_value: { attributeId, value: normalized } },
+        update: { label: String(raw).trim() },
+        create: { attributeId, value: normalized, label: String(raw).trim() },
+        select: { id: true },
+      });
+
+      await tx.variantAttributeValue.upsert({
+        where: { variantId_attributeId: { variantId, attributeId } },
+        update: { optionId: option.id },
+        create: { variantId, attributeId, optionId: option.id },
+      });
+    }
+  }
 
   async save(product: Product): Promise<Product> {
     const data: Prisma.ProductCreateInput = {
@@ -69,8 +188,10 @@ export class PrismaProductRepository implements IProductRepository {
       }
 
       // 1. Create product
+      const productTypeId = await this.resolveProductTypeIdFromCategoryIds(tx, categoryIds);
       const savedProduct = await tx.product.create({
         data: {
+          ...(productTypeId ? { productTypeId } : {}),
           name: productData.name,
           description: productData.description,
           basePrice: productData.basePrice,
@@ -83,8 +204,10 @@ export class PrismaProductRepository implements IProductRepository {
         productId: savedProduct.id,
         sku: v.sku,
         attributes: v.attributes,
+        optionKey: buildVariantOptionKeyFromAttributes(v.attributes, v.sku),
         price: v.price,
         stockAvailable: v.stockAvailable,
+        stockOnHand: v.stockAvailable,
         stockReserved: v.stockReserved,
         minStock: v.minStock,
         isDeleted: v.isDeleted,
@@ -98,6 +221,15 @@ export class PrismaProductRepository implements IProductRepository {
       const createdVariants = await tx.productVariant.findMany({
         where: { productId: savedProduct.id },
       });
+
+      // Sync legacy JSON attributes -> VariantAttributeValue (color/size)
+      for (const cv of createdVariants) {
+        await this.syncVariantAxisAttributes(
+          tx,
+          cv.id,
+          (cv.attributes ?? {}) as Record<string, any>,
+        );
+      }
 
       // 3. Create images
       const imageData = [];
@@ -204,6 +336,7 @@ export class PrismaProductRepository implements IProductRepository {
       where: { id },
       include: {
         variants: {
+          where: { isDeleted: false },
           select: {
             id: true,
             productId: true,
@@ -215,6 +348,17 @@ export class PrismaProductRepository implements IProductRepository {
             minStock: true,
             isDeleted: true,
             images: true,
+            attributeValues: {
+              where: {
+                deletedAt: null,
+                attribute: { deletedAt: null },
+              },
+              select: {
+                textValue: true,
+                attribute: { select: { code: true } },
+                option: { select: { value: true, label: true, deletedAt: true } },
+              },
+            },
           },
         },
         images: true,
@@ -245,12 +389,39 @@ export class PrismaProductRepository implements IProductRepository {
       updatedAt: result.updatedAt,
     });
 
+    const mergeAttributes = (variant: any): Record<string, any> => {
+      const merged: Record<string, any> = {
+        ...(variant?.attributes && typeof variant.attributes === 'object'
+          ? variant.attributes
+          : {}),
+      };
+
+      const attributeValues: any[] = Array.isArray(variant?.attributeValues)
+        ? variant.attributeValues
+        : [];
+
+      for (const av of attributeValues) {
+        const code = av?.attribute?.code;
+        if (!code || typeof code !== 'string') continue;
+
+        const raw = av?.option?.label ?? av?.textValue;
+        if (raw === null || raw === undefined) continue;
+
+        const value = String(raw).trim();
+        if (!value) continue;
+
+        merged[code] = value;
+      }
+
+      return merged;
+    };
+
     const variants = result.variants.map((v) =>
       ProductVariant.fromPersistence({
         id: v.id,
         productId: v.productId,
         sku: v.sku,
-        attributes: v.attributes as Record<string, any>,
+        attributes: mergeAttributes(v),
         price: Number(v.price),
         stockAvailable: v.stockAvailable,
         stockReserved: v.stockReserved,
@@ -508,10 +679,19 @@ export class PrismaProductRepository implements IProductRepository {
     images?: ProductImageProps[],
   ): Promise<Product> {
     const result = await this.prisma.$transaction(async (tx) => {
+      const nextProductData = { ...productData };
+
+      if (categoryIds !== undefined && nextProductData.productTypeId === undefined) {
+        const productTypeId = await this.resolveProductTypeIdFromCategoryIds(tx, categoryIds);
+        if (productTypeId) {
+          nextProductData.productTypeId = productTypeId;
+        }
+      }
+
       // Update product
       const updated = await tx.product.update({
         where: { id: productId },
-        data: productData,
+        data: nextProductData,
       });
 
       // Update categories if provided
@@ -565,34 +745,81 @@ export class PrismaProductRepository implements IProductRepository {
           });
         }
 
+        // Detach images from removed variants so the product can have no variants
+        if (variantsToDelete.length > 0) {
+          await tx.productImage.updateMany({
+            where: {
+              productId,
+              variantId: { in: variantsToDelete.map((v) => v.id) },
+            },
+            data: { variantId: null },
+          });
+
+          const hasPrimaryProductImage = await tx.productImage.findFirst({
+            where: { productId, variantId: null, isPrimary: true },
+            select: { id: true },
+          });
+
+          if (!hasPrimaryProductImage) {
+            const candidate = await tx.productImage.findFirst({
+              where: { productId, variantId: null },
+              orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+              select: { id: true },
+            });
+
+            if (candidate) {
+              await tx.productImage.update({
+                where: { id: candidate.id },
+                data: { isPrimary: true },
+              });
+            }
+          }
+        }
+
         // Update or create variants
         for (const variant of variants) {
           if (variant.id) {
             // Update existing
-            await tx.productVariant.update({
+            const updatedVariant = await tx.productVariant.update({
               where: { id: variant.id },
               data: {
                 sku: variant.sku,
                 attributes: variant.attributes,
+                optionKey: buildVariantOptionKeyFromAttributes(variant.attributes, variant.sku),
                 price: variant.price,
                 stockAvailable: variant.stockAvailable,
+                stockOnHand: variant.stockAvailable,
                 minStock: variant.minStock,
               },
             });
+
+            await this.syncVariantAxisAttributes(
+              tx,
+              updatedVariant.id,
+              (variant.attributes ?? {}) as Record<string, any>,
+            );
           } else {
             // Create new
-            await tx.productVariant.create({
+            const createdVariant = await tx.productVariant.create({
               data: {
                 productId,
                 sku: variant.sku,
                 attributes: variant.attributes,
+                optionKey: buildVariantOptionKeyFromAttributes(variant.attributes, variant.sku),
                 price: variant.price,
                 stockAvailable: variant.stockAvailable,
+                stockOnHand: variant.stockAvailable,
                 stockReserved: variant.stockReserved,
                 minStock: variant.minStock,
                 isDeleted: false,
               },
             });
+
+            await this.syncVariantAxisAttributes(
+              tx,
+              createdVariant.id,
+              (variant.attributes ?? {}) as Record<string, any>,
+            );
           }
         }
       }

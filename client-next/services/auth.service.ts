@@ -35,6 +35,14 @@ export interface LogoutRequest {
   accessToken: string | null;
 }
 
+export interface GoogleOAuthExchangeResponse {
+  token: {
+    accessToken: string;
+    refreshToken: string;
+  };
+  user: User;
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const authService = {
@@ -84,5 +92,20 @@ export const authService = {
         "Logout API call failed, but we'll clear the session anyway.",
       );
     }
+  },
+
+  async exchangeGoogleOAuthCode(
+    code: string,
+  ): Promise<GoogleOAuthExchangeResponse> {
+    const response = await apiClient.post<GoogleOAuthExchangeResponse>(
+      "api/auth/google/exchange",
+      { code },
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<GoogleOAuthExchangeResponse>).data;
+    }
+
+    throw response as ApiErrorResponse;
   },
 };

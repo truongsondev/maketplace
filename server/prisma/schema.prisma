@@ -4,6 +4,11 @@ generator client {
   output   = "../generated/prisma"
 }
 
+// Standard JS Prisma Client runtime (required for running standalone Node scripts in containers)
+generator client_js {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "mysql"
 }
@@ -37,8 +42,13 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
+  /// New (spec): payment succeeded
+  PAID
+  /// Legacy (kept for backward compatibility; treat as PAID in code)
   SUCCESS
   FAILED
+  /// New (spec): payment link expired
+  EXPIRED
   REFUNDED
 }
 
@@ -46,6 +56,8 @@ enum PaymentTransactionStatus {
   PENDING
   PAID
   FAILED
+  /// New (spec): payment link expired
+  EXPIRED
 }
 
 enum InventoryAction {
@@ -71,8 +83,12 @@ enum ReturnStatus {
 enum ReturnFlowStatus {
   /// Buyer yeu cau tra hang (cho duyet)
   REQUESTED
+  /// New (spec): admin da duyet yeu cau tra hang
+  APPROVED
   /// Da duoc duyet, cho shipper den lay
   WAITING_PICKUP
+  /// New (spec): hang dang duoc gui tra ve
+  SHIPPING
   /// Shipper da lay hang, dang tra ve shop
   RETURNING
   /// Shop da nhan hang tra (ket thuc)
@@ -81,9 +97,65 @@ enum ReturnFlowStatus {
   REJECTED
 }
 
+enum RefundType {
+  CANCEL_REFUND
+  RETURN_REFUND
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+enum CancelReason {
+  NO_LONGER_NEEDED
+  BUY_OTHER_ITEM
+  FOUND_CHEAPER
+  OTHER
+}
+
+enum CancelRequestStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
 enum DiscountType {
   PERCENTAGE   // Giảm theo %
   FIXED_AMOUNT // Giảm số tiền cố định
+}
+
+// ============================================================================
+// LONG-TERM CATALOG (ProductType + Attribute System)
+// (Additive: designed to coexist with current Product/ProductVariant JSON attrs)
+// ============================================================================
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum VariantStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AttributeScope {
+  PRODUCT
+  VARIANT
+}
+
+enum AttributeDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+  MULTI_SELECT
 }
 
 // ============================================================================
@@ -268,18 +340,28 @@ model UserAddress {
 /// Sản phẩm - thông tin cơ bản; tồn kho & giá thực tế nằm ở ProductVariant
 model Product {
   id          String  @id @default(uuid()) @db.VarChar(36)
+  /// Loại sản phẩm (áo/quần/phụ kiện...). Nullable để migrate dần.
+  productTypeId String? @map("product_type_id") @db.VarChar(36)
   name        String  @db.VarChar(255)
   description String? @db.Text
   /// Giá hiển thị / khởi điểm; giá bán thực tế lấy từ ProductVariant.price
   basePrice   Decimal @map("base_price") @db.Decimal(10, 2)
+  /// Trạng thái catalog (đi đường dài). Migrate dần, mặc định ACTIVE.
+  status      ProductStatus @default(ACTIVE)
+  /// Cache min/max price (không phải source of truth)
+  minPrice    Decimal? @map("min_price") @db.Decimal(10, 2)
+  maxPrice    Decimal? @map("max_price") @db.Decimal(10, 2)
   isNew       Boolean @default(false) @map("is_new")
   isSale      Boolean @default(false) @map("is_sale")
   isDeleted   Boolean @default(false) @map("is_deleted")
+  /// Soft-delete chuẩn (nullable để migrate dần).
+  deletedAt   DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
+  productType      ProductType?          @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
   variants         ProductVariant[]
   images           ProductImage[]
   categories       ProductCategory[]
@@ -291,8 +373,12 @@ model Product {
   priceHistory     ProductPriceHistory[]
   campaignProducts CampaignProduct[]
 
+  attributeValues  ProductAttributeValue[]
+
   @@fulltext([name])
   @@index([createdAt])
+  @@index([productTypeId, status])
+  @@index([deletedAt])
   @@map("products")
 }
 
@@ -305,13 +391,20 @@ model ProductVariant {
   id             String  @id @default(uuid()) @db.VarChar(36)
   productId      String  @map("product_id") @db.VarChar(36)
   sku            String  @unique @db.VarChar(100)
+  /// Canonical key cho tổ hợp biến thể (vd: color=red|size=m). Nullable để backfill dần.
+  optionKey      String? @map("option_key") @db.VarChar(500)
+  status         VariantStatus @default(ACTIVE)
+  isDefault      Boolean @default(false) @map("is_default")
   /// Thuộc tính biến thể: {"color": "đỏ", "size": "M"}
   attributes     Json    @default("{}")
   price          Decimal @db.Decimal(10, 2)
   stockAvailable Int     @default(0) @map("stock_available")
+  /// Chuẩn dài hạn: stockOnHand (giữ song song để migrate)
+  stockOnHand    Int     @default(0) @map("stock_on_hand")
   stockReserved  Int     @default(0) @map("stock_reserved")
   minStock       Int     @default(5) @map("min_stock")
   isDeleted      Boolean @default(false) @map("is_deleted")
+  deletedAt      DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -324,7 +417,12 @@ model ProductVariant {
   inventoryLogs InventoryLog[]
   priceHistory  ProductPriceHistory[]
 
+  attributeValues VariantAttributeValue[]
+
   @@index([productId])
+  @@index([productId, status])
+  @@index([deletedAt])
+  @@unique([productId, optionKey])
   @@map("product_variants")
 }
 
@@ -360,11 +458,18 @@ model Category {
   imageUrl    String? @map("image_url") @db.VarChar(1000)
   sortOrder   Int     @default(0) @map("sort_order")
 
+  parentId String? @map("parent_id") @db.VarChar(36)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   // Relations
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryHierarchy")
   products ProductCategory[]
+  @@index([parentId])
+  @@index([deletedAt])
   @@map("categories")
 }
 
@@ -373,11 +478,194 @@ model ProductCategory {
   productId  String @map("product_id") @db.VarChar(36)
   categoryId String @map("category_id") @db.VarChar(36)
 
+  /// Merchandising
+  isPrimary  Boolean @default(false) @map("is_primary")
+  sortOrder  Int     @default(0) @map("sort_order")
+
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([productId, categoryId])
+  @@index([categoryId, isPrimary, sortOrder])
   @@map("product_categories")
+}
+
+// ============================================================================
+// PRODUCT TYPE
+// ============================================================================
+
+model ProductType {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  code        String   @unique @db.VarChar(100)
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  deletedAt   DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products   Product[]
+  attributes ProductTypeAttribute[]
+
+  @@index([deletedAt])
+  @@map("product_types")
+}
+
+// ============================================================================
+// ATTRIBUTE DEFINITIONS
+// ============================================================================
+
+model AttributeDefinition {
+  id        String           @id @default(uuid()) @db.VarChar(36)
+  code      String           @unique @db.VarChar(100)
+  name      String           @db.VarChar(255)
+  scope     AttributeScope
+  dataType  AttributeDataType @map("data_type")
+  unit      String?          @db.VarChar(50)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  options   AttributeOption[]
+  typeMaps  ProductTypeAttribute[]
+  productValues ProductAttributeValue[]
+  variantValues VariantAttributeValue[]
+
+  @@index([scope, dataType])
+  @@index([deletedAt])
+  @@map("attribute_definitions")
+}
+
+model AttributeOption {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  attributeId String   @map("attribute_id") @db.VarChar(36)
+  value       String   @db.VarChar(100)
+  label       String   @db.VarChar(255)
+  sortOrder   Int      @default(0) @map("sort_order")
+  swatchHex   String?  @map("swatch_hex") @db.VarChar(16)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  productValues ProductAttributeValue[]
+  productMultiSelectJoins ProductAttributeValueOption[]
+  variantValues VariantAttributeValue[]
+  variantMultiSelectJoins VariantAttributeValueOption[]
+
+  @@unique([attributeId, value])
+  @@index([attributeId, sortOrder])
+  @@index([deletedAt])
+  @@map("attribute_options")
+}
+
+model ProductTypeAttribute {
+  productTypeId String @map("product_type_id") @db.VarChar(36)
+  attributeId   String @map("attribute_id") @db.VarChar(36)
+
+  isRequired    Boolean @default(false) @map("is_required")
+  isFilterable  Boolean @default(false) @map("is_filterable")
+  isVariantAxis Boolean @default(false) @map("is_variant_axis")
+  variantAxisOrder Int? @map("variant_axis_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  productType ProductType         @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  attribute   AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@id([productTypeId, attributeId])
+  @@index([productTypeId, isVariantAxis, variantAxisOrder])
+  @@map("product_type_attributes")
+}
+
+// ============================================================================
+// ATTRIBUTE VALUES (PRODUCT)
+// ============================================================================
+
+model ProductAttributeValue {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  productId   String   @map("product_id") @db.VarChar(36)
+  attributeId String   @map("attribute_id") @db.VarChar(36)
+
+  textValue    String?  @map("text_value") @db.Text
+  numberValue  Decimal? @map("number_value") @db.Decimal(18, 4)
+  booleanValue Boolean? @map("boolean_value")
+  dateValue    DateTime? @map("date_value")
+  optionId     String?  @map("option_id") @db.VarChar(36)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product   Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  option    AttributeOption?    @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  multiSelectOptions ProductAttributeValueOption[]
+
+  @@unique([productId, attributeId])
+  @@index([attributeId, optionId])
+  @@index([deletedAt])
+  @@map("product_attribute_values")
+}
+
+model ProductAttributeValueOption {
+  productAttributeValueId String @map("product_attribute_value_id") @db.VarChar(36)
+  optionId                String @map("option_id") @db.VarChar(36)
+
+  value  ProductAttributeValue @relation(fields: [productAttributeValueId], references: [id], onDelete: Cascade)
+  option AttributeOption       @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([productAttributeValueId, optionId])
+  @@index([optionId])
+  @@map("product_attribute_value_options")
+}
+
+// ============================================================================
+// ATTRIBUTE VALUES (VARIANT)
+// ============================================================================
+
+model VariantAttributeValue {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  variantId   String   @map("variant_id") @db.VarChar(36)
+  attributeId String   @map("attribute_id") @db.VarChar(36)
+
+  textValue    String?  @map("text_value") @db.Text
+  numberValue  Decimal? @map("number_value") @db.Decimal(18, 4)
+  booleanValue Boolean? @map("boolean_value")
+  dateValue    DateTime? @map("date_value")
+  optionId     String?  @map("option_id") @db.VarChar(36)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  variant   ProductVariant       @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attribute AttributeDefinition  @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  option    AttributeOption?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  multiSelectOptions VariantAttributeValueOption[]
+
+  @@unique([variantId, attributeId])
+  @@index([attributeId, optionId])
+  @@index([deletedAt])
+  @@map("variant_attribute_values")
+}
+
+model VariantAttributeValueOption {
+  variantAttributeValueId String @map("variant_attribute_value_id") @db.VarChar(36)
+  optionId                String @map("option_id") @db.VarChar(36)
+
+  value  VariantAttributeValue @relation(fields: [variantAttributeValueId], references: [id], onDelete: Cascade)
+  option AttributeOption       @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([variantAttributeValueId, optionId])
+  @@index([optionId])
+  @@map("variant_attribute_value_options")
 }
 
 /// Tag - nhãn tự do gắn vào sản phẩm
@@ -463,6 +751,8 @@ model Order {
   items         OrderItem[]
   payment       Payment?
   paymentTransaction PaymentTransaction?
+  refundTransactions RefundTransaction[]
+  cancelRequest OrderCancelRequest?
   statusHistory OrderStatusHistory[]
   invoice       Invoice?
   discount      Discount?            @relation(fields: [discountId], references: [id])
@@ -487,6 +777,7 @@ model OrderItem {
   product Product         @relation(fields: [productId], references: [id])
   variant ProductVariant? @relation(fields: [variantId], references: [id])
   returns Return[]
+  reviews Review[] @relation("OrderItemReviews")
 
   @@unique([orderId, productId, variantId])
   @@index([productId])
@@ -812,6 +1103,7 @@ model Review {
   id        String  @id @default(uuid()) @db.VarChar(36)
   userId    String  @map("user_id") @db.VarChar(36)
   productId String  @map("product_id") @db.VarChar(36)
+  orderItemId String? @map("order_item_id") @db.VarChar(36)
   rating    Int // 1-5
   comment   String? @db.Text
 
@@ -820,10 +1112,29 @@ model Review {
   // Relations
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+  orderItem OrderItem? @relation("OrderItemReviews", fields: [orderItemId], references: [id], onDelete: Cascade)
+  images   ReviewImage[]
 
-  @@unique([userId, productId])
+  @@unique([userId, orderItemId])
   @@index([productId])
+  @@index([orderItemId])
   @@map("reviews")
+}
+
+model ReviewImage {
+  id       String @id @default(uuid()) @db.VarChar(36)
+  reviewId String @map("review_id") @db.VarChar(36)
+  url      String @db.VarChar(1000)
+  publicId String? @map("public_id") @db.VarChar(255)
+  sortOrder Int @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_images")
 }
 
 // ============================================================================
@@ -864,4 +1175,61 @@ model AuditLog {
 
   @@index([actorId])
   @@map("audit_logs")
+}
+
+model RefundTransaction {
+  id               String       @id @default(uuid()) @db.VarChar(36)
+  orderId          String       @map("order_id") @db.VarChar(36)
+  type             RefundType
+  amount           Decimal      @db.Decimal(10, 2)
+  currency         String       @default("VND") @db.VarChar(10)
+  status           RefundStatus @default(PENDING)
+  provider         String?      @db.VarChar(50)
+  providerRefundId String?      @unique @map("provider_refund_id") @db.VarChar(100)
+  reason           String?      @db.Text
+  initiatedBy      ActorType    @default(SYSTEM) @map("initiated_by")
+  idempotencyKey   String       @unique @map("idempotency_key") @db.VarChar(120)
+  failureReason    String?      @map("failure_reason") @db.VarChar(500)
+  retryCount       Int          @default(0) @map("retry_count")
+  requestedAt      DateTime     @default(now()) @map("requested_at")
+  processedAt      DateTime?    @map("processed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, type])
+  @@index([orderId])
+  @@index([status])
+  @@index([type])
+  @@map("refund_transactions")
+}
+
+model OrderCancelRequest {
+  id                String              @id @default(uuid()) @db.VarChar(36)
+  orderId           String              @unique @map("order_id") @db.VarChar(36)
+  reasonCode        CancelReason        @map("reason_code")
+  reasonText        String?             @map("reason_text") @db.VarChar(500)
+  status            CancelRequestStatus @default(REQUESTED)
+  requestedByUserId String              @map("requested_by_user_id") @db.VarChar(36)
+  approvedByAdminId String?             @map("approved_by_admin_id") @db.VarChar(36)
+  rejectedByAdminId String?             @map("rejected_by_admin_id") @db.VarChar(36)
+  approvedAt        DateTime?           @map("approved_at")
+  rejectedAt        DateTime?           @map("rejected_at")
+  completedAt       DateTime?           @map("completed_at")
+  rejectionReason   String?             @map("rejection_reason") @db.VarChar(500)
+
+  bankAccountName   String              @map("bank_account_name") @db.VarChar(255)
+  bankAccountNumber String              @map("bank_account_number") @db.VarChar(50)
+  bankName          String              @map("bank_name") @db.VarChar(120)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([requestedByUserId])
+  @@map("order_cancel_requests")
 }

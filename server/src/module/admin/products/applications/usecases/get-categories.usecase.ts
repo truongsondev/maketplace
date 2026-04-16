@@ -18,6 +18,7 @@ export class GetCategoriesUseCase implements IGetCategoriesUseCase {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
+        parentId: cat.parentId ?? null,
         sortOrder: cat.sortOrder,
       }))
       .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));

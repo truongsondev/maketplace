@@ -68,12 +68,12 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       throw new BadRequestError('Order not found');
     }
 
-    if (order.returnStatus === 'RETURNING') {
+    if (order.returnStatus === 'SHIPPING' || order.returnStatus === 'RETURNING') {
       return { id: order.id, status: order.status, returnStatus: order.returnStatus };
     }
 
-    if (order.returnStatus !== 'WAITING_PICKUP') {
-      throw new BadRequestError('Return must be waiting for pickup first');
+    if (order.returnStatus !== 'APPROVED' && order.returnStatus !== 'WAITING_PICKUP') {
+      throw new BadRequestError('Return must be approved before marking as shipping');
     }
 
     const hasApprovedReturn = (order.items ?? []).some((it) =>
@@ -84,7 +84,7 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       throw new BadRequestError('No approved return items found');
     }
 
-    const returnStatus: ReturnFlowStatus = 'RETURNING';
+    const returnStatus: ReturnFlowStatus = 'SHIPPING';
 
     const updated = await this.prisma.order.update({
       where: { id: orderId },
@@ -114,16 +114,12 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       throw new BadRequestError('Order not found');
     }
 
-    if (order.status === 'RETURNED' && order.returnStatus === 'COMPLETED') {
-      return { id: order.id, status: order.status, returnStatus: order.returnStatus };
-    }
-
     if (order.status !== 'DELIVERED') {
       throw new BadRequestError('Only delivered orders can be completed as returned');
     }
 
-    if (order.returnStatus !== 'RETURNING') {
-      throw new BadRequestError('Return must be RETURNING before completing');
+    if (order.returnStatus !== 'SHIPPING' && order.returnStatus !== 'RETURNING') {
+      throw new BadRequestError('Return must be SHIPPING before completing');
     }
 
     const itemIds = order.items.map((it) => it.id);
@@ -140,19 +136,9 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
         data: {
-          status: 'RETURNED',
           returnStatus: 'COMPLETED',
         },
         select: { id: true, status: true, returnStatus: true },
-      });
-
-      await tx.orderStatusHistory.create({
-        data: {
-          orderId,
-          oldStatus: order.status,
-          newStatus: 'RETURNED',
-          changedBy: null,
-        },
       });
 
       return {

@@ -13,4 +13,5 @@ export interface AdminAuthUser {
 
 export interface IAdminUserRepository {
   findByEmailWithRoles(email: string): Promise<AdminAuthUser | null>;
+  updateLastLogin(userId: string): Promise<void>;
 }

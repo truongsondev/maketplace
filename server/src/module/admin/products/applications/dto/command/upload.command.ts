@@ -12,7 +12,9 @@ export interface GenerateSignatureResult {
 
 export interface SaveProductImageCommand {
   productId: string;
+  publicId: string;
   url: string;
+  variantId?: string;
   altText?: string;
   isPrimary?: boolean;
   sortOrder?: number;

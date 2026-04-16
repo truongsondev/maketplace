@@ -4,8 +4,13 @@ import {
   tagService,
   productService,
   cloudinaryService,
+  productTypeSchemaService,
 } from "@/services/api";
-import type { CreateProductCommand, CloudinarySignature } from "@/types/api";
+import type {
+  CreateProductCommand,
+  CloudinarySignature,
+  ProductTypeSchemaResponse,
+} from "@/types/api";
 import { toast } from "sonner";
 
 // Categories hook
@@ -25,6 +30,16 @@ export const useTags = () => {
     queryFn: tagService.getTags,
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes
+  });
+};
+
+export const useProductTypeSchema = (categoryId: string) => {
+  return useQuery<ProductTypeSchemaResponse>({
+    queryKey: ["productTypeSchema", categoryId],
+    queryFn: () => productTypeSchemaService.getSchema(categoryId),
+    enabled: Boolean(categoryId),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
   });
 };
 

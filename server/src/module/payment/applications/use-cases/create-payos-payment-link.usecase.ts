@@ -4,11 +4,15 @@ import { CreatePayosPaymentLinkCommand, CreatePayosPaymentLinkResult } from '../
 import { IPaymentRepository } from '../ports/output';
 import { getPayosClient } from '../../infrastructure/payos/payos.client';
 import { getPayosConfig } from '../../infrastructure/payos/payos.config';
+import type { UserShippingInfoService } from '../../../address/applications/services/user-shipping-info.service';
 
 const logger = createLogger('CreatePayosPaymentLinkUseCase');
 
 export class CreatePayosPaymentLinkUseCase {
-  constructor(private readonly paymentRepository: IPaymentRepository) {}
+  constructor(
+    private readonly paymentRepository: IPaymentRepository,
+    private readonly shippingInfoService?: UserShippingInfoService,
+  ) {}
 
   async execute(command: CreatePayosPaymentLinkCommand): Promise<CreatePayosPaymentLinkResult> {
     this.validateCommand(command);
@@ -16,6 +20,17 @@ export class CreatePayosPaymentLinkUseCase {
     const payos = getPayosClient();
     const config = getPayosConfig();
     const orderCode = await this.generateUniqueOrderCode();
+
+    if (command.shipping && this.shippingInfoService) {
+      await this.shippingInfoService.rememberAddress(command.userId, {
+        recipient: command.shipping.recipient,
+        phone: command.shipping.phone,
+        addressLine: command.shipping.addressLine,
+        ward: command.shipping.ward,
+        district: command.shipping.district,
+        city: command.shipping.city,
+      });
+    }
 
     const pendingTransaction = await this.paymentRepository.createPendingTransaction({
       userId: command.userId,
@@ -66,6 +81,25 @@ export class CreatePayosPaymentLinkUseCase {
   private validateCommand(command: CreatePayosPaymentLinkCommand): void {
     if (!Number.isFinite(command.amount) || command.amount <= 0) {
       throw new BadRequestError('amount must be greater than 0');
+    }
+
+    if (command.shipping) {
+      type Shipping = NonNullable<CreatePayosPaymentLinkCommand['shipping']>;
+      const fields: Array<keyof Shipping> = [
+        'recipient',
+        'phone',
+        'addressLine',
+        'ward',
+        'district',
+        'city',
+      ];
+
+      for (const field of fields) {
+        const value = (command.shipping as any)[field];
+        if (typeof value !== 'string' || value.trim() === '') {
+          throw new BadRequestError(`shipping.${String(field)} is required`);
+        }
+      }
     }
   }
 

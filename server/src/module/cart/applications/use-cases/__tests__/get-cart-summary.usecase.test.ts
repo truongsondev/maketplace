@@ -12,7 +12,7 @@ describe('GetCartSummaryUseCase', () => {
       updateItemQuantity: jest.fn(),
       removeItem: jest.fn(),
       getCartDetail: jest.fn(),
-      getCartSummary: jest.fn(async () => ({
+      getCartSummary: jest.fn(async (_userId: string) => ({
         totalItems: 3,
         totalPrice: 750000,
       })),

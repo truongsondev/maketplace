@@ -11,6 +11,16 @@ import {
   X,
 } from "lucide-react";
 
+const formatVndNumber = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return "0";
+  return Math.trunc(value).toLocaleString("vi-VN");
+};
+
+const parseVndInputToNumber = (raw: string) => {
+  const digitsOnly = raw.replace(/[^0-9]/g, "");
+  return digitsOnly ? Number(digitsOnly) : 0;
+};
+
 interface ProductVariant {
   id: string;
   sku: string;
@@ -20,6 +30,8 @@ interface ProductVariant {
   minStock?: number;
   images: ProductImage[];
 }
+
+const AXIS_ATTRIBUTE_KEYS = new Set(["color", "size"]);
 
 interface ProductImage {
   id: string;
@@ -42,6 +54,14 @@ interface ProductFormFormData {
 
 interface ProductFormProps {
   formData: ProductFormFormData;
+  axisAttributes: Array<{
+    id: string;
+    code: string;
+    name: string;
+    dataType: string;
+    unit: string | null;
+    axisOrder: number | null;
+  }>;
   onFormChange: (
     field: keyof ProductFormFormData,
     value:
@@ -69,6 +89,7 @@ interface ProductFormProps {
 
 export function ProductForm({
   formData,
+  axisAttributes,
   onFormChange,
   onImageUpload,
   onRemoveImage,
@@ -82,6 +103,12 @@ export function ProductForm({
   const [activeVariantId, setActiveVariantId] = useState<string>(
     formData.variants[0]?.id || "",
   );
+
+  const axisAttributeKeys = new Set(axisAttributes.map((a) => a.code));
+  const reservedAttributeKeys = new Set([
+    ...Array.from(AXIS_ATTRIBUTE_KEYS),
+    ...Array.from(axisAttributeKeys),
+  ]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -159,10 +186,13 @@ export function ProductForm({
             ₫
           </span>
           <input
-            type="number"
+            type="text"
+            inputMode="numeric"
             placeholder="0"
-            value={formData.basePrice}
-            onChange={(e) => onFormChange("basePrice", Number(e.target.value))}
+            value={formatVndNumber(formData.basePrice)}
+            onChange={(e) =>
+              onFormChange("basePrice", parseVndInputToNumber(e.target.value))
+            }
             className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
           />
           <span className="text-gray-500 px-4 py-2 bg-gray-50 rounded-lg">
@@ -268,7 +298,7 @@ export function ProductForm({
                     ) : (
                       <img
                         src={image.url}
-                        alt={image.altText || "Product main image"}
+                        alt={image.altText || "Ảnh chính sản phẩm"}
                         className="w-full h-full object-cover"
                       />
                     )}
@@ -373,7 +403,7 @@ export function ProductForm({
                     ) : (
                       <img
                         src={image.url}
-                        alt={image.altText || "Variant image"}
+                        alt={image.altText || "Ảnh phiên bản"}
                         className="w-full h-full object-cover"
                       />
                     )}
@@ -413,171 +443,193 @@ export function ProductForm({
         </div>
 
         <div className="space-y-4">
-          {formData.variants.map((variant, index) => (
-            <div
-              key={variant.id}
-              className="border border-gray-200 rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-medium text-gray-900">
-                  Phiên bản {index + 1}
-                </h4>
-                {formData.variants.length > 1 && (
-                  <button
-                    onClick={() => onRemoveVariant(variant.id)}
-                    className="text-red-600 hover:text-red-700"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+          {formData.variants.map((variant, index) => {
+            const extraAttributes = Object.entries(variant.attributes).filter(
+              ([key]) => !reservedAttributeKeys.has(key),
+            );
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mã SKU
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="ví dụ: SANPHAM-001"
-                    value={variant.sku}
-                    onChange={(e) =>
-                      onVariantChange(variant.id, "sku", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Giá (VND)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={variant.price}
-                    onChange={(e) =>
-                      onVariantChange(
-                        variant.id,
-                        "price",
-                        Number(e.target.value),
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số lượng tồn kho
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="0"
-                    value={variant.stockAvailable}
-                    onChange={(e) =>
-                      onVariantChange(
-                        variant.id,
-                        "stockAvailable",
-                        Number(e.target.value),
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tồn kho tối thiểu
-                </label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  value={variant.minStock || 0}
-                  onChange={(e) =>
-                    onVariantChange(
-                      variant.id,
-                      "minStock",
-                      Number(e.target.value),
-                    )
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                />
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Thuộc tính sản phẩm
-                </label>
-
-                {/* Fixed attributes: Color and Size */}
-                <div className="space-y-3 mb-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Màu sắc
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="vd: Đỏ"
-                        value={String(variant.attributes.color || "")}
-                        onChange={(e) => {
-                          onVariantChange(variant.id, "attributes", {
-                            ...variant.attributes,
-                            color: e.target.value,
-                          });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Kích thước
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="vd: L"
-                        value={String(variant.attributes.size || "")}
-                        onChange={(e) => {
-                          onVariantChange(variant.id, "attributes", {
-                            ...variant.attributes,
-                            size: e.target.value,
-                          });
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional custom attributes */}
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Thuộc tính khác (tùy chọn)
-                    </label>
+            return (
+              <div
+                key={variant.id}
+                className="border border-gray-200 rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-900">
+                    Phiên bản {index + 1}
+                  </h4>
+                  {formData.variants.length > 1 && (
                     <button
-                      type="button"
-                      onClick={() => {
-                        const newKey = `thuoc_tinh_${Object.keys(variant.attributes).length + 1}`;
-                        onVariantChange(variant.id, "attributes", {
-                          ...variant.attributes,
-                          [newKey]: "",
-                        });
-                      }}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                      onClick={() => onRemoveVariant(variant.id)}
+                      className="text-red-600 hover:text-red-700"
                     >
-                      <Plus className="w-3 h-3" />
-                      Thêm thuộc tính
+                      <Trash2 className="w-4 h-4" />
                     </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Mã SKU
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="ví dụ: SANPHAM-001"
+                      value={variant.sku}
+                      onChange={(e) =>
+                        onVariantChange(variant.id, "sku", e.target.value)
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
                   </div>
 
-                  {/* Attribute Key-Value List (excluding color and size) */}
-                  <div className="space-y-2">
-                    {Object.entries(variant.attributes).length > 0 ? (
-                      Object.entries(variant.attributes).map(
-                        ([key, value], attrIndex) => (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Giá (VND)
+                    </label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={formatVndNumber(variant.price)}
+                      onChange={(e) =>
+                        onVariantChange(
+                          variant.id,
+                          "price",
+                          parseVndInputToNumber(e.target.value),
+                        )
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Số lượng tồn kho
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      value={variant.stockAvailable}
+                      onChange={(e) =>
+                        onVariantChange(
+                          variant.id,
+                          "stockAvailable",
+                          Number(e.target.value),
+                        )
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tồn kho tối thiểu
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={variant.minStock || 0}
+                    onChange={(e) =>
+                      onVariantChange(
+                        variant.id,
+                        "minStock",
+                        Number(e.target.value),
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Thuộc tính sản phẩm
+                  </label>
+
+                  {/* Fixed attributes: Color and Size */}
+                  <div className="space-y-3 mb-4">
+                    {axisAttributes.length > 0 ? (
+                      <div
+                        className={
+                          axisAttributes.length >= 2
+                            ? "grid grid-cols-2 gap-3"
+                            : "grid grid-cols-1 gap-3"
+                        }
+                      >
+                        {axisAttributes.map((attr) => {
+                          const placeholder =
+                            attr.code === "color"
+                              ? "vd: Đỏ"
+                              : attr.code === "size"
+                                ? "vd: L"
+                                : "vd: ...";
+
+                          return (
+                            <div key={attr.id}>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">
+                                {attr.name}
+                              </label>
+                              <input
+                                type="text"
+                                placeholder={placeholder}
+                                value={String(
+                                  variant.attributes[attr.code] || "",
+                                )}
+                                onChange={(e) => {
+                                  onVariantChange(variant.id, "attributes", {
+                                    ...variant.attributes,
+                                    [attr.code]: e.target.value,
+                                  });
+                                }}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 italic">
+                        Sản phẩm này không có thuộc tính biến thể theo danh mục
+                        đã chọn.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Additional custom attributes */}
+                  <div className="border-t border-gray-200 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Thuộc tính khác (tùy chọn)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const baseIndex =
+                            Object.keys(variant.attributes).length + 1;
+                          let newKey = `thuoc_tinh_${baseIndex}`;
+                          while (
+                            reservedAttributeKeys.has(newKey) ||
+                            newKey in variant.attributes
+                          ) {
+                            newKey = `thuoc_tinh_${Math.floor(Math.random() * 100000)}`;
+                          }
+                          onVariantChange(variant.id, "attributes", {
+                            ...variant.attributes,
+                            [newKey]: "",
+                          });
+                        }}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Thêm thuộc tính
+                      </button>
+                    </div>
+
+                    {/* Attribute Key-Value List (excluding color and size) */}
+                    <div className="space-y-2">
+                      {extraAttributes.length > 0 ? (
+                        extraAttributes.map(([key, value], attrIndex) => (
                           <div
                             key={`${variant.id}-attr-${attrIndex}`}
                             className="flex gap-2"
@@ -589,6 +641,16 @@ export function ProductForm({
                               onBlur={(e) => {
                                 const newKey = e.target.value.trim();
                                 if (newKey && newKey !== key) {
+                                  if (reservedAttributeKeys.has(newKey)) {
+                                    // Do not allow overriding reserved axis keys.
+                                    return;
+                                  }
+
+                                  if (newKey in variant.attributes) {
+                                    // Avoid clobbering another attribute.
+                                    return;
+                                  }
+
                                   const newAttrs = { ...variant.attributes };
                                   delete newAttrs[key];
                                   newAttrs[newKey] = value;
@@ -641,40 +703,40 @@ export function ProductForm({
                               <X className="w-4 h-4" />
                             </button>
                           </div>
-                        ),
-                      )
-                    ) : (
-                      <p className="text-sm text-gray-500 italic py-2">
-                        Chưa có thuộc tính bổ sung. Nhấn "Thêm thuộc tính" để
-                        thêm thuộc tính khác.
-                      </p>
-                    )}
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500 italic py-2">
+                          Chưa có thuộc tính bổ sung. Nhấn "Thêm thuộc tính" để
+                          thêm thuộc tính khác.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Examples */}
+                  <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                    <p className="text-xs text-blue-800 font-medium mb-1">
+                      💡 Ví dụ thuộc tính:
+                    </p>
+                    <ul className="text-xs text-blue-700 space-y-1">
+                      <li>
+                        • <strong>màu_sắc:</strong> đỏ, xanh, vàng
+                      </li>
+                      <li>
+                        • <strong>kích_thước:</strong> S, M, L, XL
+                      </li>
+                      <li>
+                        • <strong>chất_liệu:</strong> cotton, polyester
+                      </li>
+                      <li>
+                        • <strong>dung_lượng:</strong> 128GB, 256GB
+                      </li>
+                    </ul>
                   </div>
                 </div>
-
-                {/* Examples */}
-                <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                  <p className="text-xs text-blue-800 font-medium mb-1">
-                    💡 Ví dụ thuộc tính:
-                  </p>
-                  <ul className="text-xs text-blue-700 space-y-1">
-                    <li>
-                      • <strong>màu_sắc:</strong> đỏ, xanh, vàng
-                    </li>
-                    <li>
-                      • <strong>kích_thước:</strong> S, M, L, XL
-                    </li>
-                    <li>
-                      • <strong>chất_liệu:</strong> cotton, polyester
-                    </li>
-                    <li>
-                      • <strong>dung_lượng:</strong> 128GB, 256GB
-                    </li>
-                  </ul>
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

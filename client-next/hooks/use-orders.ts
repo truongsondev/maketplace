@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { orderService } from "@/services/order.service";
 import type { ApiErrorResponse } from "@/types/api.types";
-import type { OrderSort, OrderTab } from "@/types/order.types";
+import type {
+  CancelReasonCode,
+  OrderSort,
+  OrderTab,
+} from "@/types/order.types";
 
 export const ORDERS_QUERY_KEY = ["orders"] as const;
 export const ORDER_COUNTS_QUERY_KEY = ["order-counts"] as const;
@@ -82,6 +86,31 @@ export function useConfirmReceivedOrder() {
     },
     onError: (err: ApiErrorResponse) => {
       handleOrderError(err, "Xác nhận nhận hàng thất bại");
+    },
+  });
+}
+
+export function useRequestPaidCancelOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (params: {
+      orderId: string;
+      reasonCode: CancelReasonCode;
+      reasonText?: string;
+      bankAccountName: string;
+      bankAccountNumber: string;
+      bankName: string;
+    }) => orderService.requestPaidCancel(params),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ORDER_COUNTS_QUERY_KEY }),
+      ]);
+      toast.success("Đã gửi yêu cầu hủy đơn, vui lòng chờ admin duyệt");
+    },
+    onError: (err: ApiErrorResponse) => {
+      handleOrderError(err, "Gửi yêu cầu hủy đơn thất bại");
     },
   });
 }

@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:8080
+@accessToken = YOUR_ADMIN_ACCESS_TOKEN
+
+### List users
+GET {{baseUrl}}/api/admin/users?page=1&limit=20&status=ACTIVE&role=BUYER
+Authorization: Bearer {{accessToken}}
+
+### User detail
+GET {{baseUrl}}/api/admin/users/USER_ID
+Authorization: Bearer {{accessToken}}
+
+### Update status
+PATCH {{baseUrl}}/api/admin/users/USER_ID/status
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "SUSPENDED",
+  "reason": "Manual moderation"
+}
+
+### Update role
+PATCH {{baseUrl}}/api/admin/users/USER_ID/role
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "role": "BUYER",
+  "reason": "Role downgrade"
+}
+
+### Audits
+GET {{baseUrl}}/api/admin/users/USER_ID/audits?page=1&limit=20
+Authorization: Bearer {{accessToken}}
+
+### Export CSV
+GET {{baseUrl}}/api/admin/users/export?role=BUYER&sortBy=createdAt&sortOrder=desc
+Authorization: Bearer {{accessToken}}

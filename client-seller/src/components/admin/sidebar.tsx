@@ -4,6 +4,7 @@ import {
   ShoppingCart,
   Users,
   FileText,
+  Wallet,
   Ticket,
   Calendar,
   Sparkles,
@@ -15,14 +16,15 @@ export function Sidebar() {
   const location = useLocation();
 
   const menuItems = [
-    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
-    { icon: Package, label: "Products", to: "/products" },
-    { icon: ShoppingCart, label: "Orders", to: "/orders" },
-    { icon: Users, label: "Users", to: "/users" },
-    { icon: FileText, label: "Logs", to: "/logs" },
-    { icon: Ticket, label: "Voucher", to: "/voucher" },
-    { icon: Image, label: "Banner", to: "/banner" },
-    { icon: Calendar, label: "Events", to: "/events" },
+    { icon: LayoutDashboard, label: "Bảng điều khiển", to: "/dashboard" },
+    { icon: Package, label: "Sản phẩm", to: "/products" },
+    { icon: ShoppingCart, label: "Đơn hàng", to: "/orders" },
+    { icon: Users, label: "Người dùng", to: "/users" },
+    { icon: Wallet, label: "Hoàn tiền", to: "/refunds" },
+    { icon: FileText, label: "Nhật ký", to: "/logs" },
+    { icon: Ticket, label: "Mã giảm giá", to: "/voucher" },
+    { icon: Image, label: "Biểu ngữ", to: "/banner" },
+    { icon: Calendar, label: "Sự kiện", to: "/events" },
   ];
 
   return (

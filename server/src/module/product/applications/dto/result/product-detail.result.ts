@@ -39,6 +39,24 @@ export interface ReviewSummary {
   };
 }
 
+export interface ReviewImageItem {
+  url: string;
+  sortOrder: number;
+}
+
+export interface ReviewAuthor {
+  label: string;
+}
+
+export interface ReviewItem {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: Date;
+  author: ReviewAuthor;
+  images: ReviewImageItem[];
+}
+
 export interface ProductDetailResult {
   // Basic info
   id: string;
@@ -58,6 +76,7 @@ export interface ProductDetailResult {
 
   // Reviews
   reviews: ReviewSummary;
+  reviewItems: ReviewItem[];
 
   // Metadata
   createdAt: Date;

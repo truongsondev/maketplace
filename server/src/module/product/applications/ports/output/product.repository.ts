@@ -1,9 +1,11 @@
 import { Product } from '../../../entities/product/product.entity';
+import { ProductListAggregations } from '../../dto/result/product-list.result';
 
 export interface ProductFilters {
   categorySlugOrId?: string;
   size?: string;
   color?: string;
+  search?: string;
   minPrice?: number;
   maxPrice?: number;
   sortField?: 'createdAt';
@@ -36,7 +38,7 @@ export interface IProductRepository {
   findWithFilters(
     filters: ProductFilters,
     pagination: PaginationParams,
-  ): Promise<{ products: Product[]; total: number }>;
+  ): Promise<{ products: Product[]; total: number; aggregations?: ProductListAggregations }>;
 
   findByIdWithDetails(id: string): Promise<Product | null>;
 

@@ -71,6 +71,7 @@ export class AdminLoginUseCase implements IAdminLoginUseCase {
     await Promise.all([
       this.redisCache.set(`session:${accessToken}`, user.id, ACCESS_TOKEN_TTL_SECONDS),
       this.tokenRepository.saveToken(user.id, hashedRefreshToken, deviceInfo),
+      this.userRepository.updateLastLogin(user.id),
     ]);
 
     this.logger.info('Admin login successful', { email, userId: user.id });

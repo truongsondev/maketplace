@@ -53,6 +53,24 @@ nhung chi cap token khi user hop le va co role ADMIN.
 
 ---
 
+# 0.1 ADMIN USERS API
+
+Tai lieu chi tiet cho module quan ly users:
+
+- Xem file: `doc-api/admin-users.md`
+- Request test nhanh: `doc-api/admin-users.http`
+
+---
+
+# 0.2 ADMIN REFUNDS API
+
+Tai lieu chi tiet cho module quan ly refund:
+
+- Xem file: `doc-api/admin-refunds.md`
+- Request test nhanh: `doc-api/admin-refunds.http`
+
+---
+
 ## BASE URL
 
 ```

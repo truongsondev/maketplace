@@ -1,7 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -10,6 +19,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Truck,
+  X,
 } from "lucide-react";
 import {
   Carousel,
@@ -37,6 +47,19 @@ type NormalizedProduct = {
   imageUrl: string;
   minPrice: string | number;
 };
+
+function SearchParamsSync({ onQuery }: { onQuery: (q: string) => void }) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (!q) return;
+
+    onQuery(q);
+  }, [onQuery, searchParams]);
+
+  return null;
+}
 
 function normalizeProductImageUrl(rawUrl: string | null) {
   if (!rawUrl) return FALLBACK_IMAGE;
@@ -81,14 +104,93 @@ function formatVoucherValue(
   return formatCurrency(value);
 }
 
+function usePrefersReducedMotion() {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handleChange = () => setPrefersReducedMotion(mediaQuery.matches);
+    handleChange();
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
+  return prefersReducedMotion;
+}
+
+function RevealSection({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (prefersReducedMotion) {
+      setIsVisible(true);
+      return;
+    }
+
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.12 },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [prefersReducedMotion]);
+
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? "translateY(0px)" : "translateY(18px)",
+        transition: prefersReducedMotion
+          ? "none"
+          : `opacity 500ms ease ${delay}ms, transform 500ms ease ${delay}ms`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function Home() {
   const [isDark, setIsDark] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState("");
   const [newArrivalApi, setNewArrivalApi] = useState<CarouselApi>();
   const [topBannerApi, setTopBannerApi] = useState<CarouselApi>();
   const [topBannerCurrent, setTopBannerCurrent] = useState(0);
   const [promoApi, setPromoApi] = useState<CarouselApi>();
   const [promoCurrent, setPromoCurrent] = useState(0);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  const syncSearchFromUrl = useCallback((q: string) => {
+    const trimmed = q.trim();
+    if (!trimmed) return;
+
+    setSearchKeyword((prev) => (prev === trimmed ? prev : trimmed));
+    setDebouncedSearchKeyword((prev) => (prev === trimmed ? prev : trimmed));
+  }, []);
 
   const { data: categories = [], isLoading: isCategoriesLoading } =
     useCategories(true);
@@ -104,16 +206,34 @@ export default function Home() {
   });
 
   const {
+    data: searchProductsData,
+    isFetching: isSearchLoading,
+    isError: isSearchError,
+  } = useQuery({
+    queryKey: ["products", "search", debouncedSearchKeyword],
+    queryFn: () =>
+      productService.getProducts({
+        q: debouncedSearchKeyword,
+        sort: "createdAt:desc",
+        limit: 8,
+        page: 1,
+      }),
+    enabled: debouncedSearchKeyword.length >= 2,
+    staleTime: 1000 * 20,
+    retry: false,
+  });
+
+  const {
     data: categoryShowcasesData = [],
     isLoading: isCategoryShowcasesLoading,
     isError: isCategoryShowcasesError,
     refetch: refetchCategoryShowcases,
   } = useQuery({
-    queryKey: ["category-showcases", { categoryLimit: 2, productLimit: 6 }],
+    queryKey: ["category-showcases", { categoryLimit: 2, productLimit: 4 }],
     queryFn: () =>
       productService.getCategoryShowcases({
         categoryLimit: 2,
-        productLimit: 6,
+        productLimit: 4,
       }),
     staleTime: 1000 * 60 * 5,
     retry: false,
@@ -159,11 +279,12 @@ export default function Home() {
       imageUrl: normalizeProductImageUrl(
         banner.imageUrl || promoProduct?.imageUrl || FALLBACK_IMAGE,
       ),
+      sectionLabel: "Bộ sưu tập mới",
       title: banner.title,
       description:
         banner.description ||
         "Khám phá bộ sưu tập thời trang mới nhất được cập nhật liên tục.",
-      eyebrow: banner.subtitle || "FASHION NOW",
+      eyebrow: banner.subtitle || "THỜI TRANG HÔM NAY",
     }));
   }, [activeBanners, promoProduct?.imageUrl]);
 
@@ -179,24 +300,24 @@ export default function Home() {
         imageUrl: normalizeProductImageUrl(
           voucher.bannerImageUrl || promoProduct?.imageUrl || FALLBACK_IMAGE,
         ),
-        eyebrow: "Voucher uu dai",
+        eyebrow: "Voucher ưu đãi",
         title:
           voucher.type === "PERCENTAGE"
-            ? `Voucher ${voucher.code} - Giam ${voucher.value}%`
-            : `Voucher ${voucher.code} - Giam ${voucher.value.toLocaleString("vi-VN")}d`,
+            ? `Voucher ${voucher.code} - Giảm ${voucher.value}%`
+            : `Voucher ${voucher.code} - Giảm ${voucher.value.toLocaleString("vi-VN")}đ`,
         description:
           voucher.description ||
-          "San gia tot cho cac item duoc yeu thich nhat tuan nay.",
+          "Săn giá tốt cho các item được yêu thích nhất tuần này.",
         codeLabel: voucher.code,
         discountLabel: formatVoucherValue(voucher.type, voucher.value),
         highlights: [
-          `Giam ${formatVoucherValue(voucher.type, voucher.value)}`,
+          `Giảm ${formatVoucherValue(voucher.type, voucher.value)}`,
           voucher.minOrderAmount
-            ? `Don toi thieu ${formatCurrency(voucher.minOrderAmount)}`
-            : "Ap dung don hop le",
+            ? `Đơn tối thiểu ${formatCurrency(voucher.minOrderAmount)}`
+            : "Áp dụng đơn hợp lệ",
           remainingSlots !== null
-            ? `Con lai ${Math.max(remainingSlots, 1)} suat`
-            : "Khong gioi han suat",
+            ? `Còn lại ${Math.max(remainingSlots, 1)} suất`
+            : "Không giới hạn suất",
         ],
         endDate: new Date(voucher.endAt).toLocaleDateString("vi-VN", {
           day: "2-digit",
@@ -231,12 +352,16 @@ export default function Home() {
       slug: category.slug,
       name: category.name,
       imageUrl: normalizeProductImageUrl(category.imageUrl),
-      products: newArrivals.slice(idx * 6, idx * 6 + 6),
+      products: newArrivals.slice(idx * 4, idx * 4 + 4),
     }));
   }, [categories, categoryShowcasesData, newArrivals]);
 
   const categoryItems = useMemo(() => {
-    return categories.slice(0, 4).map((item, index) => ({
+    const rootCategories = categories
+      .filter((category) => !category.parentId && category.slug !== "cua-hang")
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    return rootCategories.slice(0, 4).map((item, index) => ({
       id: item.id,
       title: item.name,
       slug: item.slug,
@@ -246,6 +371,15 @@ export default function Home() {
       count: item.productCount,
     }));
   }, [categories]);
+
+  useEffect(() => {
+    const trimmed = searchKeyword.trim();
+    const handle = window.setTimeout(() => {
+      setDebouncedSearchKeyword(trimmed);
+    }, 350);
+
+    return () => window.clearTimeout(handle);
+  }, [searchKeyword]);
 
   useEffect(() => {
     if (isDark) {
@@ -327,6 +461,10 @@ export default function Home() {
         cartCount={cartCount}
       />
 
+      <Suspense fallback={null}>
+        <SearchParamsSync onQuery={syncSearchFromUrl} />
+      </Suspense>
+
       <main className="flex-1 bg-[#f5f5f5] text-[#222222] dark:bg-neutral-950 dark:text-neutral-100">
         {topBannerSlides.length > 0 ? (
           <section
@@ -353,7 +491,7 @@ export default function Home() {
 
                       <div className="relative mx-auto flex min-h-125 w-full max-w-330 flex-col justify-center gap-4 px-4 py-8 md:min-h-160 md:px-6 lg:px-8">
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                          {slide.eyebrow}
+                          {slide.sectionLabel}
                         </p>
                         <h2 className="max-w-4xl text-3xl font-black uppercase leading-tight md:text-5xl">
                           {slide.title}
@@ -379,121 +517,246 @@ export default function Home() {
           </section>
         ) : null}
 
-        <section
-          id="categories"
-          className="mx-auto w-full max-w-330 px-4 py-16 md:px-6 lg:px-8"
-        >
-          <div className="mb-8 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
-                Featured Categories
-              </p>
-              <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
-                Danh mục nổi bật
-              </h2>
-            </div>
-          </div>
-
-          {isCategoriesLoading ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              {Array.from({ length: 4 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  className="aspect-4/5 animate-pulse rounded-sm bg-neutral-200 dark:bg-neutral-800"
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {categoryItems.map((item) => (
-                <a
-                  key={item.id}
-                  href={`/#category-showcase-1`}
-                  className="group relative block overflow-hidden rounded-sm bg-white shadow-sm transition-transform hover:-translate-y-1"
-                >
-                  <div className="relative aspect-4/5">
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      fill
-                      sizes="(max-width: 1024px) 50vw, 25vw"
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/15 transition-colors group-hover:bg-black/30" />
-                    <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                      <h3 className="text-xl font-extrabold uppercase">
-                        {item.title}
-                      </h3>
-                      <p className="text-sm text-white/90">
-                        {item.count} sản phẩm
-                      </p>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section
-          id="new-arrivals"
-          className="mx-auto w-full max-w-330 px-4 py-16 md:px-6 lg:px-8"
-        >
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
-                Latest Drop
-              </p>
-              <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
-                Sản phẩm mới nhất
-              </h2>
-            </div>
-          </div>
-
-          <Carousel
-            setApi={setNewArrivalApi}
-            opts={{ align: "start", loop: true }}
-            className="w-full"
+        <RevealSection delay={20}>
+          <section
+            id="product-search"
+            className="mx-auto w-full max-w-330 px-4 py-12 md:px-6 lg:px-8"
           >
-            <CarouselContent>
-              {newArrivals.map((item, idx) => (
-                <CarouselItem
-                  key={item.id}
-                  className="basis-[78%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
-                >
-                  <article className="group h-full overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900">
-                    <a
-                      href={`/product/${item.id}`}
-                      className="relative block aspect-4/5 overflow-hidden"
+            <div className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
+                Tìm nhanh
+              </p>
+              <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
+                Tìm kiếm sản phẩm
+              </h2>
+
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative w-full sm:flex-1">
+                  <input
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    placeholder="Nhập tên sản phẩm..."
+                    className="h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 pr-11 text-sm text-neutral-900 shadow-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20 dark:border-neutral-800 dark:bg-black dark:text-white"
+                  />
+                  {searchKeyword.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchKeyword("")}
+                      aria-label="Xóa từ khóa"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
                     >
+                      <X className="size-4" />
+                    </button>
+                  ) : null}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDebouncedSearchKeyword(searchKeyword.trim())
+                  }
+                  disabled={searchKeyword.trim().length < 2}
+                  className="inline-flex h-12 items-center justify-center rounded-sm bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Tìm kiếm
+                </button>
+              </div>
+
+              {searchKeyword.trim().length > 0 &&
+              searchKeyword.trim().length < 2 ? (
+                <p className="mt-3 text-sm text-neutral-500">
+                  Nhập ít nhất 2 ký tự để tìm kiếm.
+                </p>
+              ) : null}
+
+              {debouncedSearchKeyword.length >= 2 ? (
+                <div className="mt-8">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                      Kết quả cho:{" "}
+                      <span className="font-bold">
+                        {debouncedSearchKeyword}
+                      </span>
+                    </p>
+                    {isSearchLoading ? (
+                      <span className="inline-flex items-center gap-2 text-sm text-neutral-500">
+                        <Loader2 className="size-4 animate-spin" />
+                        Đang tìm kiếm...
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {isSearchError ? (
+                    <div className="rounded-sm border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+                      Không thể tìm kiếm lúc này. Vui lòng thử lại.
+                    </div>
+                  ) : (searchProductsData?.products?.length ?? 0) === 0 &&
+                    !isSearchLoading ? (
+                    <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900/30 dark:text-neutral-200">
+                      Không tìm thấy sản phẩm phù hợp.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                      {(searchProductsData?.products ?? []).map((product) => (
+                        <a
+                          key={product.id}
+                          href={`/product/${product.id}`}
+                          className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-transform hover:-translate-y-1 dark:border-neutral-800 dark:bg-black"
+                        >
+                          <div className="relative aspect-3/4 bg-neutral-100 dark:bg-neutral-900">
+                            <Image
+                              src={normalizeProductImageUrl(product.imageUrl)}
+                              alt={product.name}
+                              fill
+                              sizes="(max-width: 1024px) 50vw, 25vw"
+                              className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            />
+                          </div>
+                          <div className="p-4">
+                            <h3 className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
+                              {product.name}
+                            </h3>
+                            <p className="mt-2 text-sm font-bold text-neutral-900 dark:text-white">
+                              {formatCurrency(product.minPrice)}
+                            </p>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </RevealSection>
+
+        <RevealSection>
+          <section
+            id="categories"
+            className="mx-auto w-full max-w-330 px-4 py-16 md:px-6 lg:px-8"
+          >
+            <div className="mb-8 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
+                  Danh mục nổi bật
+                </p>
+                <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
+                  Danh mục nổi bật
+                </h2>
+              </div>
+            </div>
+
+            {isCategoriesLoading ? (
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="aspect-4/5 animate-pulse rounded-sm bg-neutral-200 dark:bg-neutral-800"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {categoryItems.map((item, idx) => (
+                  <a
+                    key={item.id}
+                    href={`/collection/${item.slug}`}
+                    className="group relative block overflow-hidden rounded-sm bg-white shadow-sm transition-transform hover:-translate-y-1"
+                    style={{
+                      animation: `fadeInUp 480ms ease ${Math.min(idx * 80, 280)}ms both`,
+                    }}
+                  >
+                    <div className="relative aspect-4/5">
                       <Image
-                        src={item.imageUrl || FALLBACK_IMAGE}
-                        alt={item.name}
+                        src={item.image}
+                        alt={item.title}
                         fill
-                        sizes="(max-width: 640px) 80vw, (max-width: 1024px) 50vw, 25vw"
+                        sizes="(max-width: 1024px) 50vw, 25vw"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                       />
-                      <span className="absolute left-3 top-3 rounded-sm bg-black px-2 py-1 text-[11px] font-bold uppercase text-white">
-                        {idx % 3 === 0 ? "Sale" : "New"}
-                      </span>
-                    </a>
-                    <div className="p-4">
+                      <div className="absolute inset-0 bg-black/15 transition-colors group-hover:bg-black/30" />
+                      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                        <h3 className="text-xl font-extrabold uppercase">
+                          {item.title}
+                        </h3>
+                        <p className="text-sm text-white/90">
+                          {item.count} sản phẩm
+                        </p>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </section>
+        </RevealSection>
+
+        <RevealSection delay={60}>
+          <section
+            id="new-arrivals"
+            className="mx-auto w-full max-w-330 px-4 py-16 md:px-6 lg:px-8"
+          >
+            <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
+                  Mới ra mắt
+                </p>
+                <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
+                  Sản phẩm mới nhất
+                </h2>
+              </div>
+            </div>
+
+            <Carousel
+              setApi={setNewArrivalApi}
+              opts={{ align: "start", loop: true }}
+              className="w-full"
+            >
+              <CarouselContent>
+                {newArrivals.map((item, idx) => (
+                  <CarouselItem
+                    key={item.id}
+                    className="basis-[78%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
+                  >
+                    <article
+                      className="group h-full overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                      style={{
+                        animation: `fadeInUp 520ms ease ${Math.min(idx * 70, 280)}ms both`,
+                      }}
+                    >
                       <a
                         href={`/product/${item.id}`}
-                        className="line-clamp-2 text-sm font-semibold uppercase hover:text-neutral-500"
+                        className="relative block aspect-4/5 overflow-hidden"
                       >
-                        {item.name}
+                        <Image
+                          src={item.imageUrl || FALLBACK_IMAGE}
+                          alt={item.name}
+                          fill
+                          sizes="(max-width: 640px) 80vw, (max-width: 1024px) 50vw, 25vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                        <span className="absolute left-3 top-3 rounded-sm bg-black px-2 py-1 text-[11px] font-bold uppercase text-white">
+                          {idx % 3 === 0 ? "Sale" : "New"}
+                        </span>
                       </a>
-                      <p className="mt-2 text-lg font-black">
-                        {formatCurrency(item.minPrice)}
-                      </p>
-                    </div>
-                  </article>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-        </section>
+                      <div className="p-4">
+                        <a
+                          href={`/product/${item.id}`}
+                          className="line-clamp-2 text-sm font-semibold uppercase hover:text-neutral-500"
+                        >
+                          {item.name}
+                        </a>
+                        <p className="mt-2 text-lg font-black">
+                          {formatCurrency(item.minPrice)}
+                        </p>
+                      </div>
+                    </article>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
+          </section>
+        </RevealSection>
 
         {promoSlides.length > 0 ? (
           <section
@@ -557,7 +820,7 @@ export default function Home() {
 
                         <div className="w-full max-w-sm rounded-xl border border-white/40 bg-black/35 p-4 backdrop-blur-[2px] md:p-5">
                           <p className="text-[11px] font-semibold uppercase tracking-widest text-white/80">
-                            Ma voucher
+                            Mã voucher
                           </p>
                           <p className="mt-2 text-2xl font-black uppercase tracking-wide text-orange-200 md:text-3xl">
                             {slide.codeLabel}
@@ -565,7 +828,7 @@ export default function Home() {
                           <div className="mt-4 grid grid-cols-2 gap-3">
                             <div className="rounded-lg border border-white/25 bg-white/10 p-3">
                               <p className="text-[10px] uppercase tracking-widest text-white/70">
-                                Muc giam
+                                Mức giảm
                               </p>
                               <p className="mt-1 text-lg font-black text-white">
                                 {slide.discountLabel}
@@ -573,12 +836,12 @@ export default function Home() {
                             </div>
                             <div className="rounded-lg border border-white/25 bg-white/10 p-3">
                               <p className="text-[10px] uppercase tracking-widest text-white/70">
-                                Hieu luc
+                                Hiệu lực
                               </p>
                               <p className="mt-1 text-sm font-bold text-white">
                                 {slide.endDate
-                                  ? `Den ${slide.endDate}`
-                                  : "Dang mo"}
+                                  ? `Đến ${slide.endDate}`
+                                  : "Đang mở"}
                               </p>
                             </div>
                           </div>
@@ -604,7 +867,6 @@ export default function Home() {
             ) : null}
           </section>
         ) : null}
-
         {categoryShowcases.map((group, idx) => (
           <section
             id={`category-showcase-${idx + 1}`}
@@ -614,11 +876,8 @@ export default function Home() {
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
-                  Category Spotlight
+                  Tủ đò của bạn cần gì, Aura đã sẵn sàng.
                 </p>
-                <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
-                  {group.name}
-                </h2>
               </div>
               <a
                 href={`/collection/${group.slug}`}
@@ -646,36 +905,8 @@ export default function Home() {
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10" />
-                  <div className="absolute inset-x-0 bottom-0 p-5 text-white">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
-                      Outfit Gợi Ý
-                    </p>
-                    <h3 className="mt-2 text-2xl font-black uppercase leading-tight">
-                      {group.name}
-                    </h3>
-                    <p className="mt-2 text-sm text-white/85">
-                      Outfit đi làm hay đi chơi?
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="rounded-md border border-white/30 bg-black/25 px-3 py-2 backdrop-blur-sm">
-                        <p className="font-bold uppercase tracking-wider text-white">
-                          Đi làm
-                        </p>
-                        <p className="mt-1 text-white/80">
-                          Smart casual, tối giản
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-white/30 bg-black/25 px-3 py-2 backdrop-blur-sm">
-                        <p className="font-bold uppercase tracking-wider text-white">
-                          Đi chơi
-                        </p>
-                        <p className="mt-1 text-white/80">Năng động, dễ phối</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </a>
-
               <div className="grid grid-cols-2 gap-4 lg:col-span-8 lg:h-full lg:grid-flow-col lg:grid-cols-3 lg:grid-rows-2">
                 {group.products.slice(0, 6).map((item) => (
                   <article
@@ -711,63 +942,69 @@ export default function Home() {
             </div>
           </section>
         ))}
+        <RevealSection delay={80}>
+          <TeamSection />
+        </RevealSection>
 
-        <TeamSection />
-
-        <section
-          id="brand-value"
-          className="bg-[#ececec] py-16 dark:bg-neutral-900"
-        >
-          <div className="mx-auto w-full max-w-330 px-4 md:px-6 lg:px-8">
-            <h2 className="text-center text-3xl font-black uppercase md:text-4xl">
-              Brand Value
-            </h2>
-            <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                {
-                  title: "Giao hàng nhanh",
-                  description:
-                    "Xử lý đơn trong ngày, giao nhanh trên toàn quốc.",
-                  icon: Truck,
-                },
-                {
-                  title: "Đổi trả dễ dàng",
-                  description:
-                    "Hỗ trợ đổi trả linh hoạt với quy trình rõ ràng.",
-                  icon: RotateCcw,
-                },
-                {
-                  title: "Chất lượng cao",
-                  description:
-                    "Kiểm soát chất liệu và đường may trước khi lên kệ.",
-                  icon: ShieldCheck,
-                },
-                {
-                  title: "Thanh toán an toàn",
-                  description:
-                    "Nhiều phương thức thanh toán bảo mật, tiện lợi.",
-                  icon: CreditCard,
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <article
-                    key={item.title}
-                    className="rounded-sm bg-white p-5 shadow-sm dark:bg-neutral-800"
-                  >
-                    <Icon className="size-6 text-black dark:text-white" />
-                    <h3 className="mt-4 text-lg font-black uppercase">
-                      {item.title}
-                    </h3>
-                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
-                      {item.description}
-                    </p>
-                  </article>
-                );
-              })}
+        <RevealSection delay={90}>
+          <section
+            id="brand-value"
+            className="bg-[#ececec] py-16 dark:bg-neutral-900"
+          >
+            <div className="mx-auto w-full max-w-330 px-4 md:px-6 lg:px-8">
+              <h2 className="text-center text-3xl font-black uppercase md:text-4xl">
+                Giá trị thương hiệu
+              </h2>
+              <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {[
+                  {
+                    title: "Giao hàng nhanh",
+                    description:
+                      "Xử lý đơn trong ngày, giao nhanh trên toàn quốc.",
+                    icon: Truck,
+                  },
+                  {
+                    title: "Đổi trả dễ dàng",
+                    description:
+                      "Hỗ trợ đổi trả linh hoạt với quy trình rõ ràng.",
+                    icon: RotateCcw,
+                  },
+                  {
+                    title: "Chất lượng cao",
+                    description:
+                      "Kiểm soát chất liệu và đường may trước khi lên kệ.",
+                    icon: ShieldCheck,
+                  },
+                  {
+                    title: "Thanh toán an toàn",
+                    description:
+                      "Nhiều phương thức thanh toán bảo mật, tiện lợi.",
+                    icon: CreditCard,
+                  },
+                ].map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <article
+                      key={item.title}
+                      className="rounded-sm bg-white p-5 shadow-sm dark:bg-neutral-800"
+                      style={{
+                        animation: `fadeInUp 500ms ease ${Math.min(idx * 80, 260)}ms both`,
+                      }}
+                    >
+                      <Icon className="size-6 text-black dark:text-white" />
+                      <h3 className="mt-4 text-lg font-black uppercase">
+                        {item.title}
+                      </h3>
+                      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                        {item.description}
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </RevealSection>
 
         {(isProductsLoading ||
           isProductsError ||
@@ -795,6 +1032,19 @@ export default function Home() {
         )}
       </main>
       <Footer />
+
+      <style jsx global>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(14px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

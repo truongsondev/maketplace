@@ -1,0 +1,29 @@
+### Reviews - Generate Cloudinary signature (user)
+POST http://localhost:8080/api/reviews/cloudinary/sign
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "orderId": "{{order_id}}"
+}
+
+### Reviews - Get review status for an order
+GET http://localhost:8080/api/reviews/orders/{{order_id}}/status
+Authorization: Bearer {{access_token}}
+
+### Reviews - Create review for an order item
+POST http://localhost:8080/api/reviews
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+{
+  "orderItemId": "{{order_item_id}}",
+  "rating": 5,
+  "comment": "Sản phẩm đúng mô tả, chất liệu ổn.",
+  "images": [
+    {
+      "url": "https://res.cloudinary.com/.../image/upload/v123/reviews.jpg",
+      "publicId": "reviews/userId/orderId/abcd"
+    }
+  ]
+}

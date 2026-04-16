@@ -16,6 +16,7 @@ export class PrismaVariantRepository implements IVariantRepository {
         attributes: true,
         price: true,
         stockAvailable: true,
+        stockOnHand: true,
         stockReserved: true,
         isDeleted: true,
         product: {

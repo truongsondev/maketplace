@@ -14,6 +14,7 @@ export class AddressAPI {
   private initializeRoutes(): void {
     // Note: Auth middleware will be applied at app level for /api/addresses routes
     this.router.get('/', asyncHandler(this.getMyAddresses.bind(this)));
+    this.router.get('/last-used', asyncHandler(this.getLastUsedAddress.bind(this)));
   }
 
   private async getMyAddresses(req: Request, res: Response): Promise<void> {
@@ -25,5 +26,18 @@ export class AddressAPI {
 
     const result = await this.addressController.getMyAddresses(userId);
     res.status(200).json(ResponseFormatter.success(result, 'Addresses retrieved successfully'));
+  }
+
+  private async getLastUsedAddress(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const result = await this.addressController.getLastUsedAddress(userId);
+    res
+      .status(200)
+      .json(ResponseFormatter.success(result, 'Last used address retrieved successfully'));
   }
 }

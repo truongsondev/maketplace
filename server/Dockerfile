@@ -20,7 +20,7 @@ COPY shared ./shared
 
 # Generate Prisma client and build the server bundle.
 RUN npx prisma generate
-RUN npx tsup src/server.ts --format esm
+RUN npx tsup src/server.ts src/payos-reconcile-worker.ts --format esm
 
 FROM node:20-slim AS runner
 

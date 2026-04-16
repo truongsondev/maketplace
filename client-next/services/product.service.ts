@@ -7,6 +7,7 @@ import type {
   FavoriteToggleResponse,
   ProductListResponse,
   ProductDetail,
+  ProductItem,
 } from "@/types/product";
 
 type ProductQueryParams = {
@@ -17,6 +18,7 @@ type ProductQueryParams = {
   s?: string;
   cl?: string;
   p?: string;
+  q?: string;
 };
 
 type CategoryShowcaseParams = {
@@ -24,7 +26,9 @@ type CategoryShowcaseParams = {
   productLimit?: number;
 };
 
-function buildQueryString(params: Record<string, string | number | boolean | undefined>) {
+function buildQueryString(
+  params: Record<string, string | number | boolean | undefined>,
+) {
   const searchParams = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
@@ -51,9 +55,13 @@ export const productService = {
     throw response as ApiErrorResponse;
   },
 
-  async getProducts(params: ProductQueryParams = {}): Promise<ProductListResponse> {
+  async getProducts(
+    params: ProductQueryParams = {},
+  ): Promise<ProductListResponse> {
     const query = buildQueryString(params);
-    const response = await apiClient.get<ProductListResponse>(`api/products/${query}`);
+    const response = await apiClient.get<ProductListResponse>(
+      `api/products/${query}`,
+    );
 
     if (response.success) {
       return (response as ApiSuccessResponse<ProductListResponse>).data;
@@ -102,7 +110,9 @@ export const productService = {
     throw response as ApiErrorResponse;
   },
 
-  async removeFromFavorites(productId: string): Promise<FavoriteToggleResponse> {
+  async removeFromFavorites(
+    productId: string,
+  ): Promise<FavoriteToggleResponse> {
     const response = await apiClient.delete<FavoriteToggleResponse>(
       `api/products/${productId}/favorite`,
     );
@@ -124,6 +134,21 @@ export const productService = {
 
     if (response.success) {
       return (response as ApiSuccessResponse<FavoriteProductsResponse>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async getRelatedFromMyOrders(
+    limit = 12,
+  ): Promise<{ products: ProductItem[] }> {
+    const query = buildQueryString({ limit });
+    const response = await apiClient.get<{ products: ProductItem[] }>(
+      `api/products/related/my-orders${query}`,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<{ products: ProductItem[] }>).data;
     }
 
     throw response as ApiErrorResponse;

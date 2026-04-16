@@ -5,3 +5,4 @@ export * from './logout.usecase';
 export * from './forgot-password.usecase';
 export * from './reset-password.usecase';
 export * from './refresh-token.usecase';
+export * from './google-oauth-login.usecase';

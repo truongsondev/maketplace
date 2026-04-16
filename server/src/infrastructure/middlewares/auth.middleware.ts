@@ -8,6 +8,13 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Public endpoints (không yêu cầu access token)
     const requestPath = req.originalUrl || req.path;
+
+    // Protected product endpoints (require access token)
+    const isRelatedFromMyOrdersEndpoint =
+      req.method === 'GET' &&
+      (requestPath.startsWith('/api/products/related/my-orders') ||
+        req.path.startsWith('/api/products/related/my-orders'));
+
     const isFavoriteEndpoint =
       requestPath.startsWith('/api/products/favorites') ||
       /\/api\/products\/[^/]+\/favorite/.test(requestPath);
@@ -16,9 +23,15 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       /\/api\/products\/[^/]+\/favorite/.test(req.path);
 
     const isPublicProductGet =
-      req.method === 'GET' && requestPath.startsWith('/api/products') && !isFavoriteEndpoint;
+      req.method === 'GET' &&
+      requestPath.startsWith('/api/products') &&
+      !isFavoriteEndpoint &&
+      !isRelatedFromMyOrdersEndpoint;
     const isPublicProductGetByPath =
-      req.method === 'GET' && req.path.startsWith('/api/products') && !isFavoriteEndpointByPath;
+      req.method === 'GET' &&
+      req.path.startsWith('/api/products') &&
+      !isFavoriteEndpointByPath &&
+      !isRelatedFromMyOrdersEndpoint;
     const isPublicPayosPath =
       requestPath.startsWith('/api/payments/payos/webhook') ||
       requestPath.startsWith('/api/payments/payos/return') ||

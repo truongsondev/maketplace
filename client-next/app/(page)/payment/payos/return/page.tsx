@@ -8,7 +8,7 @@ function PayosReturnFallback() {
       <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center">
         <Loader2 className="mx-auto size-8 animate-spin text-primary" />
         <p className="mt-4 text-slate-600">
-          Dang kiem tra ket qua thanh toan...
+          Đang kiểm tra kết quả thanh toán...
         </p>
       </div>
     </main>

@@ -163,7 +163,7 @@ export function LoginForm() {
       </div>
 
       {/* Social Login */}
-      <SocialLoginButtons />
+      <SocialLoginButtons redirectAfterLogin={redirectAfterLogin} />
 
       {/* Sign Up Link */}
       <div className="mt-8 text-center">

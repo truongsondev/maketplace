@@ -7,7 +7,7 @@ import type { ApiResponse, ApiErrorResponse } from "@/types/api.types";
 import type { RefreshTokenResponseData } from "@/types/auth.types";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://160.187.229.142:8080";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const AUTH_SESSION_KEY = "auth-session";

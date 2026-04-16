@@ -30,7 +30,7 @@ export function InventoryTab({ productId }: InventoryTabProps) {
       setLogs(response.data.items);
       setTotalPages(response.data.pagination.totalPages);
     } catch (error) {
-      toast.error("Failed to load inventory logs");
+      toast.error("Không tải được nhật ký tồn kho");
       console.error(error);
     } finally {
       setLoading(false);
@@ -76,7 +76,7 @@ export function InventoryTab({ productId }: InventoryTabProps) {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading inventory logs...</p>
+          <p className="text-gray-600">Đang tải nhật ký tồn kho...</p>
         </div>
       </div>
     );
@@ -85,15 +85,13 @@ export function InventoryTab({ productId }: InventoryTabProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Inventory History
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-900">Lịch sử tồn kho</h3>
         <button
           onClick={fetchLogs}
           className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Refresh
+          Làm mới
         </button>
       </div>
 
@@ -101,9 +99,9 @@ export function InventoryTab({ productId }: InventoryTabProps) {
         <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
           <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No inventory logs yet
+            Chưa có nhật ký tồn kho
           </h3>
-          <p className="text-gray-600">Inventory changes will appear here</p>
+          <p className="text-gray-600">Thay đổi tồn kho sẽ hiển thị ở đây</p>
         </div>
       ) : (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -112,22 +110,22 @@ export function InventoryTab({ productId }: InventoryTabProps) {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">
-                    Date & Time
+                    Ngày & giờ
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">
-                    Action
+                    Hành động
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">
-                    Quantity
+                    Số lượng
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">
-                    Stock Change
+                    Biến động tồn
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">
-                    Reference
+                    Tham chiếu
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase">
-                    Note
+                    Ghi chú
                   </th>
                 </tr>
               </thead>
@@ -204,17 +202,17 @@ export function InventoryTab({ productId }: InventoryTabProps) {
                 disabled={page === 1}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Previous
+                Trước
               </button>
               <span className="text-sm text-gray-700">
-                Page {page} of {totalPages}
+                Trang {page}/{totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                Next
+                Sau
               </button>
             </div>
           )}

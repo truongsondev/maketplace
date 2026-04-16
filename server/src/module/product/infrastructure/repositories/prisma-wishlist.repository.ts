@@ -153,7 +153,7 @@ export class PrismaWishlistRepository implements IWishlistRepository {
       items: rows.map((row) => ({
         productId: row.product.id,
         name: row.product.name,
-        slug: row.product.slug,
+        slug: (row.product as any).slug ?? '',
         imageUrl: row.product.images[0]?.url ?? null,
         minPrice: Number(row.product.variants[0]?.price ?? row.product.basePrice),
         favoritedAt: row.createdAt,

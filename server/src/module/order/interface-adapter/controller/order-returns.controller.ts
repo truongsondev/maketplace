@@ -1,8 +1,8 @@
+import type { IRequestReturnUseCase } from '../../applications/ports/input';
 import type { RequestReturnResult } from '../../applications/ports/output/order-return.repository';
-import type { RequestReturnUseCase } from '../../applications/use-cases/request-return.usecase';
 
 export class OrderReturnsController {
-  constructor(private readonly requestReturnUseCase: RequestReturnUseCase) {}
+  constructor(private readonly requestReturnUseCase: IRequestReturnUseCase) {}
 
   requestReturn(params: {
     userId: string;

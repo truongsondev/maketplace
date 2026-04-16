@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
+  X,
   Search,
   ShoppingCart,
   Ticket,
   Trash2,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { CartItemCard } from "@/components/page/cart";
 import {
   useCart,
@@ -17,13 +19,27 @@ import {
   useUpdateCartItem,
 } from "@/hooks/use-cart";
 import type { CartItem } from "@/services/cart.service";
+import {
+  voucherService,
+  type VoucherValidationResult,
+  type VoucherSummary,
+} from "@/services/voucher.service";
+import type { ApiErrorResponse } from "@/types/api.types";
 import { toast } from "sonner";
+import { useRelatedProductsFromMyOrders } from "@/hooks/use-products";
+import { useAuthStore } from "@/stores/auth.store";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
     currency: "VND",
   }).format(price);
+}
+
+function formatApiPrice(value: string | number) {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  return formatPrice(n);
 }
 
 function CartBreadcrumb() {
@@ -108,10 +124,22 @@ function CartEmpty() {
 
 export default function CartPage() {
   const router = useRouter();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const { data: cart, isLoading, isError, refetch } = useCart();
   const updateMutation = useUpdateCartItem();
   const removeMutation = useRemoveCartItem();
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+
+  const [voucherCode, setVoucherCode] = useState<string>("");
+  const [voucherResult, setVoucherResult] =
+    useState<VoucherValidationResult | null>(null);
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
+  const [openVoucherModal, setOpenVoucherModal] = useState(false);
+
+  const relatedProductsQuery = useRelatedProductsFromMyOrders(
+    12,
+    Boolean(isAuthenticated),
+  );
 
   const updatingItemId = updateMutation.isPending
     ? updateMutation.variables?.itemId
@@ -140,12 +168,89 @@ export default function CartPage() {
   const cartBaseTotal = cart?.totalAmount ?? 0;
   const effectiveTotal = hasSelection ? selectedTotal : cartBaseTotal;
 
+  const discountAmount = voucherResult?.pricing.discountAmount ?? 0;
+  const discountedTotal = voucherResult?.pricing.finalTotal ?? effectiveTotal;
+
+  const vouchersQuery = useQuery({
+    queryKey: ["active-vouchers", "cart"],
+    queryFn: () => voucherService.getActiveVouchers(),
+    enabled: openVoucherModal,
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+
+  const eligibleVouchers: VoucherSummary[] = useMemo(() => {
+    const list = vouchersQuery.data ?? [];
+    const now = Date.now();
+
+    const isEligible = (voucher: VoucherSummary) => {
+      const minAmount = voucher.minOrderAmount ?? 0;
+      const startAt = Date.parse(voucher.startAt);
+      const endAt = Date.parse(voucher.endAt);
+      const inTimeRange =
+        Number.isFinite(startAt) && Number.isFinite(endAt)
+          ? startAt <= now && now <= endAt
+          : true;
+
+      return (
+        Boolean(voucher.isActive) && inTimeRange && discountedTotal >= minAmount
+      );
+    };
+
+    return [...list].sort((a, b) => {
+      const ae = isEligible(a);
+      const be = isEligible(b);
+      if (ae === be) return 0;
+      return ae ? -1 : 1;
+    });
+  }, [discountedTotal, vouchersQuery.data]);
+
+  // Keep voucher result consistent with cart selection.
+  useEffect(() => {
+    setVoucherResult(null);
+  }, [selectedItemIds, cart?.cartId, cart?.totalAmount, cart?.totalItems]);
+
   if (isLoading) return <CartLoading />;
   if (isError || !cart) return <CartError onRetry={() => refetch()} />;
   if (cart.items.length === 0) return <CartEmpty />;
 
+  const clearVoucher = () => {
+    setVoucherResult(null);
+    setVoucherCode("");
+  };
+
+  const applyVoucherCode = async (code: string): Promise<boolean> => {
+    const normalizedCode = code.trim().toUpperCase();
+    if (!normalizedCode) {
+      toast.error("Vui lòng nhập mã voucher");
+      return false;
+    }
+
+    try {
+      setIsApplyingVoucher(true);
+      const payload = {
+        code: normalizedCode,
+        cartItemIds: hasSelection ? selectedItemIds : undefined,
+      };
+      const result = await voucherService.applyVoucher(payload);
+      setVoucherCode(result.voucher.code);
+      setVoucherResult(result);
+      toast.success(`Đã áp dụng voucher ${result.voucher.code}`);
+      return true;
+    } catch (error) {
+      const apiError = error as ApiErrorResponse;
+      setVoucherResult(null);
+      toast.error("Không thể áp dụng voucher", {
+        description: apiError?.error?.message ?? "Vui lòng kiểm tra lại mã.",
+      });
+      return false;
+    } finally {
+      setIsApplyingVoucher(false);
+    }
+  };
+
   const handleCheckout = () => {
-    if (effectiveTotal <= 0) {
+    if (discountedTotal <= 0) {
       toast.error("Số tiền thanh toán không hợp lệ");
       return;
     }
@@ -153,6 +258,10 @@ export default function CartPage() {
     const params = new URLSearchParams();
     if (hasSelection) {
       params.set("items", selectedItemIds.join(","));
+    }
+
+    if (voucherResult?.voucher.code) {
+      params.set("voucher", voucherResult.voucher.code);
     }
 
     const query = params.toString();
@@ -304,10 +413,55 @@ export default function CartPage() {
           </div>
 
           <div className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-700">
-            <button className="inline-flex items-center gap-2 text-sm text-black dark:text-white hover:underline">
-              <Ticket className="size-4" />
-              Thêm Shop Voucher
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="button"
+                onClick={() => setOpenVoucherModal(true)}
+                className="flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline dark:text-white"
+              >
+                <Ticket className="size-4" />
+                Shop Voucher
+              </button>
+
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                <input
+                  value={voucherCode}
+                  onChange={(e) => setVoucherCode(e.target.value)}
+                  placeholder="Nhập mã voucher"
+                  className="h-10 w-full rounded-sm border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 sm:w-64"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => void applyVoucherCode(voucherCode)}
+                    disabled={isApplyingVoucher}
+                    className="h-10 rounded-sm bg-black px-4 text-sm font-bold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Áp dụng
+                  </button>
+                  {voucherResult ? (
+                    <button
+                      onClick={clearVoucher}
+                      className="h-10 rounded-sm border border-neutral-300 px-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors"
+                    >
+                      Bỏ
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            {voucherResult ? (
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                Đã áp dụng{" "}
+                <span className="font-semibold">
+                  {voucherResult.voucher.code}
+                </span>{" "}
+                • Giảm{" "}
+                <span className="font-semibold">
+                  {formatPrice(discountAmount)}
+                </span>
+              </p>
+            ) : null}
           </div>
 
           <div className="border-t border-neutral-200 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
@@ -317,6 +471,65 @@ export default function CartPage() {
             </button>
           </div>
         </section>
+
+        {isAuthenticated ? (
+          <section className="mt-6 rounded-sm border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
+              Gợi ý cho bạn
+            </p>
+
+            <div className="mt-5">
+              {relatedProductsQuery.isLoading ? (
+                <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+                  Đang tải gợi ý sản phẩm...
+                </div>
+              ) : relatedProductsQuery.isError ? (
+                <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-black dark:text-neutral-200">
+                  Không thể tải sản phẩm liên quan.
+                </div>
+              ) : (relatedProductsQuery.data?.products?.length ?? 0) === 0 ? (
+                <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+                  Chưa có gợi ý sản phẩm phù hợp.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {(relatedProductsQuery.data?.products ?? []).map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/product/${p.id}`}
+                      className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-transform hover:-translate-y-px hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                    >
+                      <div className="aspect-4/5 w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950">
+                        {p.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.imageUrl}
+                            alt={p.name}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500 dark:text-neutral-400">
+                            Không có ảnh
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-3">
+                        <p className="line-clamp-2 text-sm font-semibold uppercase text-neutral-900 group-hover:text-neutral-600 dark:text-white dark:group-hover:text-neutral-300">
+                          {p.name}
+                        </p>
+                        <p className="mt-2 text-sm font-black text-neutral-900 dark:text-white">
+                          {formatApiPrice(p.minPrice)}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <div className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 bg-white/95 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
@@ -345,7 +558,7 @@ export default function CartPage() {
               Tổng cộng ({hasSelection ? selectedCount : cart.totalItems} sản
               phẩm):
               <span className="ml-1 text-2xl font-black text-black dark:text-white">
-                {formatPrice(effectiveTotal)}
+                {formatPrice(discountedTotal)}
               </span>
             </p>
           </div>
@@ -358,6 +571,122 @@ export default function CartPage() {
           </button>
         </div>
       </div>
+
+      {openVoucherModal ? (
+        <div
+          className="fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Chọn Shop Voucher"
+        >
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setOpenVoucherModal(false)}
+          />
+
+          <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-6">
+            <div className="relative w-full max-w-2xl overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-xl dark:border-neutral-800 dark:bg-black">
+              <button
+                type="button"
+                onClick={() => setOpenVoucherModal(false)}
+                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-sm border border-neutral-200 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900 dark:focus:ring-white/15"
+                aria-label="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+                <div className="flex items-center gap-2">
+                  <Ticket className="size-4 text-neutral-700 dark:text-neutral-200" />
+                  <h2 className="text-base font-black uppercase text-neutral-900 dark:text-white">
+                    Shop Voucher
+                  </h2>
+                </div>
+                <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+                  Chọn voucher phù hợp để áp dụng cho đơn hàng.
+                </p>
+              </div>
+
+              <div className="max-h-[70vh] overflow-y-auto p-5">
+                {vouchersQuery.isLoading ? (
+                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+                    Đang tải voucher...
+                  </div>
+                ) : vouchersQuery.isError ? (
+                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-black dark:text-neutral-200">
+                    Không thể tải voucher.
+                    <button
+                      type="button"
+                      onClick={() => void vouchersQuery.refetch()}
+                      className="ml-2 font-semibold text-black hover:underline dark:text-white"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                ) : eligibleVouchers.length === 0 ? (
+                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+                    Hiện chưa có voucher phù hợp.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {eligibleVouchers.map((voucher) => {
+                      const minAmount = voucher.minOrderAmount ?? 0;
+                      const canApply =
+                        discountedTotal >= minAmount && voucher.isActive;
+
+                      const valueLabel =
+                        voucher.type === "PERCENTAGE"
+                          ? `Giảm ${voucher.value}%`
+                          : `Giảm ${voucher.value.toLocaleString("vi-VN")}đ`;
+
+                      const conditionLabel =
+                        minAmount > 0
+                          ? `Đơn tối thiểu ${formatPrice(minAmount)}`
+                          : "Áp dụng cho mọi đơn";
+
+                      return (
+                        <div
+                          key={voucher.id}
+                          className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-black uppercase text-neutral-900 dark:text-white">
+                                {voucher.code}
+                              </p>
+                              <p className="mt-1 text-sm text-neutral-700 dark:text-neutral-200">
+                                {voucher.description || valueLabel}
+                              </p>
+                              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                                {valueLabel} • {conditionLabel}
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={isApplyingVoucher || !canApply}
+                              onClick={async () => {
+                                setVoucherCode(voucher.code);
+                                const ok = await applyVoucherCode(voucher.code);
+                                if (ok) {
+                                  setOpenVoucherModal(false);
+                                }
+                              }}
+                              className="h-10 shrink-0 rounded-sm bg-black px-4 text-sm font-bold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Áp dụng
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

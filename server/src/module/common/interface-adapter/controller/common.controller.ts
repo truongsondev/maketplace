@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import {
   GetCategoriesQuery,
+  GetProductTypeSchemaQuery,
   GetTagsQuery,
   IGetCategoriesUseCase,
+  IGetProductTypeSchemaUseCase,
   IGetTagsUseCase,
 } from '../../applications';
 import { ResponseFormatter } from '@/shared/server/api-response';
@@ -11,6 +13,7 @@ export class CommonController {
   constructor(
     private readonly getCategoriesUseCase: IGetCategoriesUseCase,
     private readonly getTagsUseCase: IGetTagsUseCase,
+    private readonly getProductTypeSchemaUseCase: IGetProductTypeSchemaUseCase,
   ) {}
 
   async getCategories(req: Request, res: Response): Promise<void> {
@@ -38,6 +41,19 @@ export class CommonController {
       res.json(ResponseFormatter.success(result, 'Tags retrieved successfully'));
     } catch (error) {
       throw error; // Let error middleware handle it
+    }
+  }
+
+  async getProductTypeSchema(req: Request, res: Response): Promise<void> {
+    try {
+      const query: GetProductTypeSchemaQuery = {
+        categoryId: String(req.query.categoryId ?? ''),
+      };
+
+      const result = await this.getProductTypeSchemaUseCase.execute(query);
+      res.json(ResponseFormatter.success(result, 'Product type schema retrieved successfully'));
+    } catch (error) {
+      throw error;
     }
   }
 }

@@ -9,6 +9,9 @@ import NotFound from "../page/not-found";
 import OrdersPage from "../page/order/orders";
 import VouchersPage from "../page/voucher/vouchers";
 import BannersPage from "../page/banner/banners";
+import UsersPage from "../page/user/users";
+import RefundsPage from "../page/refund/refunds";
+import LogsPage from "../page/logs";
 
 export default function AppRouter() {
   return (
@@ -64,6 +67,14 @@ export default function AppRouter() {
         }
       />
       <Route
+        path="/users"
+        element={
+          <ProtectedRoute>
+            <UsersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/voucher"
         element={
           <ProtectedRoute>
@@ -76,6 +87,22 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <BannersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/refunds"
+        element={
+          <ProtectedRoute>
+            <RefundsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/logs"
+        element={
+          <ProtectedRoute>
+            <LogsPage />
           </ProtectedRoute>
         }
       />

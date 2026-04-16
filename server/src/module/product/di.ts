@@ -11,6 +11,7 @@ import { GetProductDetailUseCase } from './applications/usecases/get-product-det
 import { AddProductFavoriteUseCase } from './applications/usecases/add-product-favorite.usecase';
 import { RemoveProductFavoriteUseCase } from './applications/usecases/remove-product-favorite.usecase';
 import { GetFavoriteProductsUseCase } from './applications/usecases/get-favorite-products.usecase';
+import { GetRelatedProductsFromOrdersUseCase } from './applications/usecases/get-related-products-from-orders.usecase';
 import { ProductController } from './interface-adapter/controller/product.controller';
 import { ProductAPI } from './infrastructure/api/product.api';
 
@@ -26,6 +27,7 @@ export function createProductModule(): Router {
   const addProductFavoriteUseCase = new AddProductFavoriteUseCase(wishlistRepository);
   const removeProductFavoriteUseCase = new RemoveProductFavoriteUseCase(wishlistRepository);
   const getFavoriteProductsUseCase = new GetFavoriteProductsUseCase(wishlistRepository);
+  const getRelatedProductsFromOrdersUseCase = new GetRelatedProductsFromOrdersUseCase(prisma);
 
   const controller = new ProductController(
     getCategoryStatsUseCase,
@@ -35,6 +37,7 @@ export function createProductModule(): Router {
     addProductFavoriteUseCase,
     removeProductFavoriteUseCase,
     getFavoriteProductsUseCase,
+    getRelatedProductsFromOrdersUseCase,
   );
 
   const productAPI = new ProductAPI(controller);

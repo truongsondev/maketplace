@@ -9,8 +9,8 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AURA - Fashion Store",
-  description: "Discover the latest trends in street fashion. AURA Collection.",
+  title: "AURA - Cửa hàng thời trang",
+  description: "Khám phá xu hướng thời trang mới nhất. Bộ sưu tập AURA.",
   generator: "v0.app",
   icons: {
     icon: "/icon.svg",
@@ -23,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="vi" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <QueryProvider>{children}</QueryProvider>
         <Toaster richColors position="top-right" />
