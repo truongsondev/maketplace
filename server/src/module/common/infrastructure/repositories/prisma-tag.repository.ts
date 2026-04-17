@@ -12,7 +12,6 @@ export class PrismaTagRepository implements ITagRepository {
       ? {
           name: {
             contains: search,
-            mode: 'insensitive' as const,
           },
         }
       : {};
@@ -44,7 +43,6 @@ export class PrismaTagRepository implements ITagRepository {
       ? {
           name: {
             contains: search,
-            mode: 'insensitive' as const,
           },
         }
       : {};

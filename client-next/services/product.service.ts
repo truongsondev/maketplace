@@ -60,7 +60,7 @@ export const productService = {
   ): Promise<ProductListResponse> {
     const query = buildQueryString(params);
     const response = await apiClient.get<ProductListResponse>(
-      `api/products/${query}`,
+      `api/common/products${query}`,
     );
 
     if (response.success) {

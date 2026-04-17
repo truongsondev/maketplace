@@ -10,7 +10,6 @@ export class PrismaTagRepository implements ITagRepository {
     if (command.search) {
       where.name = {
         contains: command.search,
-        mode: 'insensitive',
       };
     }
 

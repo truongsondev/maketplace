@@ -27,6 +27,24 @@ function normalizeOptionValue(raw: unknown): string | null {
   return normalized || null;
 }
 
+function slugFromName(raw: unknown): string {
+  const name = String(raw ?? '').trim();
+  if (!name) return '';
+
+  const ascii = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+
+  return ascii
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
 export class PrismaProductRepository implements IProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -135,7 +153,7 @@ export class PrismaProductRepository implements IProductRepository {
             attributeValues: {
               some: {
                 attribute: { code: 'size' },
-                option: { label: { equals: filters.size, mode: 'insensitive' } },
+                option: { label: { equals: filters.size } },
                 deletedAt: null,
               },
             },
@@ -165,7 +183,7 @@ export class PrismaProductRepository implements IProductRepository {
             attributeValues: {
               some: {
                 attribute: { code: 'color' },
-                option: { label: { equals: filters.color, mode: 'insensitive' } },
+                option: { label: { equals: filters.color } },
                 deletedAt: null,
               },
             },
@@ -305,7 +323,7 @@ export class PrismaProductRepository implements IProductRepository {
             attributeValues: {
               some: {
                 attribute: { code: 'size' },
-                option: { label: { equals: filters.size, mode: 'insensitive' } },
+                option: { label: { equals: filters.size } },
                 deletedAt: null,
               },
             },
@@ -336,7 +354,7 @@ export class PrismaProductRepository implements IProductRepository {
             attributeValues: {
               some: {
                 attribute: { code: 'color' },
-                option: { label: { equals: filters.color, mode: 'insensitive' } },
+                option: { label: { equals: filters.color } },
                 deletedAt: null,
               },
             },
@@ -359,10 +377,7 @@ export class PrismaProductRepository implements IProductRepository {
     if (filters.search) {
       const normalized = filters.search.trim();
       if (normalized) {
-        productWhere.OR = [
-          { name: { contains: normalized, mode: 'insensitive' } },
-          { slug: { contains: normalized, mode: 'insensitive' } },
-        ];
+        productWhere.OR = [{ name: { contains: normalized } }];
       }
     }
 
@@ -469,6 +484,9 @@ export class PrismaProductRepository implements IProductRepository {
 
     const normalizedRow: any = {
       ...row,
+      // NOTE: Product currently has no `slug` column in the Prisma schema.
+      // Keep API response stable by deriving a slug from the name.
+      slug: (row as any).slug ?? slugFromName((row as any).name),
       variants: (row.variants ?? []).map((v: any) =>
         this.mergeVariantAttributesFromAttributeValues(v),
       ),
@@ -658,7 +676,7 @@ export class PrismaProductRepository implements IProductRepository {
     return Product.fromPersistence({
       id: row.id,
       name: row.name,
-      slug: row.slug,
+      slug: row.slug ?? slugFromName(row.name),
       imageUrl,
       minPrice,
       originalPrice: undefined,

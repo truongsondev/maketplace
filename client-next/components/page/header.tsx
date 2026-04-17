@@ -113,6 +113,31 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
 
   const { data: categories = [] } = useCategories(false);
 
+  const normalizeForCompare = (value: string) => {
+    return value
+      .trim()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  };
+
+  const findCategoryForSuggestion = (suggestion: string) => {
+    const key = normalizeForCompare(suggestion);
+    if (!key) return null;
+
+    const exact = categories.find((c) => normalizeForCompare(c.name) === key);
+    if (exact) return exact;
+
+    const candidates = categories.filter((c) =>
+      normalizeForCompare(c.name).startsWith(key),
+    );
+
+    return candidates.length === 1 ? candidates[0] : null;
+  };
+
   const childrenByParentId = useMemo(() => {
     const map = new Map<string, typeof categories>();
     categories.forEach((c) => {
@@ -202,26 +227,40 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
     const suggestions: string[] = [];
     const seen = new Set<string>();
 
+    const normalizedForMatch = normalizeForCompare(keyword);
+
+    if (normalizedForMatch) {
+      const matches = categories
+        .filter((c) => normalizeForCompare(c.name).includes(normalizedForMatch))
+        .sort((a, b) => {
+          const aName = normalizeForCompare(a.name);
+          const bName = normalizeForCompare(b.name);
+          const aStarts = aName.startsWith(normalizedForMatch) ? 0 : 1;
+          const bStarts = bName.startsWith(normalizedForMatch) ? 0 : 1;
+          if (aStarts !== bStarts) return aStarts - bStarts;
+          return a.name.localeCompare(b.name);
+        });
+
+      for (const c of matches) {
+        const label = c.name.trim();
+        if (!label) continue;
+        const key = label.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        suggestions.push(label);
+        if (suggestions.length >= 6) break;
+      }
+    }
+
     if (keyword) {
-      suggestions.push(keyword);
-      seen.add(normalizedKeyword);
+      const key = normalizedKeyword;
+      if (!seen.has(key)) {
+        suggestions.unshift(keyword);
+      }
     }
 
-    for (const product of headerSearchProducts) {
-      const label = product.name.split(" ").slice(0, 2).join(" ").trim();
-      if (!label) continue;
-
-      const key = label.toLowerCase();
-      if (seen.has(key)) continue;
-
-      seen.add(key);
-      suggestions.push(label);
-
-      if (suggestions.length >= 6) break;
-    }
-
-    return suggestions;
-  }, [debouncedSearchKeyword, headerSearchProducts, searchKeyword]);
+    return suggestions.slice(0, 6);
+  }, [categories, debouncedSearchKeyword, searchKeyword]);
 
   useEffect(() => {
     if (!isSearchOpen) return;
@@ -662,6 +701,16 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                           key={item}
                           type="button"
                           onClick={() => {
+                            const matchedCategory =
+                              findCategoryForSuggestion(item);
+                            if (matchedCategory) {
+                              closeSearch();
+                              router.push(
+                                `/collection/${matchedCategory.slug}`,
+                              );
+                              return;
+                            }
+
                             setSearchKeyword(item);
                             setDebouncedSearchKeyword(item.trim());
                             searchInputRef.current?.focus();

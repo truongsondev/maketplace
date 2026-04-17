@@ -499,11 +499,11 @@ export class PrismaProductRepository implements IProductRepository {
     // Search filter (fulltext search on name)
     if (command.search) {
       where.OR = [
-        { name: { contains: command.search, mode: 'insensitive' } },
+        { name: { contains: command.search } },
         {
           variants: {
             some: {
-              sku: { contains: command.search, mode: 'insensitive' },
+              sku: { contains: command.search },
             },
           },
         },
@@ -511,7 +511,7 @@ export class PrismaProductRepository implements IProductRepository {
           tags: {
             some: {
               tag: {
-                name: { contains: command.search, mode: 'insensitive' },
+                name: { contains: command.search },
               },
             },
           },

@@ -75,7 +75,7 @@ describe('PrismaProductRepository.findWithFilters (query-shape)', () => {
           attributeValues: {
             some: {
               attribute: { code: 'size' },
-              option: { label: { equals: 'L', mode: 'insensitive' } },
+              option: { label: { equals: 'L' } },
               deletedAt: null,
             },
           },
@@ -165,7 +165,7 @@ describe('PrismaProductRepository.findWithFilters (query-shape)', () => {
           attributeValues: {
             some: {
               attribute: { code: 'size' },
-              option: { label: { equals: '###', mode: 'insensitive' } },
+              option: { label: { equals: '###' } },
               deletedAt: null,
             },
           },

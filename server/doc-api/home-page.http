@@ -7,6 +7,12 @@ GET {{baseUrl}}/api/products/categories/stats?non_empty_only=true
 ### 2) New arrivals
 GET {{baseUrl}}/api/products?sort=createdAt:desc&limit=12
 
+### 2b) New arrivals (public common endpoint for client home)
+GET {{baseUrl}}/api/common/products?sort=createdAt:desc&limit=12
+
+### 2c) Search products (public common endpoint)
+GET {{baseUrl}}/api/common/products?q=%C3%A1o&sort=createdAt:desc&limit=6&page=1
+
 ### 3) Category showcases
 GET {{baseUrl}}/api/products/category-showcases?categoryLimit=4&productLimit=3
 
