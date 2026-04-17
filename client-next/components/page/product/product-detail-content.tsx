@@ -963,7 +963,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
           </div>
         </div>
 
-        {isAuthenticated && (relatedProductsQuery.isLoading || relatedProducts.length > 0) ? (
+        {isAuthenticated &&
+        (relatedProductsQuery.isLoading || relatedProducts.length > 0) ? (
           <section className="mt-14 md:mt-20">
             <div className="mb-8 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
@@ -979,7 +980,10 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
             ) : (
               <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
                 {relatedProducts.map((relatedProduct) => (
-                  <ProductCard key={relatedProduct.id} product={relatedProduct} />
+                  <ProductCard
+                    key={relatedProduct.id}
+                    product={relatedProduct}
+                  />
                 ))}
               </div>
             )}

@@ -44,7 +44,7 @@ docs/
 *.sqlite3
 
 # Logs
-logs/
+/logs/
 *.log
 
 # OS files
