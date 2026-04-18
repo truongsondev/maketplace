@@ -11,8 +11,19 @@ export class EmailSender implements IEmailSender {
       return configuredBaseUrl.endsWith('/') ? configuredBaseUrl.slice(0, -1) : configuredBaseUrl;
     }
 
+    const configuredApiPublicUrl = process.env.API_PUBLIC_URL?.trim();
+    if (configuredApiPublicUrl) {
+      try {
+        const parsed = new URL(configuredApiPublicUrl);
+        parsed.port = '3000';
+        return `${parsed.protocol}//${parsed.host}`;
+      } catch {
+        // ignore invalid API_PUBLIC_URL and continue fallback chain
+      }
+    }
+
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('FRONTEND_URL is required in production environment');
+      throw new Error('FRONTEND_URL (or API_PUBLIC_URL) is required in production environment');
     }
 
     return 'http://localhost:3000';
