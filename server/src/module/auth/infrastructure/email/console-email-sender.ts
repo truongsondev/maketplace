@@ -4,6 +4,22 @@ import nodemailer from 'nodemailer';
 export class EmailSender implements IEmailSender {
   constructor() {}
 
+  private resolveFrontendBaseUrl(): string {
+    const configuredBaseUrl = process.env.FRONTEND_URL?.trim();
+
+    if (configuredBaseUrl) {
+      return configuredBaseUrl.endsWith('/')
+        ? configuredBaseUrl.slice(0, -1)
+        : configuredBaseUrl;
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FRONTEND_URL is required in production environment');
+    }
+
+    return 'http://localhost:3000';
+  }
+
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
@@ -32,7 +48,7 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendEmailVerification(email: string, token: string): Promise<void> {
-    const frontendBaseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendBaseUrl = this.resolveFrontendBaseUrl();
     const verifyUrl = `${frontendBaseUrl}/verify-email?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
@@ -58,7 +74,7 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendPasswordReset(email: string, token: string): Promise<void> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+    const resetUrl = `${this.resolveFrontendBaseUrl()}/auth/reset-password?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Reset Your Password</h2>
