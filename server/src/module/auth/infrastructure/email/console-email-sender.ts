@@ -8,9 +8,7 @@ export class EmailSender implements IEmailSender {
     const configuredBaseUrl = process.env.FRONTEND_URL?.trim();
 
     if (configuredBaseUrl) {
-      return configuredBaseUrl.endsWith('/')
-        ? configuredBaseUrl.slice(0, -1)
-        : configuredBaseUrl;
+      return configuredBaseUrl.endsWith('/') ? configuredBaseUrl.slice(0, -1) : configuredBaseUrl;
     }
 
     if (process.env.NODE_ENV === 'production') {
