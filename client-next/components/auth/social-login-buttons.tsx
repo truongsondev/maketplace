@@ -61,10 +61,12 @@ export function SocialLoginButtons({
 }: SocialLoginButtonsProps) {
   const handleClick = (providerId: string) => {
     if (providerId === "google") {
-      window.location.assign(buildOAuthUrl({
-        provider: "google",
-        redirectAfterLogin,
-      }));
+      window.location.assign(
+        buildOAuthUrl({
+          provider: "google",
+          redirectAfterLogin,
+        }),
+      );
       return;
     }
   };
