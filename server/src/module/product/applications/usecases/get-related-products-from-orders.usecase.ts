@@ -6,7 +6,9 @@ import {
 } from '../dto/result/related-products-from-orders.result';
 import { IGetRelatedProductsFromOrdersUseCase } from '../ports/input/get-related-products-from-orders.usecase';
 
-export class GetRelatedProductsFromOrdersUseCase implements IGetRelatedProductsFromOrdersUseCase {
+export class GetRelatedProductsFromOrdersUseCase
+  implements IGetRelatedProductsFromOrdersUseCase
+{
   constructor(private readonly prisma: PrismaClient) {}
 
   async execute(

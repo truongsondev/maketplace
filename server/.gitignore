@@ -7,6 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Allow committing source code for admin logs module
+!src/module/admin/logs/
+!src/module/admin/logs/**
+
 node_modules
 dist
 dist-ssr

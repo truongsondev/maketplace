@@ -34,7 +34,7 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       name: product.name,
       variantsCount: product.variants?.length || 0,
       imagesCount: product.images?.length || 0,
-    });
+    }); 
 
     return this.toDetailResult(product);
   }
