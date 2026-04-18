@@ -36,7 +36,7 @@ export class PrismaProductTypeSchemaRepository implements IProductTypeSchemaRepo
   private mapRootSlugToProductTypeCode(rootSlug: string | null): string {
     if (rootSlug === 'ao') return 'ao';
     if (rootSlug === 'quan') return 'quan';
-    if (rootSlug === 'vong-tay' || rootSlug === 'vong_tay') return 'vong_tay';
+    if (rootSlug === 'vay' || rootSlug === 'vay') return 'vay';
     return 'phu_kien';
   }
 

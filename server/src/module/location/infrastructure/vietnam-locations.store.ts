@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export interface VietnamWard {
@@ -20,15 +20,39 @@ export interface VietnamProvince {
 
 let cached: VietnamProvince[] | null = null;
 
-function getDataPath(): string {
-  // server/src/module/location/infrastructure -> server/src/resources/vietnam-locations
-  return join(process.cwd(), 'src', 'resources', 'vietnam-locations', 'nested-divisions.json');
+function getCandidatePaths(): string[] {
+  const cwd = process.cwd();
+
+  return [
+    // Development and existing local runtime.
+    join(cwd, 'src', 'resources', 'vietnam-locations', 'nested-divisions.json'),
+    // Production Docker runtime (copied as /app/resources).
+    join(cwd, 'resources', 'vietnam-locations', 'nested-divisions.json'),
+    // Optional fallback if resources are copied under dist.
+    join(cwd, 'dist', 'resources', 'vietnam-locations', 'nested-divisions.json'),
+  ];
+}
+
+async function resolveDataPath(): Promise<string> {
+  const candidates = getCandidatePaths();
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Continue trying the next candidate path.
+    }
+  }
+
+  throw new Error(`Vietnam locations data file not found. Checked paths: ${candidates.join(', ')}`);
 }
 
 export async function loadVietnamLocations(): Promise<VietnamProvince[]> {
   if (cached) return cached;
 
-  const raw = await readFile(getDataPath(), 'utf8');
+  const dataPath = await resolveDataPath();
+  const raw = await readFile(dataPath, 'utf8');
   const parsed = JSON.parse(raw) as unknown;
 
   if (!Array.isArray(parsed)) {
