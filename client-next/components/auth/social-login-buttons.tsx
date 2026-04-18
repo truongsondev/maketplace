@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from "@/lib/api-base-url";
+
 const SOCIAL_PROVIDERS = [
   {
     id: "google",
@@ -41,8 +43,7 @@ type SocialLoginButtonsProps = {
   redirectAfterLogin?: string;
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = resolveApiBaseUrl();
 
 function buildOAuthUrl(params: {
   provider: string;
@@ -60,10 +61,10 @@ export function SocialLoginButtons({
 }: SocialLoginButtonsProps) {
   const handleClick = (providerId: string) => {
     if (providerId === "google") {
-      window.location.href = buildOAuthUrl({
+      window.location.assign(buildOAuthUrl({
         provider: "google",
         redirectAfterLogin,
-      });
+      }));
       return;
     }
   };

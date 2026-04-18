@@ -5,9 +5,9 @@ import axios, {
 } from "axios";
 import type { ApiResponse, ApiErrorResponse } from "@/types/api.types";
 import type { RefreshTokenResponseData } from "@/types/auth.types";
+import { resolveApiBaseUrl } from "@/lib/api-base-url";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE_URL = resolveApiBaseUrl();
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const AUTH_SESSION_KEY = "auth-session";
