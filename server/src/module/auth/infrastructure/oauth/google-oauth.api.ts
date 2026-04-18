@@ -26,13 +26,13 @@ export class GoogleOAuthAPI {
   private initializePassport() {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const callbackUrl = process.env.GOOGLE_CALLBACK_URL;
+    const callbackUrl = this.resolveGoogleCallbackUrl();
 
-    if (!clientId || !clientSecret || !callbackUrl) {
+    if (!clientId || !clientSecret) {
       logger.warn('Google OAuth env vars missing; endpoints will error', {
         hasClientId: Boolean(clientId),
         hasClientSecret: Boolean(clientSecret),
-        hasCallbackUrl: Boolean(callbackUrl),
+        callbackUrl,
       });
       return;
     }
@@ -61,9 +61,9 @@ export class GoogleOAuthAPI {
   private async start(req: Request, res: Response): Promise<void> {
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const callbackUrl = process.env.GOOGLE_CALLBACK_URL;
+    const callbackUrl = this.resolveGoogleCallbackUrl();
 
-    if (!clientId || !clientSecret || !callbackUrl) {
+    if (!clientId || !clientSecret) {
       throw new BadRequestError('Google OAuth is not configured');
     }
 
@@ -159,5 +159,35 @@ export class GoogleOAuthAPI {
       out += chars[Math.floor(Math.random() * chars.length)];
     }
     return out;
+  }
+
+  private resolveGoogleCallbackUrl(): string {
+    const configured = process.env.GOOGLE_CALLBACK_URL?.trim();
+    if (configured) return configured;
+
+    const apiBaseUrl = this.resolveApiBaseUrl();
+    return new URL('/api/auth/google/callback', apiBaseUrl).toString();
+  }
+
+  private resolveApiBaseUrl(): string {
+    const configuredApiBaseUrl = process.env.API_PUBLIC_URL?.trim();
+    if (configuredApiBaseUrl) return configuredApiBaseUrl;
+
+    const frontendUrl = process.env.FRONTEND_URL?.trim();
+    if (frontendUrl) {
+      try {
+        const frontend = new URL(frontendUrl);
+        const port = process.env.PORT ?? '8080';
+        frontend.port = port;
+        return `${frontend.protocol}//${frontend.host}`;
+      } catch {
+        logger.warn('Invalid FRONTEND_URL; fallback to localhost callback URL', {
+          frontendUrl,
+        });
+      }
+    }
+
+    const port = process.env.PORT ?? '8080';
+    return `http://localhost:${port}`;
   }
 }
