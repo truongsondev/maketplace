@@ -1,6 +1,6 @@
 import { Sidebar } from "@/components/admin/sidebar";
 import { Header } from "@/components/admin/header";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { productService } from "@/services/api";
 import type { ProductDetail } from "@/types/api";
@@ -40,12 +40,34 @@ export default function ProductDetailPage() {
     fetchProduct();
   }, [id]);
 
+  const visibleVariantCount = useMemo(() => {
+    if (!product) return undefined;
+
+    const variants = product.variants ?? [];
+    if (variants.length !== 1) return variants.length;
+
+    const onlyVariant = variants[0];
+    const nonEmptyAttributes = Object.entries(
+      onlyVariant.attributes ?? {},
+    ).filter(([key, value]) => {
+      if (!key || key.trim() === "") return false;
+      if (value === null || value === undefined) return false;
+      return String(value).trim().length > 0;
+    }).length;
+
+    const isInternalDefaultVariant =
+      nonEmptyAttributes === 0 &&
+      onlyVariant.sku.trim().toUpperCase().endsWith("-DEFAULT");
+
+    return isInternalDefaultVariant ? 0 : variants.length;
+  }, [product]);
+
   const tabs = [
     { id: "basic" as TabType, label: "Thông tin cơ bản" },
     {
       id: "variants" as TabType,
       label: "Biến thể",
-      badge: product?.stats.totalVariants,
+      badge: visibleVariantCount,
     },
     {
       id: "images" as TabType,
@@ -165,7 +187,7 @@ export default function ProductDetailPage() {
                   <ImagesTab product={product} onUpdate={fetchProduct} />
                 )}
                 {activeTab === "inventory" && (
-                  <InventoryTab productId={product.id} />
+                  <InventoryTab product={product} onUpdate={fetchProduct} />
                 )}
               </div>
             </div>

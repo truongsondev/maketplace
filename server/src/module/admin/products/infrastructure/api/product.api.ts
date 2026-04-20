@@ -8,6 +8,11 @@ import { CreateProductCommand } from '../../applications/dto';
 
 export class ProductAPI {
   readonly router = express.Router();
+  private readonly removedProductAttributeCodes = new Set([
+    'seo_title',
+    'seo_description',
+    'seo_keywords',
+  ]);
 
   constructor(private readonly productController: ProductController) {
     this.initializeRoutes();
@@ -34,12 +39,7 @@ export class ProductAPI {
   private validateCreateProductInput(body: any): void {
     const { name, basePrice, variants } = body;
 
-    HttpErrorHandler.validateRequired(
-      { name, basePrice, variants },
-      'name',
-      'basePrice',
-      'variants',
-    );
+    HttpErrorHandler.validateRequired({ name, basePrice }, 'name', 'basePrice');
 
     if (typeof name !== 'string' || name.trim().length === 0) {
       throw new BadRequestError('Product name must be a non-empty string');
@@ -49,12 +49,12 @@ export class ProductAPI {
       throw new BadRequestError('Base price must be a non-negative number');
     }
 
-    if (!Array.isArray(variants) || variants.length === 0) {
-      throw new BadRequestError('At least one product variant is required');
+    if (variants !== undefined && !Array.isArray(variants)) {
+      throw new BadRequestError('Variants must be an array');
     }
 
     // Validate each variant
-    variants.forEach((variant: any, index: number) => {
+    (Array.isArray(variants) ? variants : []).forEach((variant: any, index: number) => {
       if (!variant.sku || typeof variant.sku !== 'string') {
         throw new BadRequestError(`Variant ${index + 1}: SKU is required and must be a string`);
       }
@@ -100,6 +100,34 @@ export class ProductAPI {
         throw new BadRequestError('Tag IDs must be an array');
       }
     }
+
+    if (body.productAttributes !== undefined) {
+      if (!Array.isArray(body.productAttributes)) {
+        throw new BadRequestError('productAttributes must be an array');
+      }
+
+      body.productAttributes.forEach((attr: any, index: number) => {
+        if (!attr || typeof attr !== 'object') {
+          throw new BadRequestError(
+            `productAttributes[${index}] must be an object with code and value`,
+          );
+        }
+
+        if (!attr.code || typeof attr.code !== 'string') {
+          throw new BadRequestError(`productAttributes[${index}].code must be a non-empty string`);
+        }
+      });
+    }
+  }
+
+  private sanitizeProductAttributes(productAttributes: unknown): any[] | undefined {
+    if (!Array.isArray(productAttributes)) return undefined;
+
+    return productAttributes.filter((attr) => {
+      const code = typeof attr?.code === 'string' ? attr.code.trim() : '';
+      if (!code) return false;
+      return !this.removedProductAttributeCodes.has(code);
+    });
   }
 
   private async createProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -107,12 +135,12 @@ export class ProductAPI {
 
     const command: CreateProductCommand = {
       name: req.body.name,
-      description: req.body.description,
       basePrice: req.body.basePrice,
-      variants: req.body.variants,
+      variants: Array.isArray(req.body.variants) ? req.body.variants : [],
       images: req.body.images,
       categoryIds: req.body.categoryIds,
       tagIds: req.body.tagIds,
+      productAttributes: this.sanitizeProductAttributes(req.body.productAttributes),
     };
 
     const result = await this.productController.createProduct(command);
@@ -152,6 +180,7 @@ export class ProductAPI {
     const command = {
       productId,
       ...req.body,
+      productAttributes: this.sanitizeProductAttributes(req.body.productAttributes),
     };
 
     const result = await this.productController.updateProduct(command);

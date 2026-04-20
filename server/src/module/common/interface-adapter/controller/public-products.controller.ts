@@ -19,6 +19,7 @@ export class PublicProductsController {
     const category = getStringParam(req.query.c);
     const size = getStringParam(req.query.s);
     const color = getStringParam(req.query.cl);
+    const usageOccasion = getStringParam(req.query.uo) ?? getStringParam(req.query.usageOccasion);
     const priceRange = getStringParam(req.query.p);
     const sort = getStringParam(req.query.sort);
     const search = getStringParam(req.query.q) ?? getStringParam(req.query.search);
@@ -33,6 +34,7 @@ export class PublicProductsController {
       category,
       size,
       color,
+      usageOccasion,
       priceRange,
       search,
       sort,

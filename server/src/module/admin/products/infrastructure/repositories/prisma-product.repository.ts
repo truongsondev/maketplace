@@ -22,8 +22,306 @@ function normalizeOptionValue(raw: unknown): string | null {
   return normalized || null;
 }
 
+type ProductAttributeInput = {
+  code: string;
+  value: unknown;
+};
+
 export class PrismaProductRepository implements IProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
+
+  private parseBooleanValue(raw: unknown): boolean {
+    if (typeof raw === 'boolean') return raw;
+    if (raw === 1 || raw === '1') return true;
+    if (raw === 0 || raw === '0') return false;
+    if (typeof raw === 'string') {
+      const normalized = raw.trim().toLowerCase();
+      if (normalized === 'true') return true;
+      if (normalized === 'false') return false;
+    }
+    throw new Error('Invalid boolean value');
+  }
+
+  private mapProductAttributeDetails(attributeValues: any[]): Array<{
+    code: string;
+    name: string;
+    dataType: string;
+    value: unknown;
+    displayValue: string | string[] | null;
+  }> {
+    return (attributeValues ?? []).map((av: any) => {
+      const dataType = String(av?.attribute?.dataType ?? 'TEXT');
+
+      if (dataType === 'MULTI_SELECT') {
+        const options = (av?.multiSelectOptions ?? [])
+          .map((item: any) => item.option)
+          .filter((opt: any) => opt && !opt.deletedAt)
+          .sort((a: any, b: any) => {
+            const soA = Number(a.sortOrder ?? 0);
+            const soB = Number(b.sortOrder ?? 0);
+            if (soA !== soB) return soA - soB;
+            return String(a.label ?? '').localeCompare(String(b.label ?? ''));
+          });
+
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value: options.map((opt: any) => String(opt.value)),
+          displayValue: options.map((opt: any) => String(opt.label)),
+        };
+      }
+
+      if (dataType === 'SELECT') {
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value: av.option?.value ?? null,
+          displayValue: av.option?.label ?? null,
+        };
+      }
+
+      if (dataType === 'NUMBER') {
+        const value =
+          av.numberValue === null || av.numberValue === undefined ? null : Number(av.numberValue);
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value,
+          displayValue: value === null ? null : String(value),
+        };
+      }
+
+      if (dataType === 'BOOLEAN') {
+        const value =
+          av.booleanValue === null || av.booleanValue === undefined
+            ? null
+            : Boolean(av.booleanValue);
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value,
+          displayValue: value === null ? null : value ? 'Có' : 'Không',
+        };
+      }
+
+      if (dataType === 'DATE') {
+        const value = av.dateValue ? new Date(av.dateValue).toISOString() : null;
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value,
+          displayValue: value,
+        };
+      }
+
+      const text = av.textValue ? String(av.textValue) : null;
+      return {
+        code: av.attribute.code,
+        name: av.attribute.name,
+        dataType,
+        value: text,
+        displayValue: text,
+      };
+    });
+  }
+
+  private async syncProductAttributes(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    productTypeId: string | null | undefined,
+    productAttributes: ProductAttributeInput[],
+  ): Promise<void> {
+    if (!Array.isArray(productAttributes)) {
+      return;
+    }
+
+    const cleaned = productAttributes
+      .filter((attr) => attr && typeof attr.code === 'string')
+      .map((attr) => ({
+        code: attr.code.trim(),
+        value: attr.value,
+      }))
+      .filter((attr) => attr.code.length > 0);
+
+    if (cleaned.length === 0) {
+      await tx.productAttributeValue.deleteMany({
+        where: {
+          productId,
+          attribute: {
+            scope: 'PRODUCT',
+          },
+        },
+      });
+      return;
+    }
+
+    const uniqueByCode = new Map<string, unknown>();
+    for (const attr of cleaned) {
+      uniqueByCode.set(attr.code, attr.value);
+    }
+
+    const codes = Array.from(uniqueByCode.keys());
+    const definitions = await tx.attributeDefinition.findMany({
+      where: {
+        code: { in: codes },
+        scope: 'PRODUCT',
+        deletedAt: null,
+      },
+      include: {
+        options: {
+          where: { deletedAt: null },
+          select: {
+            id: true,
+            value: true,
+            label: true,
+            sortOrder: true,
+            deletedAt: true,
+          },
+        },
+      },
+    });
+
+    if (definitions.length !== codes.length) {
+      const foundCodes = new Set(definitions.map((d) => d.code));
+      const missing = codes.filter((code) => !foundCodes.has(code));
+      throw new Error(`Unknown product attributes: ${missing.join(', ')}`);
+    }
+
+    if (productTypeId) {
+      const maps = await tx.productTypeAttribute.findMany({
+        where: {
+          productTypeId,
+          attributeId: { in: definitions.map((d) => d.id) },
+        },
+        select: { attributeId: true },
+      });
+
+      const mappedIds = new Set(maps.map((m) => m.attributeId));
+      const invalidCodes = definitions.filter((d) => !mappedIds.has(d.id)).map((d) => d.code);
+
+      if (invalidCodes.length > 0) {
+        throw new Error(`Attributes are not mapped to product type: ${invalidCodes.join(', ')}`);
+      }
+    }
+
+    for (const definition of definitions) {
+      const rawValue = uniqueByCode.get(definition.code);
+      const dataType = String(definition.dataType);
+
+      const optionByValue = new Map(
+        definition.options.map((opt) => [String(opt.value), opt] as const),
+      );
+      const optionByLabel = new Map(
+        definition.options.map((opt) => [String(opt.label), opt] as const),
+      );
+
+      let textValue: string | null = null;
+      let numberValue: number | null = null;
+      let booleanValue: boolean | null = null;
+      let dateValue: Date | null = null;
+      let optionId: string | null = null;
+      let multiOptionIds: string[] = [];
+
+      if (dataType === 'SELECT') {
+        const normalized = String(rawValue ?? '').trim();
+        if (!normalized) {
+          throw new Error(`Attribute ${definition.code} requires a selected option`);
+        }
+
+        const option = optionByValue.get(normalized) ?? optionByLabel.get(normalized);
+        if (!option) {
+          throw new Error(`Invalid option for ${definition.code}: ${normalized}`);
+        }
+        optionId = option.id;
+      } else if (dataType === 'MULTI_SELECT') {
+        const values = Array.isArray(rawValue) ? rawValue : [];
+        const normalizedValues = values
+          .map((item) => String(item).trim())
+          .filter((item) => item.length > 0);
+
+        if (normalizedValues.length === 0) {
+          throw new Error(`Attribute ${definition.code} requires at least one selected option`);
+        }
+
+        const ids = normalizedValues.map((item) => {
+          const option = optionByValue.get(item) ?? optionByLabel.get(item);
+          if (!option) {
+            throw new Error(`Invalid option for ${definition.code}: ${item}`);
+          }
+          return option.id;
+        });
+
+        multiOptionIds = Array.from(new Set(ids));
+      } else if (dataType === 'NUMBER') {
+        const parsed = Number(rawValue);
+        if (!Number.isFinite(parsed)) {
+          throw new Error(`Attribute ${definition.code} requires a valid number`);
+        }
+        numberValue = parsed;
+      } else if (dataType === 'BOOLEAN') {
+        booleanValue = this.parseBooleanValue(rawValue);
+      } else if (dataType === 'DATE') {
+        const parsedDate = new Date(String(rawValue ?? ''));
+        if (Number.isNaN(parsedDate.getTime())) {
+          throw new Error(`Attribute ${definition.code} requires a valid date`);
+        }
+        dateValue = parsedDate;
+      } else {
+        const text = String(rawValue ?? '').trim();
+        if (!text) {
+          throw new Error(`Attribute ${definition.code} requires a text value`);
+        }
+        textValue = text;
+      }
+
+      const savedValue = await tx.productAttributeValue.upsert({
+        where: {
+          productId_attributeId: {
+            productId,
+            attributeId: definition.id,
+          },
+        },
+        update: {
+          textValue,
+          numberValue,
+          booleanValue,
+          dateValue,
+          optionId,
+          deletedAt: null,
+        },
+        create: {
+          productId,
+          attributeId: definition.id,
+          textValue,
+          numberValue,
+          booleanValue,
+          dateValue,
+          optionId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      await tx.productAttributeValueOption.deleteMany({
+        where: { productAttributeValueId: savedValue.id },
+      });
+
+      if (multiOptionIds.length > 0) {
+        await tx.productAttributeValueOption.createMany({
+          data: multiOptionIds.map((id) => ({
+            productAttributeValueId: savedValue.id,
+            optionId: id,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+  }
 
   private async resolveRootCategorySlug(
     tx: Prisma.TransactionClient,
@@ -127,7 +425,6 @@ export class PrismaProductRepository implements IProductRepository {
   async save(product: Product): Promise<Product> {
     const data: Prisma.ProductCreateInput = {
       name: product.name,
-      description: product.description,
       basePrice: product.basePrice,
       isDeleted: product.isDeleted,
     };
@@ -139,7 +436,6 @@ export class PrismaProductRepository implements IProductRepository {
     return Product.fromPersistence({
       id: savedProduct.id,
       name: savedProduct.name,
-      description: savedProduct.description ?? undefined,
       basePrice: Number(savedProduct.basePrice),
       isDeleted: savedProduct.isDeleted,
       createdAt: savedProduct.createdAt,
@@ -150,13 +446,13 @@ export class PrismaProductRepository implements IProductRepository {
   async saveWithDetails(
     productData: {
       name: string;
-      description?: string;
       basePrice: number;
     },
     variants: ProductVariant[],
     categoryIds: string[],
     tagIds: string[],
     images: ProductImageProps[],
+    productAttributes: ProductAttributeInput[] = [],
   ): Promise<Product> {
     const result = await this.prisma.$transaction(async (tx) => {
       if (categoryIds.length > 0) {
@@ -193,7 +489,6 @@ export class PrismaProductRepository implements IProductRepository {
         data: {
           ...(productTypeId ? { productTypeId } : {}),
           name: productData.name,
-          description: productData.description,
           basePrice: productData.basePrice,
           isDeleted: false,
         },
@@ -213,14 +508,23 @@ export class PrismaProductRepository implements IProductRepository {
         isDeleted: v.isDeleted,
       }));
 
-      const savedVariants = await tx.productVariant.createMany({
-        data: variantData,
-      });
-
       // Get created variants for image linking
-      const createdVariants = await tx.productVariant.findMany({
-        where: { productId: savedProduct.id },
-      });
+      let createdVariants: Array<{ id: string; sku: string; attributes: unknown }> = [];
+
+      if (variantData.length > 0) {
+        await tx.productVariant.createMany({
+          data: variantData,
+        });
+
+        createdVariants = await tx.productVariant.findMany({
+          where: { productId: savedProduct.id },
+          select: {
+            id: true,
+            sku: true,
+            attributes: true,
+          },
+        });
+      }
 
       // Sync legacy JSON attributes -> VariantAttributeValue (color/size)
       for (const cv of createdVariants) {
@@ -291,13 +595,19 @@ export class PrismaProductRepository implements IProductRepository {
         });
       }
 
+      await this.syncProductAttributes(
+        tx,
+        savedProduct.id,
+        savedProduct.productTypeId,
+        productAttributes,
+      );
+
       return savedProduct;
     });
 
     return Product.fromPersistence({
       id: result.id,
       name: result.name,
-      description: result.description ?? undefined,
       basePrice: Number(result.basePrice),
       isDeleted: result.isDeleted,
       createdAt: result.createdAt,
@@ -317,7 +627,6 @@ export class PrismaProductRepository implements IProductRepository {
     return Product.fromPersistence({
       id: product.id,
       name: product.name,
-      description: product.description ?? undefined,
       basePrice: Number(product.basePrice),
       isDeleted: product.isDeleted,
       createdAt: product.createdAt,
@@ -331,6 +640,13 @@ export class PrismaProductRepository implements IProductRepository {
     images: any[];
     categories: any[];
     tags: any[];
+    productAttributes: Array<{
+      code: string;
+      name: string;
+      dataType: string;
+      value: unknown;
+      displayValue: string | string[] | null;
+    }>;
   } | null> {
     const result = await this.prisma.product.findUnique({
       where: { id },
@@ -372,6 +688,40 @@ export class PrismaProductRepository implements IProductRepository {
             tag: true,
           },
         },
+        attributeValues: {
+          where: {
+            deletedAt: null,
+            attribute: { deletedAt: null, scope: 'PRODUCT' },
+          },
+          include: {
+            attribute: {
+              select: {
+                code: true,
+                name: true,
+                dataType: true,
+              },
+            },
+            option: {
+              select: {
+                value: true,
+                label: true,
+                deletedAt: true,
+              },
+            },
+            multiSelectOptions: {
+              include: {
+                option: {
+                  select: {
+                    value: true,
+                    label: true,
+                    sortOrder: true,
+                    deletedAt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -382,7 +732,6 @@ export class PrismaProductRepository implements IProductRepository {
     const product = Product.fromPersistence({
       id: result.id,
       name: result.name,
-      description: result.description ?? undefined,
       basePrice: Number(result.basePrice),
       isDeleted: result.isDeleted,
       createdAt: result.createdAt,
@@ -445,6 +794,7 @@ export class PrismaProductRepository implements IProductRepository {
       images: result.images,
       categories: result.categories.map((c) => c.category),
       tags: result.tags.map((t) => t.tag),
+      productAttributes: this.mapProductAttributeDetails(result.attributeValues),
     };
   }
 
@@ -465,7 +815,6 @@ export class PrismaProductRepository implements IProductRepository {
       where: { id: product.id },
       data: {
         name: product.name,
-        description: product.description,
         basePrice: product.basePrice,
         isDeleted: product.isDeleted,
       },
@@ -474,7 +823,6 @@ export class PrismaProductRepository implements IProductRepository {
     return Product.fromPersistence({
       id: updated.id,
       name: updated.name,
-      description: updated.description ?? undefined,
       basePrice: Number(updated.basePrice),
       isDeleted: updated.isDeleted,
       createdAt: updated.createdAt,
@@ -677,6 +1025,7 @@ export class PrismaProductRepository implements IProductRepository {
     categoryIds?: string[],
     tagIds?: string[],
     images?: ProductImageProps[],
+    productAttributes?: ProductAttributeInput[],
   ): Promise<Product> {
     const result = await this.prisma.$transaction(async (tx) => {
       const nextProductData = { ...productData };
@@ -845,13 +1194,16 @@ export class PrismaProductRepository implements IProductRepository {
         }
       }
 
+      if (productAttributes !== undefined) {
+        await this.syncProductAttributes(tx, productId, updated.productTypeId, productAttributes);
+      }
+
       return updated;
     });
 
     return Product.fromPersistence({
       id: result.id,
       name: result.name,
-      description: result.description ?? undefined,
       basePrice: Number(result.basePrice),
       isDeleted: result.isDeleted,
       createdAt: result.createdAt,

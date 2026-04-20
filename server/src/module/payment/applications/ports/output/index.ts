@@ -1,1 +1,2 @@
 export * from './payment.repository';
+export * from './payment-success-notifier';

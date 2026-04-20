@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import type { CancelReason } from '@/generated/prisma/enums';
+import { prisma } from '../../../../infrastructure/database';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
@@ -22,6 +23,27 @@ function parseCancelReason(value: unknown): CancelReason {
   throw new BadRequestError('Invalid cancel reason');
 }
 
+function parseOrderCancelledNotification(content: string): {
+  message: string;
+  relatedPath: string | null;
+} {
+  const markerRegex = /^\[ORDER_CANCELLED\|([^\]]+)\]\s*/;
+  const match = content.match(markerRegex);
+  if (!match) {
+    return {
+      message: content,
+      relatedPath: null,
+    };
+  }
+
+  const orderId = match[1]?.trim();
+  const message = content.replace(markerRegex, '').trim();
+  return {
+    message,
+    relatedPath: orderId ? `/orders?orderId=${encodeURIComponent(orderId)}` : '/orders',
+  };
+}
+
 export class OrdersAPI {
   readonly router = express.Router();
 
@@ -38,6 +60,15 @@ export class OrdersAPI {
     }
 
     this.router.get('/', asyncHandler(this.listMyOrders.bind(this)));
+    this.router.get('/notifications', asyncHandler(this.listMyNotifications.bind(this)));
+    this.router.patch(
+      '/notifications/read-all',
+      asyncHandler(this.markAllNotificationsAsRead.bind(this)),
+    );
+    this.router.patch(
+      '/notifications/:id/read',
+      asyncHandler(this.markNotificationAsRead.bind(this)),
+    );
     this.router.get('/counts', asyncHandler(this.getMyCounts.bind(this)));
     this.router.get('/:orderId', asyncHandler(this.getMyOrderDetail.bind(this)));
     this.router.post('/:orderId/cancel', asyncHandler(this.cancelMyOrder.bind(this)));
@@ -219,5 +250,96 @@ export class OrdersAPI {
 
     const updated = await this.ordersController.cancelMyOrder(userId, orderId);
     res.status(200).json(ResponseFormatter.success(updated, 'Order cancelled'));
+  }
+
+  private async listMyNotifications(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = Math.min(parsePositiveInt(req.query.limit, 20), 100);
+    const skip = (page - 1) * limit;
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          content: true,
+          isRead: true,
+          createdAt: true,
+        },
+      }),
+      prisma.notification.count({ where: { userId } }),
+      prisma.notification.count({ where: { userId, isRead: false } }),
+    ]);
+
+    res.status(200).json(
+      ResponseFormatter.success({
+        items: notifications.map((item) => {
+          const parsed = parseOrderCancelledNotification(item.content);
+          return {
+            id: item.id,
+            content: parsed.message,
+            isRead: item.isRead,
+            createdAt: item.createdAt,
+            relatedPath: parsed.relatedPath,
+          };
+        }),
+        total,
+        page,
+        limit,
+        unreadCount,
+      }),
+    );
+  }
+
+  private async markNotificationAsRead(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const notificationId = String(req.params.id || '').trim();
+    if (!notificationId) {
+      throw new BadRequestError('notificationId is required');
+    }
+
+    const updated = await prisma.notification.updateMany({
+      where: {
+        id: notificationId,
+        userId,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    res.status(200).json(ResponseFormatter.success({ updated: updated.count > 0 }));
+  }
+
+  private async markAllNotificationsAsRead(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const updated = await prisma.notification.updateMany({
+      where: {
+        userId,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    res.status(200).json(ResponseFormatter.success({ updatedCount: updated.count }));
   }
 }

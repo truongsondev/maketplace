@@ -41,7 +41,7 @@ interface ProductImage {
 interface ProductSidebarFormData {
   name: string;
   basePrice: number;
-  description: string;
+  simpleStockAvailable: number;
   categoryId: string;
   tagIds: string[];
   productImages: ProductImage[];
@@ -50,6 +50,7 @@ interface ProductSidebarFormData {
 
 interface ProductSidebarProps {
   formData: ProductSidebarFormData;
+  hasVariants: boolean;
   onFormChange: (
     field: keyof ProductSidebarFormData,
     value:
@@ -69,6 +70,7 @@ interface ProductSidebarProps {
 
 export function ProductSidebar({
   formData,
+  hasVariants,
   onFormChange,
   onSubmit,
   isSubmitting,
@@ -177,6 +179,14 @@ export function ProductSidebar({
 
   // Get main product image (first image in productImages)
   const mainImage = formData.productImages[0];
+
+  const summaryVariantCount = hasVariants ? formData.variants.length : 0;
+  const summaryTotalStock = hasVariants
+    ? formData.variants.reduce(
+        (total, variant) => total + variant.stockAvailable,
+        0,
+      )
+    : formData.simpleStockAvailable;
 
   const handleTagSelect = (tagId: string) => {
     if (!formData.tagIds.includes(tagId)) {
@@ -389,16 +399,13 @@ export function ProductSidebar({
             <div>
               <p className="text-xs text-gray-500 mb-1">Phiên bản</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formData.variants.length}
+                {summaryVariantCount}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Tổng tồn kho</p>
               <p className="text-2xl font-bold text-gray-900">
-                {formData.variants.reduce(
-                  (total, variant) => total + variant.stockAvailable,
-                  0,
-                )}
+                {summaryTotalStock}
               </p>
             </div>
           </div>

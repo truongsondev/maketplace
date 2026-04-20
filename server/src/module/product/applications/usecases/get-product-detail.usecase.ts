@@ -7,6 +7,7 @@ import {
   TagDetail,
   ReviewSummary,
   ReviewItem,
+  ProductAttributeDetail,
 } from '../dto/result/product-detail.result';
 import { IGetProductDetailUseCase } from '../ports/input/get-product-detail.usecase';
 import { IProductRepository } from '../ports/output/product.repository';
@@ -34,7 +35,7 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       name: product.name,
       variantsCount: product.variants?.length || 0,
       imagesCount: product.images?.length || 0,
-    }); 
+    });
 
     return this.toDetailResult(product);
   }
@@ -118,6 +119,19 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       };
     });
 
+    const productAttributes: ProductAttributeDetail[] = (product.productAttributes || []).map(
+      (attr: any) => ({
+        code: String(attr.code),
+        name: String(attr.name),
+        dataType: String(attr.dataType),
+        value: attr.value,
+        displayValue:
+          attr.displayValue === undefined || attr.displayValue === null
+            ? null
+            : (attr.displayValue as string | string[]),
+      }),
+    );
+
     return {
       id: product.id,
       name: product.name,
@@ -127,6 +141,7 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       variants,
       categories,
       tags,
+      productAttributes,
       reviews,
       reviewItems,
       createdAt: product.createdAt || new Date(),

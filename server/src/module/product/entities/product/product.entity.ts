@@ -19,6 +19,7 @@ export interface ProductProps {
   categories?: any[];
   tags?: any[];
   reviews?: any[];
+  productAttributes?: any[];
 }
 
 export class Product {
@@ -81,6 +82,9 @@ export class Product {
   get reviews(): any[] | undefined {
     return this.props.reviews;
   }
+  get productAttributes(): any[] | undefined {
+    return this.props.productAttributes;
+  }
 
   hasDiscount(): boolean {
     return !!this.props.discountPercent && this.props.discountPercent > 0;
@@ -113,6 +117,7 @@ export class Product {
       categories: data.categories,
       tags: data.tags,
       reviews: data.reviews,
+      productAttributes: data.productAttributes,
     });
   }
 }

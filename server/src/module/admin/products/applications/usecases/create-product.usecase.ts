@@ -25,10 +25,9 @@ export class CreateProductUseCase implements ICreateProductUseCase {
       }
     }
 
-    // Create product entity
-    const product = Product.create({
+    // Validate core product fields via entity invariants.
+    Product.create({
       name: command.name,
-      description: command.description,
       basePrice: command.basePrice,
     });
 
@@ -46,11 +45,15 @@ export class CreateProductUseCase implements ICreateProductUseCase {
 
     // Save product with all related data
     const savedProduct = await this.productRepository.saveWithDetails(
-      product,
+      {
+        name: command.name,
+        basePrice: command.basePrice,
+      },
       variants,
       command.categoryIds || [],
       command.tagIds || [],
       command.images || [],
+      command.productAttributes || [],
     );
 
     this.logger.info('Product created successfully', {
@@ -73,13 +76,9 @@ export class CreateProductUseCase implements ICreateProductUseCase {
       throw new InvalidProductDataError('Base price must be non-negative');
     }
 
-    if (!command.variants || command.variants.length === 0) {
-      throw new InvalidProductDataError('At least one product variant is required');
-    }
-
     // Validate variants
     const skus = new Set<string>();
-    for (const variant of command.variants) {
+    for (const variant of command.variants ?? []) {
       if (!variant.sku || variant.sku.trim().length === 0) {
         throw new InvalidProductDataError('Variant SKU is required');
       }

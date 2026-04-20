@@ -40,6 +40,27 @@ services:
       timeout: 3s
       retries: 6
 
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: dev-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_dev_data:/var/lib/rabbitmq
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   # Backend API
   backend:
     build:
@@ -62,6 +83,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: root
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_PAYMENT_EXCHANGE: shop_events
+      RABBITMQ_PAYMENT_SUCCESS_ROUTING_KEY: order.payment.success
+      RABBITMQ_ADMIN_NOTIFICATION_QUEUE: admin_notification_q
+      RABBITMQ_ADMIN_NOTIFICATION_DLX: admin_notification_dlx
+      RABBITMQ_ADMIN_NOTIFICATION_DLQ: admin_notification_dlq
     env_file:
       - ./server/.env.development
     ports:
@@ -74,6 +101,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - dev-network
@@ -104,6 +133,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: root
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     env_file:
       - ./server/.env.development
     volumes:
@@ -114,6 +144,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - dev-network
@@ -166,3 +198,4 @@ networks:
 volumes:
   mysql_dev_data:
   redis_dev_data:
+  rabbitmq_dev_data:

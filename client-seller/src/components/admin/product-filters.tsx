@@ -47,6 +47,10 @@ export function ProductFilters({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  useEffect(() => {
+    setSearchQuery(filters.search || "");
+  }, [filters.search]);
+
   const handleClearFilters = () => {
     setSearchQuery("");
     onFilterChange({

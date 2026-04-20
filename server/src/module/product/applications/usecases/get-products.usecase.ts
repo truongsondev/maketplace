@@ -20,6 +20,7 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       categorySlugOrId: query.category,
       size: query.size,
       color: query.color,
+      usageOccasion: query.usageOccasion,
       sortField: 'createdAt',
       sortOrder: 'desc',
     };

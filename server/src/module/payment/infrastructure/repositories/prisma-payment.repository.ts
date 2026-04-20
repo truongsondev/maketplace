@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@/generated/prisma/client';
+import { createLogger } from '../../../../shared/util/logger';
 import {
   CreatePendingTransactionInput,
   IPaymentRepository,
@@ -6,12 +7,32 @@ import {
   UpdateTransactionFromWebhookInput,
 } from '../../applications/ports/output';
 import { VoucherCheckoutService } from '../../../voucher/applications/services/voucher-checkout.service';
+import {
+  AdminLowStockNotificationInput,
+  AdminLowStockNotificationProcessor,
+} from '../../../admin/notifications/infrastructure/services/admin-low-stock-notification.processor';
+
+const logger = createLogger('PrismaPaymentRepository');
+
+export function shouldNotifyLowStock(
+  previousStockOnHand: number,
+  currentStockOnHand: number,
+  minStock: number,
+): boolean {
+  return previousStockOnHand > minStock && currentStockOnHand <= minStock;
+}
 
 export class PrismaPaymentRepository implements IPaymentRepository {
+  private readonly lowStockNotificationProcessor: AdminLowStockNotificationProcessor;
+
   constructor(
     private readonly prisma: PrismaClient,
     private readonly voucherCheckoutService: VoucherCheckoutService,
-  ) {}
+    lowStockNotificationProcessor?: AdminLowStockNotificationProcessor,
+  ) {
+    this.lowStockNotificationProcessor =
+      lowStockNotificationProcessor ?? new AdminLowStockNotificationProcessor(prisma);
+  }
 
   async createPendingTransaction(input: CreatePendingTransactionInput): Promise<{
     orderId: string;
@@ -263,6 +284,8 @@ export class PrismaPaymentRepository implements IPaymentRepository {
   }
 
   async updateFromWebhookIfPending(input: UpdateTransactionFromWebhookInput): Promise<boolean> {
+    let lowStockNotifications: AdminLowStockNotificationInput[] = [];
+
     const updated = await this.prisma.$transaction(async (tx) => {
       const current = await tx.paymentTransaction.findUnique({
         where: { orderCode: input.orderCode },
@@ -327,7 +350,11 @@ export class PrismaPaymentRepository implements IPaymentRepository {
 
       if (input.status === 'PAID') {
         await this.voucherCheckoutService.recordUsageForPaidOrder(tx, current.orderId);
-        await this.consumeStockForPaidOrder(tx, current.orderId);
+        lowStockNotifications = await this.consumeStockForPaidOrder(
+          tx,
+          current.orderId,
+          input.orderCode,
+        );
         await this.removePurchasedCartItems(tx, current.orderId, current.rawPayload);
       }
 
@@ -360,6 +387,20 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       return true;
     });
 
+    if (updated && lowStockNotifications.length > 0) {
+      for (const payload of lowStockNotifications) {
+        try {
+          await this.lowStockNotificationProcessor.process(payload);
+        } catch (error) {
+          logger.warn('Failed to process low-stock admin notification', {
+            variantId: payload.variantId,
+            orderCode: payload.orderCode,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+    }
+
     return updated;
   }
 
@@ -383,7 +424,10 @@ export class PrismaPaymentRepository implements IPaymentRepository {
   private async consumeStockForPaidOrder(
     tx: Prisma.TransactionClient,
     orderId: string,
-  ): Promise<void> {
+    orderCode: string,
+  ): Promise<AdminLowStockNotificationInput[]> {
+    const lowStockNotifications: AdminLowStockNotificationInput[] = [];
+
     const items = await tx.orderItem.findMany({
       where: { orderId },
       select: { variantId: true, quantity: true },
@@ -399,6 +443,30 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     }
 
     for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const current = await tx.productVariant.findUnique({
+        where: { id: variantId },
+        select: {
+          stockOnHand: true,
+          stockAvailable: true,
+          stockReserved: true,
+          minStock: true,
+          sku: true,
+          product: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      });
+
+      if (!current) {
+        continue;
+      }
+
+      const previousStockOnHand = current.stockOnHand;
+      let nextStockOnHand = Math.max(0, previousStockOnHand - quantity);
+
       const updated = await tx.productVariant.updateMany({
         where: {
           id: variantId,
@@ -412,28 +480,34 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
       });
 
-      if (updated.count > 0) {
-        continue;
+      if (updated.count === 0) {
+        nextStockOnHand = Math.max(0, current.stockOnHand - quantity);
+
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: {
+            stockOnHand: nextStockOnHand,
+            stockAvailable: Math.max(0, current.stockAvailable - quantity),
+            stockReserved: Math.max(0, current.stockReserved - quantity),
+          },
+        });
       }
 
-      const current = await tx.productVariant.findUnique({
-        where: { id: variantId },
-        select: { stockOnHand: true, stockAvailable: true, stockReserved: true },
-      });
-
-      if (!current) {
-        continue;
+      if (shouldNotifyLowStock(previousStockOnHand, nextStockOnHand, current.minStock)) {
+        lowStockNotifications.push({
+          orderId,
+          orderCode,
+          productId: current.product.id,
+          productName: current.product.name,
+          variantId,
+          sku: current.sku,
+          stockOnHand: nextStockOnHand,
+          minStock: current.minStock,
+        });
       }
-
-      await tx.productVariant.update({
-        where: { id: variantId },
-        data: {
-          stockOnHand: Math.max(0, current.stockOnHand - quantity),
-          stockAvailable: Math.max(0, current.stockAvailable - quantity),
-          stockReserved: Math.max(0, current.stockReserved - quantity),
-        },
-      });
     }
+
+    return lowStockNotifications;
   }
 
   private async removePurchasedCartItems(

@@ -12,6 +12,7 @@ import type {
 } from '../../applications/ports/output/admin-dashboard.repository';
 
 const PAID_STATUSES = ['PAID', 'SUCCESS'] as const;
+const REVENUE_ORDER_STATUS = 'DELIVERED' as const;
 
 function startOfDay(d: Date): Date {
   const next = new Date(d);
@@ -107,16 +108,18 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
         orders: bigint | number | null;
       }>
     >(Prisma.sql`
-      SELECT DATE(paid_at) AS date,
-             COALESCE(SUM(amount), 0) AS revenue,
+      SELECT DATE(p.paid_at) AS date,
+             COALESCE(SUM(p.amount), 0) AS revenue,
              COUNT(*) AS orders
-      FROM payments
-      WHERE status IN (${Prisma.join(PAID_STATUSES)})
-        AND paid_at IS NOT NULL
-        AND paid_at >= ${from}
-        AND paid_at < ${to}
-      GROUP BY DATE(paid_at)
-      ORDER BY DATE(paid_at) ASC
+      FROM payments p
+      INNER JOIN orders o ON o.id = p.order_id
+      WHERE p.status IN (${Prisma.join(PAID_STATUSES)})
+        AND o.status = ${REVENUE_ORDER_STATUS}
+        AND p.paid_at IS NOT NULL
+        AND p.paid_at >= ${from}
+        AND p.paid_at < ${to}
+      GROUP BY DATE(p.paid_at)
+      ORDER BY DATE(p.paid_at) ASC
     `);
 
     const soldRows = await this.prisma.$queryRaw<
@@ -128,6 +131,7 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
       INNER JOIN orders o ON o.id = oi.order_id
       INNER JOIN payments p ON p.order_id = o.id
       WHERE p.status IN (${Prisma.join(PAID_STATUSES)})
+        AND o.status = ${REVENUE_ORDER_STATUS}
         AND p.paid_at IS NOT NULL
         AND p.paid_at >= ${from}
         AND p.paid_at < ${to}
@@ -209,6 +213,9 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
         where: {
           status: { in: [...PAID_STATUSES] },
           paidAt: { gte: from, lt: to },
+          order: {
+            status: REVENUE_ORDER_STATUS,
+          },
         },
         _sum: { amount: true },
         _count: { _all: true },
@@ -216,6 +223,7 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
       this.prisma.orderItem.aggregate({
         where: {
           order: {
+            status: REVENUE_ORDER_STATUS,
             payment: {
               status: { in: [...PAID_STATUSES] },
               paidAt: { gte: from, lt: to },

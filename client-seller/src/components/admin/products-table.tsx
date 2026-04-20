@@ -2,6 +2,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Edit2,
   Trash2,
+  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -57,6 +58,18 @@ export function ProductsTable({
       onRefresh();
     } catch (error) {
       toast.error("Xóa sản phẩm thất bại");
+      console.error(error);
+    }
+  };
+
+  const handleRestore = async (id: string) => {
+    if (!confirm("Bạn có chắc muốn khôi phục sản phẩm này không?")) return;
+    try {
+      await productService.restoreProduct(id);
+      toast.success("Đã khôi phục sản phẩm");
+      onRefresh();
+    } catch (error) {
+      toast.error("Khôi phục sản phẩm thất bại");
       console.error(error);
     }
   };
@@ -277,20 +290,32 @@ export function ProductsTable({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      <Link
-                        to={`/products/${product.id}`}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Sửa"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Xóa"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {product.status === "deleted" ? (
+                        <button
+                          onClick={() => handleRestore(product.id)}
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Khôi phục"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <>
+                          <Link
+                            to={`/products/${product.id}`}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Sửa"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Xóa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

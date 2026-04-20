@@ -20,6 +20,7 @@ export class ProductAPI {
     this.router.get('/categories/stats', asyncHandler(this.getCategoryStats.bind(this)));
     this.router.get('/category-showcases', asyncHandler(this.getCategoryShowcases.bind(this)));
     this.router.get('/home/category-showcases', asyncHandler(this.getCategoryShowcases.bind(this)));
+    this.router.get('/home/team-content', asyncHandler(this.getHomeTeamContent.bind(this)));
     this.router.get('/related/my-orders', asyncHandler(this.getRelatedFromMyOrders.bind(this)));
     this.router.get('/favorites', asyncHandler(this.getFavoriteProducts.bind(this)));
     this.router.post('/:id/favorite', asyncHandler(this.addProductToFavorite.bind(this)));
@@ -97,6 +98,7 @@ export class ProductAPI {
     const category = getStringParam(req.query.c);
     const size = getStringParam(req.query.s);
     const color = getStringParam(req.query.cl);
+    const usageOccasion = getStringParam(req.query.uo) ?? getStringParam(req.query.usageOccasion);
     const priceRange = getStringParam(req.query.p);
     const sort = getStringParam(req.query.sort);
     const search = getStringParam(req.query.q) ?? getStringParam(req.query.search);
@@ -111,6 +113,7 @@ export class ProductAPI {
       category,
       size,
       color,
+      usageOccasion,
       priceRange,
       search,
       sort,
@@ -158,7 +161,7 @@ export class ProductAPI {
       throw new BadRequestError('productLimit must be less than or equal to 20');
     }
 
-    const cacheKey = `home:category-showcases:${categoryLimit ?? 'default'}:${productLimit ?? 'default'}`;
+    const cacheKey = `home:category-showcases:v2:${categoryLimit ?? 'default'}:${productLimit ?? 'default'}`;
     const cached = await this.getCache(cacheKey);
     if (cached) {
       res.status(200).json(cached);
@@ -171,6 +174,21 @@ export class ProductAPI {
     });
 
     const response = ResponseFormatter.success(result, 'Category showcases retrieved successfully');
+    await this.setCache(cacheKey, response);
+    res.status(200).json(response);
+  }
+
+  private async getHomeTeamContent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    const cacheKey = 'home:team-content:v1';
+    const cached = await this.getCache(cacheKey);
+    if (cached) {
+      res.status(200).json(cached);
+      return;
+    }
+
+    const result = await this.productController.getHomeTeamContent();
+    const response = ResponseFormatter.success(result, 'Home team content retrieved successfully');
+
     await this.setCache(cacheKey, response);
     res.status(200).json(response);
   }

@@ -57,6 +57,14 @@ export interface ReviewItem {
   images: ReviewImageItem[];
 }
 
+export interface ProductAttributeDetail {
+  code: string;
+  name: string;
+  dataType: string;
+  value: unknown;
+  displayValue: string | string[] | null;
+}
+
 export interface ProductDetailResult {
   // Basic info
   id: string;
@@ -73,6 +81,7 @@ export interface ProductDetailResult {
   // Categories & Tags
   categories: CategoryDetail[];
   tags: TagDetail[];
+  productAttributes: ProductAttributeDetail[];
 
   // Reviews
   reviews: ReviewSummary;

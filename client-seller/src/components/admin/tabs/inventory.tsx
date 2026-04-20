@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   ArrowUpCircle,
   ArrowDownCircle,
@@ -6,18 +6,58 @@ import {
   Package,
 } from "lucide-react";
 import { productService } from "@/services/api";
-import type { InventoryLog } from "@/types/api";
+import type { InventoryLog, ProductDetail, ProductVariant } from "@/types/api";
 import { toast } from "sonner";
 
 interface InventoryTabProps {
-  productId: string;
+  product: ProductDetail;
+  onUpdate: () => void;
 }
 
-export function InventoryTab({ productId }: InventoryTabProps) {
+export function InventoryTab({ product, onUpdate }: InventoryTabProps) {
+  const productId = product.id;
   const [logs, setLogs] = useState<InventoryLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [savingSimpleInventory, setSavingSimpleInventory] = useState(false);
+
+  const isInternalDefaultVariant = (variant: ProductVariant) => {
+    const nonEmptyAttributes = Object.entries(variant.attributes ?? {}).filter(
+      ([key, value]) => {
+        if (!key || key.trim() === "") return false;
+        if (value === null || value === undefined) return false;
+        return String(value).trim().length > 0;
+      },
+    ).length;
+
+    return (
+      nonEmptyAttributes === 0 &&
+      variant.sku.trim().toUpperCase().endsWith("-DEFAULT")
+    );
+  };
+
+  const internalSimpleVariant = useMemo(() => {
+    if (product.variants.length !== 1) return null;
+    const onlyVariant = product.variants[0];
+    return isInternalDefaultVariant(onlyVariant) ? onlyVariant : null;
+  }, [product.variants]);
+
+  const [simpleStockAvailable, setSimpleStockAvailable] = useState<number>(
+    internalSimpleVariant?.stockAvailable ?? 0,
+  );
+  const [simpleMinStock, setSimpleMinStock] = useState<number>(
+    internalSimpleVariant?.minStock ?? 0,
+  );
+
+  useEffect(() => {
+    setSimpleStockAvailable(internalSimpleVariant?.stockAvailable ?? 0);
+    setSimpleMinStock(internalSimpleVariant?.minStock ?? 0);
+  }, [
+    internalSimpleVariant?.id,
+    internalSimpleVariant?.stockAvailable,
+    internalSimpleVariant?.minStock,
+  ]);
 
   const fetchLogs = async () => {
     try {
@@ -40,6 +80,44 @@ export function InventoryTab({ productId }: InventoryTabProps) {
   useEffect(() => {
     fetchLogs();
   }, [page, productId]);
+
+  const handleSaveSimpleInventory = async () => {
+    if (!internalSimpleVariant || savingSimpleInventory) return;
+
+    if (Number.isNaN(simpleStockAvailable) || simpleStockAvailable < 0) {
+      toast.error("Tồn kho sẵn có phải là số không âm");
+      return;
+    }
+
+    if (Number.isNaN(simpleMinStock) || simpleMinStock < 0) {
+      toast.error("Tồn kho tối thiểu phải là số không âm");
+      return;
+    }
+
+    try {
+      setSavingSimpleInventory(true);
+      await productService.updateProduct(productId, {
+        variants: [
+          {
+            id: internalSimpleVariant.id,
+            sku: internalSimpleVariant.sku,
+            attributes: internalSimpleVariant.attributes,
+            price: internalSimpleVariant.price,
+            stockAvailable: simpleStockAvailable,
+            minStock: simpleMinStock,
+          },
+        ],
+      });
+      toast.success("Đã cập nhật tồn kho sản phẩm không biến thể");
+      onUpdate();
+      fetchLogs();
+    } catch (error) {
+      toast.error("Cập nhật tồn kho thất bại");
+      console.error(error);
+    } finally {
+      setSavingSimpleInventory(false);
+    }
+  };
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -84,6 +162,51 @@ export function InventoryTab({ productId }: InventoryTabProps) {
 
   return (
     <div className="space-y-6">
+      {internalSimpleVariant && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <h4 className="text-sm font-semibold text-blue-900 mb-3">
+            Chỉnh tồn kho sản phẩm không biến thể
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Tồn kho sẵn có
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={simpleStockAvailable}
+                onChange={(e) =>
+                  setSimpleStockAvailable(Number(e.target.value))
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Tồn kho tối thiểu
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={simpleMinStock}
+                onChange={(e) => setSimpleMinStock(Number(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleSaveSimpleInventory}
+              disabled={savingSimpleInventory}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {savingSimpleInventory ? "Đang lưu..." : "Lưu tồn kho"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">Lịch sử tồn kho</h3>
         <button

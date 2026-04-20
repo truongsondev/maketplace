@@ -6,7 +6,7 @@ import {
   BulkActions,
 } from "@/components/admin";
 import { Plus, Download } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { productService } from "@/services/api";
 import type { ProductListItem, ProductListFilters } from "@/types/api";
@@ -22,6 +22,7 @@ function formatCompactNumber(n: number) {
 }
 
 export default function ProductsPage() {
+  const location = useLocation();
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -101,6 +102,23 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
   }, [filters]);
+
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const nextSearch = query.get("search")?.trim() || undefined;
+    const stockStatus = query.get("stockStatus");
+    const nextStockStatus =
+      stockStatus === "all" || stockStatus === "low" || stockStatus === "out"
+        ? stockStatus
+        : undefined;
+
+    setFilters((prev) => ({
+      ...prev,
+      page: 1,
+      search: nextSearch,
+      stockStatus: nextStockStatus,
+    }));
+  }, [location.search]);
 
   useEffect(() => {
     fetchAnalytics();

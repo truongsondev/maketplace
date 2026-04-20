@@ -5,6 +5,7 @@ import type {
   CategoryStat,
   FavoriteProductsResponse,
   FavoriteToggleResponse,
+  HomeTeamContentResponse,
   ProductListResponse,
   ProductDetail,
   ProductItem,
@@ -17,6 +18,7 @@ type ProductQueryParams = {
   c?: string;
   s?: string;
   cl?: string;
+  uo?: string;
   p?: string;
   q?: string;
 };
@@ -83,6 +85,18 @@ export const productService = {
 
     if (response.success) {
       return (response as ApiSuccessResponse<CategoryShowcase[]>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async getHomeTeamContent(): Promise<HomeTeamContentResponse> {
+    const response = await apiClient.get<HomeTeamContentResponse>(
+      "api/products/home/team-content",
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<HomeTeamContentResponse>).data;
     }
 
     throw response as ApiErrorResponse;

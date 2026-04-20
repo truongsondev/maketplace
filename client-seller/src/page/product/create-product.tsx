@@ -58,13 +58,27 @@ function normalizeAttributesForApi(
   );
 }
 
+function htmlToPlainText(value: string): string {
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .trim();
+}
+
 // UI Form Data Interface
 interface ProductFormData {
   name: string;
   basePrice: number;
-  description: string;
+  simpleStockAvailable: number;
+  detailedDescription: string;
+  careInstruction: string;
+  fitNote: string;
   categoryId: string;
   tagIds: string[];
+  usageOccasions: string[];
+  targetAgeGroup: string;
+  sizeGuideImage: ProductImage | null;
   productImages: ProductImage[]; // Ảnh chính của sản phẩm
   variants: ProductVariant[];
 }
@@ -91,6 +105,7 @@ interface ProductImage {
 export default function AddProductPage() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasVariants, setHasVariants] = useState(true);
 
   // React Query hooks
   const createProductMutation = useCreateProduct();
@@ -100,9 +115,15 @@ export default function AddProductPage() {
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
     basePrice: 0,
-    description: "",
+    simpleStockAvailable: 0,
+    detailedDescription: "",
+    careInstruction: "",
+    fitNote: "",
     categoryId: "",
     tagIds: [],
+    usageOccasions: [],
+    targetAgeGroup: "",
+    sizeGuideImage: null,
     productImages: [], // Ảnh chính của product
     variants: [
       {
@@ -132,7 +153,9 @@ export default function AddProductPage() {
       | boolean
       | string[]
       | ProductVariant[]
-      | ProductImage[],
+      | ProductImage[]
+      | ProductImage
+      | null,
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -152,7 +175,10 @@ export default function AddProductPage() {
     }
   };
 
-  const handleImageUpload = (file: File, variantId: string | "product") => {
+  const handleImageUpload = (
+    file: File,
+    variantId: string | "product" | "size-guide",
+  ) => {
     // Create preview URL for the image
     const previewUrl = URL.createObjectURL(file);
 
@@ -170,6 +196,20 @@ export default function AddProductPage() {
       setFormData((prev) => ({
         ...prev,
         productImages: [newImage],
+      }));
+    } else if (variantId === "size-guide") {
+      const sizeGuideImage: ProductImage = {
+        id: `size-guide-${Date.now()}`,
+        file,
+        url: previewUrl,
+        altText: `Bang huong dan chon size - ${formData.name || "san pham"}`,
+        sortOrder: 0,
+        uploading: false,
+      };
+
+      setFormData((prev) => ({
+        ...prev,
+        sizeGuideImage,
       }));
     } else {
       // Add to variant images
@@ -202,13 +242,19 @@ export default function AddProductPage() {
 
   // Remove image from variant or product
   const handleRemoveImage = (
-    variantId: string | "product",
+    variantId: string | "product" | "size-guide",
     imageId: string,
   ) => {
     if (variantId === "product") {
       setFormData((prev) => ({
         ...prev,
         productImages: prev.productImages.filter((img) => img.id !== imageId),
+      }));
+    } else if (variantId === "size-guide") {
+      setFormData((prev) => ({
+        ...prev,
+        sizeGuideImage:
+          prev.sizeGuideImage?.id === imageId ? null : prev.sizeGuideImage,
       }));
     } else {
       setFormData((prev) => ({
@@ -290,39 +336,64 @@ export default function AddProductPage() {
         return;
       }
 
-      if (formData.variants.length === 0) {
+      if (hasVariants && formData.variants.length === 0) {
         toast.error("Cần có ít nhất một phiên bản sản phẩm");
         return;
       }
 
+      if (!hasVariants && (formData.simpleStockAvailable ?? 0) < 0) {
+        toast.error("Tồn kho sản phẩm phải >= 0");
+        return;
+      }
+
+      if (formData.usageOccasions.length === 0) {
+        toast.error("Vui lòng chọn ít nhất một mục đích sử dụng");
+        return;
+      }
+
+      if (!formData.targetAgeGroup) {
+        toast.error("Vui lòng chọn độ tuổi phù hợp");
+        return;
+      }
+
+      if (htmlToPlainText(formData.detailedDescription || "").length < 120) {
+        toast.error("Mô tả chi tiết nên có ít nhất 120 ký tự để tối ưu SEO");
+        return;
+      }
+
       // Validate variants to avoid unique constraint violations on optionKey.
-      const optionKeyToVariantId = new Map<string, string>();
-      for (const variant of formData.variants) {
-        if ((variant.stockAvailable ?? 0) < 0 || (variant.minStock ?? 0) < 0) {
-          toast.error("Tồn kho và tồn kho tối thiểu phải >= 0");
-          return;
-        }
+      if (hasVariants) {
+        const optionKeyToVariantId = new Map<string, string>();
+        for (const variant of formData.variants) {
+          if (
+            (variant.stockAvailable ?? 0) < 0 ||
+            (variant.minStock ?? 0) < 0
+          ) {
+            toast.error("Tồn kho và tồn kho tối thiểu phải >= 0");
+            return;
+          }
 
-        const effectiveSku =
-          variant.sku?.trim() ||
-          `${formData.name.replace(/\s+/g, "-").toUpperCase()}-${variant.id}`;
+          const effectiveSku =
+            variant.sku?.trim() ||
+            `${formData.name.replace(/\s+/g, "-").toUpperCase()}-${variant.id}`;
 
-        const normalizedAttributes = normalizeAttributesForApi(
-          variant.attributes,
-        );
-
-        const optionKey = buildVariantOptionKeyFromAttributes(
-          normalizedAttributes,
-          effectiveSku,
-        );
-        const prev = optionKeyToVariantId.get(optionKey);
-        if (prev) {
-          toast.error(
-            "Các phiên bản đang bị trùng tổ hợp thuộc tính (color/size/thuộc tính). Vui lòng chỉnh để khác nhau.",
+          const normalizedAttributes = normalizeAttributesForApi(
+            variant.attributes,
           );
-          return;
+
+          const optionKey = buildVariantOptionKeyFromAttributes(
+            normalizedAttributes,
+            effectiveSku,
+          );
+          const prev = optionKeyToVariantId.get(optionKey);
+          if (prev) {
+            toast.error(
+              "Các phiên bản đang bị trùng tổ hợp thuộc tính (color/size/thuộc tính). Vui lòng chỉnh để khác nhau.",
+            );
+            return;
+          }
+          optionKeyToVariantId.set(optionKey, variant.id);
         }
-        optionKeyToVariantId.set(optionKey, variant.id);
       }
 
       // Upload all images first
@@ -355,57 +426,117 @@ export default function AddProductPage() {
       );
 
       // Upload variant images
-      const variantsWithUploadedImages = await Promise.all(
-        formData.variants.map(async (variant) => {
-          const uploadedImages = await Promise.all(
-            variant.images.map(async (img) => {
-              if (img.file) {
-                try {
-                  const url = await uploadToCloudinary(img.file);
+      const variantsWithUploadedImages = hasVariants
+        ? await Promise.all(
+            formData.variants.map(async (variant) => {
+              const uploadedImages = await Promise.all(
+                variant.images.map(async (img) => {
+                  if (img.file) {
+                    try {
+                      const url = await uploadToCloudinary(img.file);
+                      return {
+                        url,
+                        altText: img.altText,
+                        sortOrder: img.sortOrder,
+                      };
+                    } catch (error) {
+                      console.error("Error uploading variant image:", error);
+                      throw new Error("Không thể tải ảnh phiên bản lên");
+                    }
+                  }
                   return {
-                    url,
+                    url: img.url!,
                     altText: img.altText,
                     sortOrder: img.sortOrder,
                   };
-                } catch (error) {
-                  console.error("Error uploading variant image:", error);
-                  throw new Error("Không thể tải ảnh phiên bản lên");
-                }
-              }
+                }),
+              );
+
+              const normalizedAttributes = normalizeAttributesForApi(
+                variant.attributes,
+              );
+
               return {
-                url: img.url!,
-                altText: img.altText,
-                sortOrder: img.sortOrder,
+                sku:
+                  variant.sku?.trim() ||
+                  `${formData.name.replace(/\s+/g, "-").toUpperCase()}-${variant.id}`,
+                attributes: normalizedAttributes,
+                price: variant.price || formData.basePrice,
+                stockAvailable: variant.stockAvailable,
+                minStock: variant.minStock,
+                images: uploadedImages.filter((img) => img.url),
               };
             }),
-          );
+          )
+        : [
+            {
+              sku:
+                `${formData.name.replace(/\s+/g, "-").toUpperCase()}-DEFAULT`.slice(
+                  0,
+                  100,
+                ) || `PRODUCT-${Date.now()}-DEFAULT`,
+              attributes: {},
+              price: formData.basePrice,
+              stockAvailable: formData.simpleStockAvailable,
+              minStock: 0,
+              images: [],
+            },
+          ];
 
-          const normalizedAttributes = normalizeAttributesForApi(
-            variant.attributes,
-          );
+      let sizeGuideImageUrl: string | null = null;
+      if (formData.sizeGuideImage?.file) {
+        sizeGuideImageUrl = await uploadToCloudinary(
+          formData.sizeGuideImage.file,
+        );
+      } else if (formData.sizeGuideImage?.url) {
+        sizeGuideImageUrl = formData.sizeGuideImage.url;
+      }
 
-          return {
-            sku:
-              variant.sku?.trim() ||
-              `${formData.name.replace(/\s+/g, "-").toUpperCase()}-${variant.id}`,
-            attributes: normalizedAttributes,
-            price: variant.price || formData.basePrice,
-            stockAvailable: variant.stockAvailable,
-            minStock: variant.minStock,
-            images: uploadedImages.filter((img) => img.url),
-          };
-        }),
-      );
+      const productAttributes: NonNullable<
+        CreateProductCommand["productAttributes"]
+      > = [
+        {
+          code: "usage_occasions",
+          value: formData.usageOccasions,
+        },
+        {
+          code: "target_age_group",
+          value: formData.targetAgeGroup,
+        },
+        {
+          code: "product_story",
+          value: formData.detailedDescription.trim(),
+        },
+        {
+          code: "care_instruction",
+          value: formData.careInstruction.trim(),
+        },
+        {
+          code: "fit_note",
+          value: formData.fitNote.trim(),
+        },
+      ];
+
+      if (sizeGuideImageUrl) {
+        productAttributes.push({
+          code: "size_guide_image_url",
+          value: sizeGuideImageUrl,
+        });
+      }
 
       // Prepare product data
       const productData: CreateProductCommand = {
         name: formData.name,
-        description: formData.description,
         basePrice: formData.basePrice,
         images: uploadedProductImages.filter((img) => img.url),
         variants: variantsWithUploadedImages,
         categoryIds: [formData.categoryId],
         tagIds: formData.tagIds,
+        productAttributes: productAttributes.filter((attr) => {
+          if (Array.isArray(attr.value)) return attr.value.length > 0;
+          if (attr.value === null || attr.value === undefined) return false;
+          return String(attr.value).trim().length > 0;
+        }),
       };
 
       // Submit using React Query mutation
@@ -453,6 +584,8 @@ export default function AddProductPage() {
             <div className="lg:col-span-2">
               <ProductForm
                 formData={formData}
+                hasVariants={hasVariants}
+                onHasVariantsChange={setHasVariants}
                 onFormChange={handleFormChange}
                 onImageUpload={handleImageUpload}
                 onRemoveImage={handleRemoveImage}
@@ -467,6 +600,7 @@ export default function AddProductPage() {
             <div>
               <ProductSidebar
                 formData={formData}
+                hasVariants={hasVariants}
                 onFormChange={handleFormChange}
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}

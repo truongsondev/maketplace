@@ -81,6 +81,8 @@ function formatVariantAttributes(
 export function ThankYouClient() {
   const searchParams = useSearchParams();
   const [isDark, setIsDark] = useState(false);
+  const [isPayloadResolved, setIsPayloadResolved] = useState(false);
+  const [payload, setPayload] = useState<StoredCheckoutPayload | null>(null);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const { data: cartSummary } = useQuery({
@@ -105,20 +107,30 @@ export function ThankYouClient() {
     return searchParams.get("orderCode") || searchParams.get("order_code");
   }, [searchParams]);
 
-  const payload = useMemo(() => {
-    if (typeof window === "undefined") return null;
+  useEffect(() => {
+    setIsPayloadResolved(false);
 
     const orderCode =
       orderCodeFromUrl ||
       window.sessionStorage.getItem("checkout:lastOrderCode");
-    if (!orderCode) return null;
+
+    if (!orderCode) {
+      setPayload(null);
+      setIsPayloadResolved(true);
+      return;
+    }
 
     try {
       const raw = window.sessionStorage.getItem(`checkout:${orderCode}`);
-      if (!raw) return null;
-      return JSON.parse(raw) as StoredCheckoutPayload;
+      if (!raw) {
+        setPayload(null);
+      } else {
+        setPayload(JSON.parse(raw) as StoredCheckoutPayload);
+      }
     } catch {
-      return null;
+      setPayload(null);
+    } finally {
+      setIsPayloadResolved(true);
     }
   }, [orderCodeFromUrl]);
 
@@ -168,7 +180,16 @@ export function ThankYouClient() {
 
       <main className="flex-1 px-4 pb-16 pt-10 sm:px-6 lg:px-8">
         <div className="mx-auto w-full max-w-6xl">
-          {!payload ? (
+          {!isPayloadResolved ? (
+            <section className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
+              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+                Đang tải thông tin đơn hàng...
+              </h1>
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                Vui lòng chờ trong giây lát.
+              </p>
+            </section>
+          ) : !payload ? (
             <section className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
               <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
                 Cảm ơn bạn!

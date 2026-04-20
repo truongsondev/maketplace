@@ -1,13 +1,18 @@
 export interface UpdateProductCommand {
   productId: string;
   name?: string;
-  description?: string;
   basePrice?: number;
   status?: 'active' | 'inactive';
   categoryIds?: string[];
   tagIds?: string[];
   variants?: UpdateProductVariantDto[];
   images?: UpdateProductImageDto[];
+  productAttributes?: UpdateProductAttributeInputDto[];
+}
+
+export interface UpdateProductAttributeInputDto {
+  code: string;
+  value: unknown;
 }
 
 export interface UpdateProductVariantDto {

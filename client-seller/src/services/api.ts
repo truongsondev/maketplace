@@ -32,6 +32,7 @@ import type {
 } from "@/types/product-analytics";
 import type { LoginRequest, LoginResponse } from "@/types/auth";
 import type {
+  AdminOrderConfirmCheckResponse,
   AdminOrdersCountsResponse,
   AdminOrdersListResponse,
   AdminOrderTab,
@@ -60,6 +61,7 @@ import type {
   DashboardRecentOrder,
   DashboardTimeseries,
 } from "../types/dashboard";
+import type { AdminNotificationListResult } from "@/types/notification";
 
 export const authService = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
@@ -303,8 +305,10 @@ export const orderService = {
     return response.data;
   },
 
-  cancelOrder: async (orderId: string): Promise<void> => {
-    await apiClient.post(`/admin/orders/${orderId}/cancel`);
+  cancelOrder: async (orderId: string, reason?: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/cancel`, {
+      reason,
+    });
   },
 
   approveCancelRequest: async (orderId: string): Promise<void> => {
@@ -324,6 +328,15 @@ export const orderService = {
     await apiClient.post(
       `/admin/orders/${orderId}/cancel-requests/complete-refund`,
     );
+  },
+
+  checkConfirmOrder: async (
+    orderId: string,
+  ): Promise<AdminOrderConfirmCheckResponse> => {
+    const response = await apiClient.get(
+      `/admin/orders/${orderId}/confirm/check`,
+    );
+    return response.data;
   },
 
   confirmOrder: async (orderId: string): Promise<void> => {
@@ -578,5 +591,25 @@ export const logsService = {
   }): Promise<AdminLogsResponse> => {
     const response = await apiClient.get("/admin/logs", { params });
     return response.data;
+  },
+};
+
+export const adminNotificationService = {
+  list: async (params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<AdminNotificationListResult> => {
+    const response = await apiClient.get("/admin/notifications", { params });
+    return response.data.data;
+  },
+
+  markAsRead: async (id: string): Promise<{ updated: boolean }> => {
+    const response = await apiClient.patch(`/admin/notifications/${id}/read`);
+    return response.data.data;
+  },
+
+  markAllAsRead: async (): Promise<{ updatedCount: number }> => {
+    const response = await apiClient.patch("/admin/notifications/read-all");
+    return response.data.data;
   },
 };

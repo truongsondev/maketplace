@@ -1,7 +1,6 @@
 export interface ProductProps {
   id?: string;
   name: string;
-  description?: string;
   basePrice: number;
   isDeleted?: boolean;
   createdAt?: Date;
@@ -44,7 +43,6 @@ export interface ProductTagProps {
 export class Product {
   private readonly _id?: string;
   private _name: string;
-  private _description?: string;
   private _basePrice: number;
   private _isDeleted: boolean;
   private _createdAt?: Date;
@@ -53,7 +51,6 @@ export class Product {
   private constructor(props: ProductProps) {
     this._id = props.id;
     this._name = props.name;
-    this._description = props.description;
     this._basePrice = props.basePrice;
     this._isDeleted = props.isDeleted ?? false;
     this._createdAt = props.createdAt;
@@ -82,10 +79,6 @@ export class Product {
     return this._name;
   }
 
-  get description(): string | undefined {
-    return this._description;
-  }
-
   get basePrice(): number {
     return this._basePrice;
   }
@@ -107,10 +100,6 @@ export class Product {
       throw new Error('Product name is required');
     }
     this._name = name;
-  }
-
-  updateDescription(description: string): void {
-    this._description = description;
   }
 
   updateBasePrice(price: number): void {

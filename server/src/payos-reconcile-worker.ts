@@ -4,6 +4,7 @@ import { createLogger } from './shared/util/logger';
 import { getPayosClient } from './module/payment/infrastructure/payos/payos.client';
 import { PrismaPaymentRepository } from './module/payment/infrastructure/repositories';
 import { createVoucherCheckoutService } from './module/voucher/di';
+import { AdminPaymentSuccessNotifier } from './module/payment/infrastructure/notifiers/admin-payment-success.notifier';
 
 const logger = createLogger('PayosReconcileWorker');
 
@@ -124,6 +125,7 @@ async function reconcileOnce(config: WorkerConfig): Promise<void> {
 
     const voucherCheckoutService = createVoucherCheckoutService();
     const paymentRepository = new PrismaPaymentRepository(prisma, voucherCheckoutService);
+    const paymentSuccessNotifier = new AdminPaymentSuccessNotifier(prisma);
     const payos = getPayosClient();
 
     let updatedCount = 0;
@@ -170,6 +172,25 @@ async function reconcileOnce(config: WorkerConfig): Promise<void> {
 
         if (updated) {
           updatedCount += 1;
+
+          if (isPaid) {
+            const payment = await paymentRepository.findByOrderCode(orderCode);
+            if (payment && payment.status === 'PAID') {
+              try {
+                await paymentSuccessNotifier.notify({
+                  orderId: payment.orderId,
+                  orderCode: payment.orderCode,
+                  amount: payment.amount,
+                  paidAt: payment.paidAt ?? new Date(),
+                });
+              } catch (notifyError) {
+                logger.warn('Failed to notify admin from reconcile worker', {
+                  orderCode,
+                  error: notifyError instanceof Error ? notifyError.message : String(notifyError),
+                });
+              }
+            }
+          }
         }
       } catch (err) {
         logger.warn('Reconcile failed for orderCode', {

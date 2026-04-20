@@ -14,6 +14,8 @@ export interface GetProductsQuery {
   priceRange?: string;
   /** Từ khóa tìm kiếm theo tên/slug sản phẩm */
   search?: string;
+  /** Filter theo mục đích sử dụng (usage_occasions), ví dụ: tap_the_thao */
+  usageOccasion?: string;
   /** Sort theo format "field:order", ví dụ: "createdAt:desc" */
   sort?: string;
 }

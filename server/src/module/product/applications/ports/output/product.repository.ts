@@ -6,6 +6,7 @@ export interface ProductFilters {
   size?: string;
   color?: string;
   search?: string;
+  usageOccasion?: string;
   minPrice?: number;
   maxPrice?: number;
   sortField?: 'createdAt';
@@ -34,6 +35,43 @@ export interface CategoryShowcase {
   products: CategoryShowcaseProduct[];
 }
 
+export interface HomeTeamCard {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  collectionSlug: string;
+  query: string;
+  usageOccasion?: string;
+  scope?: 'all';
+}
+
+export interface HomeOutfitHighlight {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  imageUrl: string;
+  ctaLabel: string;
+  collectionSlug: string;
+  query: string;
+  usageOccasion?: string;
+}
+
+export interface HomeOutfitGalleryItem {
+  id: string;
+  imageUrl: string;
+  collectionSlug: string;
+  query: string;
+  usageOccasion?: string;
+}
+
+export interface HomeTeamContent {
+  teamCards: HomeTeamCard[];
+  highlights: HomeOutfitHighlight[];
+  gallery: HomeOutfitGalleryItem[];
+}
+
 export interface IProductRepository {
   findWithFilters(
     filters: ProductFilters,
@@ -43,4 +81,6 @@ export interface IProductRepository {
   findByIdWithDetails(id: string): Promise<Product | null>;
 
   findCategoryShowcases(categoryLimit: number, productLimit: number): Promise<CategoryShowcase[]>;
+
+  findHomeTeamContent(): Promise<HomeTeamContent>;
 }

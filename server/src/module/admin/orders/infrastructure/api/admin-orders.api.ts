@@ -55,6 +55,25 @@ function escapeCsvValue(value: string): string {
   return value;
 }
 
+function buildOrderCancelledNotificationContent(input: {
+  orderId: string;
+  orderCode: string | null;
+  reason: string | null;
+}): string {
+  const label = input.orderCode?.trim() || input.orderId;
+  const reasonSuffix = input.reason?.trim() ? ` Ly do: ${input.reason.trim()}.` : '';
+  return `[ORDER_CANCELLED|${input.orderId}] Don hang #${label} da bi huy.${reasonSuffix}`;
+}
+
+function mapCancelReasonCodeToText(code: string | null | undefined): string | null {
+  if (!code) return null;
+  if (code === 'NO_LONGER_NEEDED') return 'Khong con nhu cau mua';
+  if (code === 'BUY_OTHER_ITEM') return 'Mua san pham khac';
+  if (code === 'FOUND_CHEAPER') return 'Tim duoc noi ban re hon';
+  if (code === 'OTHER') return 'Ly do khac';
+  return null;
+}
+
 export class AdminOrdersAPI {
   readonly router = express.Router();
 
@@ -85,6 +104,7 @@ export class AdminOrdersAPI {
       '/:orderId/cancel-requests/complete-refund',
       asyncHandler(this.completeCancelRefund.bind(this)),
     );
+    this.router.get('/:orderId/confirm/check', asyncHandler(this.checkConfirmOrder.bind(this)));
     this.router.post('/:orderId/confirm', asyncHandler(this.confirmOrder.bind(this)));
     this.router.post('/:orderId/ship', asyncHandler(this.shipOrder.bind(this)));
     this.router.post('/:orderId/deliver', asyncHandler(this.deliverOrder.bind(this)));
@@ -117,7 +137,16 @@ export class AdminOrdersAPI {
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        paymentTransaction: {
+          select: {
+            orderCode: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -154,6 +183,152 @@ export class AdminOrdersAPI {
     return updated;
   }
 
+  private async evaluateOrderConfirmationReadiness(params: {
+    orderId: string;
+    requirePaidStatus: boolean;
+  }): Promise<{
+    orderId: string;
+    currentStatus: OrderStatus;
+    canConfirm: boolean;
+    issues: string[];
+    blockingItems: Array<{
+      orderItemId: string;
+      productId: string;
+      productName: string;
+      variantId: string | null;
+      reasons: string[];
+    }>;
+  }> {
+    const { orderId, requirePaidStatus } = params;
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        status: true,
+        items: {
+          select: {
+            id: true,
+            productId: true,
+            variantId: true,
+            product: {
+              select: {
+                id: true,
+                name: true,
+                status: true,
+                isDeleted: true,
+                deletedAt: true,
+              },
+            },
+            variant: {
+              select: {
+                id: true,
+                status: true,
+                isDeleted: true,
+                deletedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new BadRequestError('Order not found');
+    }
+
+    const issues: string[] = [];
+    const blockingItems: Array<{
+      orderItemId: string;
+      productId: string;
+      productName: string;
+      variantId: string | null;
+      reasons: string[];
+    }> = [];
+
+    if (requirePaidStatus && order.status !== 'PAID') {
+      issues.push('Đơn hàng không ở trạng thái có thể xác nhận (yêu cầu: PAID).');
+    }
+
+    if (order.items.length === 0) {
+      issues.push('Đơn hàng không có sản phẩm hợp lệ để xác nhận.');
+    }
+
+    for (const item of order.items) {
+      const reasons: string[] = [];
+
+      const product = item.product;
+      const variant = item.variant;
+
+      if (product.isDeleted || product.deletedAt !== null) {
+        reasons.push('Sản phẩm đã bị xóa.');
+      }
+
+      if (product.status !== 'ACTIVE') {
+        reasons.push(`Sản phẩm không ở trạng thái ACTIVE (hiện tại: ${product.status}).`);
+      }
+
+      if (item.variantId && !variant) {
+        reasons.push('Biến thể đã bị xóa hoặc không còn tồn tại.');
+      }
+
+      if (variant) {
+        if (variant.isDeleted || variant.deletedAt !== null) {
+          reasons.push('Biến thể đã bị xóa.');
+        }
+
+        if (variant.status !== 'ACTIVE') {
+          reasons.push(`Biến thể không ở trạng thái ACTIVE (hiện tại: ${variant.status}).`);
+        }
+      }
+
+      if (reasons.length > 0) {
+        blockingItems.push({
+          orderItemId: item.id,
+          productId: item.productId,
+          productName: product.name,
+          variantId: item.variantId,
+          reasons,
+        });
+      }
+    }
+
+    if (blockingItems.length > 0) {
+      issues.push('Có sản phẩm/biến thể trong đơn không còn hợp lệ để xác nhận.');
+    }
+
+    return {
+      orderId: order.id,
+      currentStatus: order.status,
+      canConfirm: issues.length === 0,
+      issues,
+      blockingItems,
+    };
+  }
+
+  private async checkConfirmOrder(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    HttpErrorHandler.validateRequired({ orderId }, 'orderId');
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const readiness = await this.evaluateOrderConfirmationReadiness({
+      orderId,
+      requirePaidStatus: true,
+    });
+
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          readiness,
+          readiness.canConfirm ? 'Order can be confirmed' : 'Order cannot be confirmed',
+        ),
+      );
+  }
+
   private async confirmOrder(req: Request, res: Response): Promise<void> {
     const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
     const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
@@ -165,6 +340,15 @@ export class AdminOrdersAPI {
     const actorId = (req as any).userId as string | undefined;
     if (!actorId) {
       throw new ForbiddenError('Authentication required');
+    }
+
+    const readiness = await this.evaluateOrderConfirmationReadiness({
+      orderId,
+      requirePaidStatus: false,
+    });
+
+    if (!readiness.canConfirm) {
+      throw new BadRequestError(`Order cannot be confirmed. ${readiness.issues.join(' ')}`);
     }
 
     const updated = await this.transitionStatus({
@@ -261,7 +445,27 @@ export class AdminOrdersAPI {
         skip,
         take: limit,
         include: {
-          user: { select: { id: true, email: true, phone: true } },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              phone: true,
+              addresses: {
+                select: {
+                  id: true,
+                  recipient: true,
+                  phone: true,
+                  addressLine: true,
+                  ward: true,
+                  district: true,
+                  city: true,
+                  isDefault: true,
+                },
+                orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+                take: 1,
+              },
+            },
+          },
           payment: { select: { method: true, status: true, paidAt: true } },
           paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
           cancelRequest: {
@@ -368,6 +572,16 @@ export class AdminOrdersAPI {
           label: userLabel,
           email: o.user.email,
           phone: o.user.phone,
+        },
+        shipping: {
+          addressId: o.user.addresses[0]?.id ?? null,
+          recipient: o.user.addresses[0]?.recipient ?? userLabel,
+          phone: o.user.addresses[0]?.phone ?? o.user.phone ?? null,
+          addressLine: o.user.addresses[0]?.addressLine ?? null,
+          ward: o.user.addresses[0]?.ward ?? null,
+          district: o.user.addresses[0]?.district ?? null,
+          city: o.user.addresses[0]?.city ?? null,
+          source: o.user.addresses[0] ? 'LATEST_USER_ADDRESS' : 'USER_PROFILE_FALLBACK',
         },
         payment: {
           method: o.payment?.method ?? null,
@@ -625,9 +839,22 @@ export class AdminOrdersAPI {
       throw new ForbiddenError('Authentication required');
     }
 
+    const reasonInput = (req.body as { reason?: unknown } | undefined)?.reason;
+    const cancelReason =
+      typeof reasonInput === 'string' && reasonInput.trim().length > 0 ? reasonInput.trim() : null;
+
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        paymentTransaction: {
+          select: {
+            orderCode: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -643,8 +870,8 @@ export class AdminOrdersAPI {
       throw new BadRequestError('Cannot cancel an order that is already shipped/delivered');
     }
 
-    if (order.status === 'PAID') {
-      throw new BadRequestError('Use cancel request approval flow for paid orders');
+    if (order.status === 'PAID' && !cancelReason) {
+      throw new BadRequestError('Cancellation reason is required for paid orders');
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -660,6 +887,35 @@ export class AdminOrdersAPI {
           oldStatus: order.status,
           newStatus: 'CANCELLED',
           changedBy: actorId,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: order.userId,
+          content: buildOrderCancelledNotificationContent({
+            orderId,
+            orderCode: order.paymentTransaction?.orderCode ?? null,
+            reason: cancelReason,
+          }),
+          isRead: false,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorType: 'ADMIN',
+          actorId,
+          targetType: 'ORDER',
+          targetId: orderId,
+          action: 'ADMIN_CANCEL_ORDER',
+          oldData: {
+            status: order.status,
+          },
+          newData: {
+            status: 'CANCELLED',
+            reason: cancelReason,
+          },
         },
       });
 
@@ -790,6 +1046,7 @@ export class AdminOrdersAPI {
       where: { id: orderId },
       include: {
         payment: true,
+        paymentTransaction: { select: { orderCode: true } },
         cancelRequest: true,
         refundTransactions: {
           where: { type: 'CANCEL_REFUND' },
@@ -806,6 +1063,8 @@ export class AdminOrdersAPI {
     if (order.cancelRequest.status !== 'APPROVED') {
       throw new BadRequestError('Cancel request must be approved before completing refund');
     }
+
+    const cancelRequest = order.cancelRequest;
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.orderCancelRequest.update({
@@ -827,6 +1086,20 @@ export class AdminOrdersAPI {
           oldStatus: order.status,
           newStatus: 'CANCELLED',
           changedBy: actorId,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: order.userId,
+          content: buildOrderCancelledNotificationContent({
+            orderId,
+            orderCode: order.paymentTransaction?.orderCode ?? null,
+            reason:
+              cancelRequest.reasonText?.trim() ||
+              mapCancelReasonCodeToText(cancelRequest.reasonCode),
+          }),
+          isRead: false,
         },
       });
 

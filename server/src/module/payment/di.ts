@@ -11,18 +11,29 @@ import { PrismaPaymentRepository } from './infrastructure/repositories';
 import { PaymentController } from './interface-adapter/controller';
 import { createVoucherCheckoutService } from '../voucher/di';
 import { createUserShippingInfoService } from '../address/di';
+import { AdminPaymentSuccessNotifier } from './infrastructure/notifiers/admin-payment-success.notifier';
+import { AdminPaymentSuccessConsumer } from '../admin/notifications/infrastructure/consumers/admin-payment-success.consumer';
 
 export function createPaymentModule(): Router {
   const voucherCheckoutService = createVoucherCheckoutService();
   const shippingInfoService = createUserShippingInfoService();
   const paymentRepository = new PrismaPaymentRepository(prisma, voucherCheckoutService);
+  const paymentSuccessNotifier = new AdminPaymentSuccessNotifier(prisma);
+  const paymentSuccessConsumer = new AdminPaymentSuccessConsumer(prisma);
+  paymentSuccessConsumer.start();
 
   const createPayosPaymentLinkUseCase = new CreatePayosPaymentLinkUseCase(
     paymentRepository,
     shippingInfoService,
   );
-  const handlePayosReturnUseCase = new HandlePayosReturnUseCase(paymentRepository);
-  const handlePayosWebhookUseCase = new HandlePayosWebhookUseCase(paymentRepository);
+  const handlePayosReturnUseCase = new HandlePayosReturnUseCase(
+    paymentRepository,
+    paymentSuccessNotifier,
+  );
+  const handlePayosWebhookUseCase = new HandlePayosWebhookUseCase(
+    paymentRepository,
+    paymentSuccessNotifier,
+  );
   const getPaymentStatusUseCase = new GetPaymentStatusUseCase(paymentRepository);
 
   const controller = new PaymentController(

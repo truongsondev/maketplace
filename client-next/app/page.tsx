@@ -232,7 +232,7 @@ export default function Home() {
     queryKey: ["category-showcases", { categoryLimit: 2, productLimit: 4 }],
     queryFn: () =>
       productService.getCategoryShowcases({
-        categoryLimit: 2,
+        categoryLimit: 4,
         productLimit: 4,
       }),
     staleTime: 1000 * 60 * 5,

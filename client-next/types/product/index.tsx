@@ -155,8 +155,52 @@ export interface ProductDetail {
   variants: ProductVariant[];
   categories: ProductCategory[];
   tags: ProductTag[];
+  productAttributes: Array<{
+    code: string;
+    name: string;
+    dataType: string;
+    value: unknown;
+    displayValue: string | string[] | null;
+  }>;
   reviews: ProductReviews;
   reviewItems: ProductReviewItem[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface HomeTeamCard {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  collectionSlug: string;
+  query: string;
+  usageOccasion?: string;
+  scope?: "all";
+}
+
+export interface HomeOutfitHighlight {
+  id: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  imageUrl: string;
+  ctaLabel: string;
+  collectionSlug: string;
+  query: string;
+  usageOccasion?: string;
+}
+
+export interface HomeOutfitGalleryItem {
+  id: string;
+  imageUrl: string;
+  collectionSlug: string;
+  query: string;
+  usageOccasion?: string;
+}
+
+export interface HomeTeamContentResponse {
+  teamCards: HomeTeamCard[];
+  highlights: HomeOutfitHighlight[];
+  gallery: HomeOutfitGalleryItem[];
 }

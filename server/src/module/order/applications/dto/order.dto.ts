@@ -56,6 +56,7 @@ export interface MyOrderDto {
   id: string;
   createdAt: Date;
   status: OrderStatus;
+  canceledReason: string | null;
   returnStatus: ReturnFlowStatus | null;
   totalPrice: number;
   orderCode: string | null;

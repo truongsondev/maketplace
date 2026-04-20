@@ -1,10 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, X } from "lucide-react";
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
 import { ProductCard } from "@/components/page/product-card";
@@ -47,15 +53,31 @@ function normalizeProductImageUrl(rawUrl: string | null) {
 export default function CategoryCollectionPage() {
   const [isDark, setIsDark] = useState(false);
   const params = useParams<{ slug: string }>();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const slug = Array.isArray(params?.slug)
     ? params.slug[0]
     : (params?.slug ?? "");
+  const campaignQuery = searchParams.get("q")?.trim() ?? "";
+  const campaignScope = searchParams.get("scope")?.trim() ?? "";
+  const selectedColor = searchParams.get("cl")?.trim() ?? "";
+  const selectedUsageOccasion = searchParams.get("uo")?.trim() ?? "";
+  const selectedPriceRange = searchParams.get("p")?.trim() ?? "";
+  const selectedSort = searchParams.get("sort")?.trim() || "createdAt:desc";
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  const isAllScopeCampaign = campaignScope === "all";
+  const categoryFilter = isAllScopeCampaign ? undefined : slug;
 
   const { data: categories = [] } = useCategories(true);
   const { data: productsData, isLoading } = useProducts({
-    c: slug,
-    sort: "createdAt:desc",
+    c: categoryFilter,
+    q: campaignQuery || undefined,
+    cl: selectedColor || undefined,
+    uo: selectedUsageOccasion || undefined,
+    p: selectedPriceRange || undefined,
+    sort: selectedSort,
     page: 1,
     limit: 20,
   });
@@ -73,30 +95,109 @@ export default function CategoryCollectionPage() {
     [categories, slug],
   );
 
+  const normalizedCampaignQuery = campaignQuery.replace(/\s+/g, " ").trim();
+  const activeFiltersCount = [
+    selectedColor,
+    selectedUsageOccasion,
+    selectedPriceRange,
+  ].filter(Boolean).length;
+
+  const priceOptions = [
+    { value: "", label: "Mọi mức giá" },
+    { value: "0-500000", label: "Dưới 500.000đ" },
+    { value: "500000-1000000", label: "500.000đ - 1.000.000đ" },
+    { value: "1000000-3000000", label: "1.000.000đ - 3.000.000đ" },
+    { value: "3000000-", label: "Trên 3.000.000đ" },
+  ];
+
+  const filterSelectClassName =
+    "rounded-sm border border-transparent bg-transparent px-2 py-1.5 text-sm text-neutral-700 transition-all duration-200 hover:border-neutral-300 hover:bg-white focus:border-neutral-400 focus:bg-white focus:outline-none";
+
+  const updateSearchParams = (
+    nextParams: Record<string, string | undefined>,
+  ) => {
+    const merged = new URLSearchParams(searchParams.toString());
+
+    Object.entries(nextParams).forEach(([key, value]) => {
+      if (!value) {
+        merged.delete(key);
+      } else {
+        merged.set(key, value);
+      }
+    });
+
+    const query = merged.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  };
+
+  const handleCollectionChange = (nextSlug: string) => {
+    if (!nextSlug || nextSlug === slug) return;
+
+    const merged = new URLSearchParams(searchParams.toString());
+    merged.delete("s");
+    merged.delete("cl");
+    merged.delete("p");
+    merged.delete("scope");
+
+    const query = merged.toString();
+    router.push(
+      query ? `/collection/${nextSlug}?${query}` : `/collection/${nextSlug}`,
+    );
+  };
+
+  const headingTitle =
+    !isAllScopeCampaign && selectedCategory?.name
+      ? `${selectedCategory.name}: Bộ Sưu Tập Dành Cho Bạn`
+      : normalizedCampaignQuery
+        ? "Gợi Ý Theo Phong Cách"
+        : "Trang phục: Thời Trang Thông Minh, Tiện Nghi Vị Nhân Sinh";
+
+  const headingDescription = normalizedCampaignQuery
+    ? `Các sản phẩm phù hợp với gu \"${normalizedCampaignQuery}\".`
+    : "Khám phá các thiết kế mới, dễ phối và phù hợp cho nhiều lịch trình.";
+
   const lookbookCards = useMemo(() => {
-    const selected = selectedCategory
-      ? {
-          id: selectedCategory.id,
-          name: selectedCategory.name,
-          imageUrl: normalizeProductImageUrl(selectedCategory.imageUrl),
-        }
-      : null;
+    if (isAllScopeCampaign || !selectedCategory) {
+      if (!normalizedCampaignQuery) {
+        return categories.slice(0, 1).map((item) => ({
+          id: item.id,
+          name: item.name,
+          imageUrl: normalizeProductImageUrl(item.imageUrl),
+        }));
+      }
 
-    const others = categories
-      .filter((item) => item.slug !== slug)
-      .slice(0, 1)
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        imageUrl: normalizeProductImageUrl(item.imageUrl),
-      }));
+      return [
+        {
+          id: `campaign-${slug}`,
+          name: `Gu: ${normalizedCampaignQuery}`,
+          imageUrl: normalizeProductImageUrl(
+            productsData?.products?.[0]?.imageUrl ?? null,
+          ),
+        },
+      ];
+    }
 
-    return [selected, ...others].filter(Boolean) as Array<{
+    const selected = {
+      id: selectedCategory.id,
+      name: selectedCategory.name,
+      imageUrl: normalizeProductImageUrl(selectedCategory.imageUrl),
+    };
+
+    return [selected].filter(Boolean) as Array<{
       id: string;
       name: string;
       imageUrl: string;
     }>;
-  }, [categories, selectedCategory, slug]);
+  }, [
+    categories,
+    isAllScopeCampaign,
+    normalizedCampaignQuery,
+    productsData?.products,
+    selectedCategory,
+    slug,
+  ]);
 
   const cartCount = cartSummary?.totalItems ?? 0;
 
@@ -119,9 +220,26 @@ export default function CategoryCollectionPage() {
       <main className="flex-1 bg-[#f5f5f5] px-4 pb-16 pt-10 md:px-8 lg:px-10">
         <div className="mx-auto w-full max-w-330">
           <h1 className="max-w-4xl text-3xl font-semibold leading-tight md:text-5xl">
-            {selectedCategory?.name ?? "Trang phục"}: Thời Trang Thông Minh,
-            Tiện Nghi Vị Nhân Sinh
+            {headingTitle}
           </h1>
+          <p className="mt-3 max-w-3xl text-sm text-neutral-600 md:text-base">
+            {headingDescription}
+          </p>
+
+          {normalizedCampaignQuery ? (
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <p className="inline-flex rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-700">
+                Gu gợi ý: {normalizedCampaignQuery}
+              </p>
+              <Link
+                href={`/collection/${slug}`}
+                className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-700 transition-colors hover:bg-neutral-100"
+              >
+                <X className="size-3.5" />
+                Bỏ lọc gu
+              </Link>
+            </div>
+          ) : null}
 
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:max-w-3xl">
             {lookbookCards.map((card) => (
@@ -129,7 +247,7 @@ export default function CategoryCollectionPage() {
                 key={card.id}
                 className="group overflow-hidden rounded-sm bg-white shadow-sm"
               >
-                <div className="relative aspect-[4/3]">
+                <div className="relative aspect-4/3">
                   <Image
                     src={card.imageUrl}
                     alt={card.name}
@@ -151,27 +269,91 @@ export default function CategoryCollectionPage() {
           </div>
 
           <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-4 border-y border-neutral-200 py-4 text-sm text-neutral-700">
-            {[
-              "Bộ lọc",
-              "Kiểu sản phẩm",
-              "Bộ sưu tập",
-              "Màu sắc",
-              "Phom dáng",
-            ].map((filter) => (
-              <button
-                key={filter}
-                className="inline-flex items-center gap-1 hover:text-black"
+            <button
+              onClick={() =>
+                updateSearchParams({
+                  cl: undefined,
+                  uo: undefined,
+                  p: undefined,
+                })
+              }
+              className="inline-flex items-center gap-1 rounded-sm border border-transparent px-2 py-1.5 font-medium transition-all duration-200 hover:border-neutral-300 hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:text-neutral-400"
+              disabled={activeFiltersCount === 0}
+            >
+              Bộ lọc
+              {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ""}
+              <X className="size-3.5" />
+            </button>
+
+            <label className="inline-flex items-center gap-2 rounded-sm px-1 py-1 transition-colors duration-200 hover:bg-neutral-100/80">
+              <span>Kiểu sản phẩm</span>
+              <select
+                value={selectedPriceRange}
+                onChange={(event) =>
+                  updateSearchParams({ p: event.target.value || undefined })
+                }
+                className={filterSelectClassName}
               >
-                {filter}
-                <ChevronDown className="size-4" />
-              </button>
-            ))}
+                {priceOptions.map((option) => (
+                  <option
+                    key={option.value || "all-price"}
+                    value={option.value}
+                  >
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="inline-flex items-center gap-2 rounded-sm px-1 py-1 transition-colors duration-200 hover:bg-neutral-100/80">
+              <span>Bộ sưu tập</span>
+              <select
+                value={slug}
+                onChange={(event) => handleCollectionChange(event.target.value)}
+                className={filterSelectClassName}
+              >
+                {categories.map((category) => (
+                  <option key={category.id} value={category.slug}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="inline-flex items-center gap-2 rounded-sm px-1 py-1 transition-colors duration-200 hover:bg-neutral-100/80">
+              <span>Màu sắc</span>
+              <select
+                value={selectedColor}
+                onChange={(event) =>
+                  updateSearchParams({ cl: event.target.value || undefined })
+                }
+                className={filterSelectClassName}
+              >
+                <option value="">Tất cả</option>
+                {(productsData?.aggregations?.colors ?? []).map((color) => (
+                  <option key={color.value} value={color.label}>
+                    {color.label} ({color.count})
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="ml-auto inline-flex items-center gap-3">
               <span className="text-neutral-500">Sắp xếp theo:</span>
-              <span className="inline-flex items-center gap-1 font-medium">
-                Ngày (từ mới đến cũ)
-                <ChevronDown className="size-4" />
-              </span>
+              <label className="inline-flex items-center gap-1 rounded-sm px-1 py-1 font-medium transition-colors duration-200 hover:bg-neutral-100/80">
+                <select
+                  value={selectedSort}
+                  onChange={(event) =>
+                    updateSearchParams({
+                      sort: event.target.value || "createdAt:desc",
+                    })
+                  }
+                  className={filterSelectClassName}
+                >
+                  <option value="createdAt:desc">Ngày (từ mới đến cũ)</option>
+                  <option value="createdAt:asc">Ngày (từ cũ đến mới)</option>
+                </select>
+                <ChevronDown className="size-4 text-neutral-500" />
+              </label>
               <span className="text-neutral-500">
                 {productsData?.pagination?.total ?? 0} sản phẩm
               </span>
@@ -184,11 +366,29 @@ export default function CategoryCollectionPage() {
               Đang tải sản phẩm theo danh mục...
             </div>
           ) : (
-            <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-              {(productsData?.products ?? []).map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
+            <>
+              {(productsData?.products ?? []).length === 0 ? (
+                <div className="mt-8 rounded-sm border border-neutral-200 bg-white p-8 text-center">
+                  <p className="text-base font-semibold text-neutral-800">
+                    Chưa tìm thấy sản phẩm phù hợp với bộ lọc hiện tại.
+                  </p>
+                  <button
+                    onClick={() =>
+                      updateSearchParams({ cl: undefined, p: undefined })
+                    }
+                    className="mt-4 inline-flex items-center rounded-sm border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+                  >
+                    Xóa bộ lọc và xem lại
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+                  {(productsData?.products ?? []).map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>

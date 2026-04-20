@@ -51,6 +51,29 @@ function safeAttributesToText(attributes: unknown): string {
   return entries.map(([k, v]) => `${k}: ${String(v)}`).join(' • ');
 }
 
+function mapCancelReasonCodeToText(code: CancelReason | null | undefined): string | null {
+  if (!code) return null;
+  if (code === 'NO_LONGER_NEEDED') return 'Khong con nhu cau mua';
+  if (code === 'BUY_OTHER_ITEM') return 'Mua san pham khac';
+  if (code === 'FOUND_CHEAPER') return 'Tim duoc noi ban re hon';
+  if (code === 'OTHER') return 'Ly do khac';
+  return null;
+}
+
+function extractReasonFromAuditNewData(payload: Prisma.JsonValue | null): string | null {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return null;
+  }
+
+  const reason = (payload as Record<string, unknown>).reason;
+  if (typeof reason !== 'string') {
+    return null;
+  }
+
+  const trimmed = reason.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 export class PrismaOrderRepository implements IOrderRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -175,6 +198,36 @@ export class PrismaOrderRepository implements IOrderRepository {
       }),
     ]);
 
+    const cancelledOrderIds = orders.filter((o) => o.status === 'CANCELLED').map((o) => o.id);
+
+    const adminCancelLogs =
+      cancelledOrderIds.length > 0
+        ? await this.prisma.auditLog.findMany({
+            where: {
+              action: 'ADMIN_CANCEL_ORDER',
+              targetId: { in: cancelledOrderIds },
+              OR: [{ targetType: 'ORDER' }, { targetType: 'Order' }],
+            },
+            orderBy: { createdAt: 'desc' },
+            select: {
+              targetId: true,
+              newData: true,
+            },
+          })
+        : [];
+
+    const cancelledReasonByOrderId = new Map<string, string>();
+    for (const log of adminCancelLogs) {
+      if (!log.targetId || cancelledReasonByOrderId.has(log.targetId)) {
+        continue;
+      }
+      const reason = extractReasonFromAuditNewData(log.newData);
+      if (!reason) {
+        continue;
+      }
+      cancelledReasonByOrderId.set(log.targetId, reason);
+    }
+
     const items = orders.map((o) => {
       const latestRefund = o.refundTransactions[0];
       const shouldShowRefund =
@@ -183,6 +236,13 @@ export class PrismaOrderRepository implements IOrderRepository {
           latestRefund?.type === 'RETURN_REFUND');
 
       return {
+        canceledReason:
+          o.status === 'CANCELLED'
+            ? o.cancelRequest?.reasonText?.trim() ||
+              mapCancelReasonCodeToText(o.cancelRequest?.reasonCode) ||
+              cancelledReasonByOrderId.get(o.id) ||
+              null
+            : null,
         cancelRequest: o.cancelRequest
           ? {
               id: o.cancelRequest.id,
@@ -357,6 +417,21 @@ export class PrismaOrderRepository implements IOrderRepository {
       throw new BadRequestError('Order not found');
     }
 
+    const adminCancelLog =
+      order.status === 'CANCELLED'
+        ? await this.prisma.auditLog.findFirst({
+            where: {
+              action: 'ADMIN_CANCEL_ORDER',
+              targetId: order.id,
+              OR: [{ targetType: 'ORDER' }, { targetType: 'Order' }],
+            },
+            orderBy: { createdAt: 'desc' },
+            select: { newData: true },
+          })
+        : null;
+
+    const cancelledReasonFromAudit = extractReasonFromAuditNewData(adminCancelLog?.newData ?? null);
+
     const latestRefund = order.refundTransactions[0];
     const shouldShowRefund =
       Boolean(latestRefund) &&
@@ -364,6 +439,13 @@ export class PrismaOrderRepository implements IOrderRepository {
         latestRefund?.type === 'RETURN_REFUND');
 
     return {
+      canceledReason:
+        order.status === 'CANCELLED'
+          ? order.cancelRequest?.reasonText?.trim() ||
+            mapCancelReasonCodeToText(order.cancelRequest?.reasonCode) ||
+            cancelledReasonFromAudit ||
+            null
+          : null,
       cancelRequest: order.cancelRequest
         ? {
             id: order.cancelRequest.id,

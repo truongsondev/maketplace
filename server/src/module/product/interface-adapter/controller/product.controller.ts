@@ -19,6 +19,8 @@ import { FavoriteProductListResult } from '../../applications/dto/result/favorit
 import { IGetFavoriteProductsUseCase } from '../../applications/ports/input/get-favorite-products.usecase';
 import { IGetRelatedProductsFromOrdersUseCase } from '../../applications/ports/input/get-related-products-from-orders.usecase';
 import { RelatedProductsFromOrdersResult } from '../../applications/dto/result/related-products-from-orders.result';
+import { IGetHomeTeamContentUseCase } from '../../applications/ports/input/get-home-team-content.usecase';
+import { HomeTeamContentResult } from '../../applications/dto/result/home-team-content.result';
 
 export class ProductController {
   constructor(
@@ -30,6 +32,7 @@ export class ProductController {
     private readonly removeProductFavoriteUseCase: IRemoveProductFavoriteUseCase,
     private readonly getFavoriteProductsUseCase: IGetFavoriteProductsUseCase,
     private readonly getRelatedProductsFromOrdersUseCase: IGetRelatedProductsFromOrdersUseCase,
+    private readonly getHomeTeamContentUseCase: IGetHomeTeamContentUseCase,
   ) {}
 
   async getCategoryStats(query: GetCategoryStatsQuery): Promise<CategoryStatsResult[]> {
@@ -71,5 +74,9 @@ export class ProductController {
     limit?: number,
   ): Promise<RelatedProductsFromOrdersResult> {
     return this.getRelatedProductsFromOrdersUseCase.execute(userId, { limit });
+  }
+
+  async getHomeTeamContent(): Promise<HomeTeamContentResult> {
+    return this.getHomeTeamContentUseCase.execute();
   }
 }

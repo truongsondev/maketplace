@@ -8,6 +8,7 @@ type UseProductsParams = {
   c?: string;
   s?: string;
   cl?: string;
+  uo?: string;
   p?: string;
   q?: string;
 };

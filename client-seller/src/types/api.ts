@@ -50,6 +50,21 @@ export interface ProductTypeSchema {
     unit: string | null;
     axisOrder: number | null;
   }>;
+  productAttributes?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    dataType: string;
+    unit: string | null;
+    isRequired: boolean;
+    isFilterable: boolean;
+    options: Array<{
+      id: string;
+      value: string;
+      label: string;
+      sortOrder: number;
+    }>;
+  }>;
 }
 
 export interface ProductTypeSchemaResponse {
@@ -62,12 +77,17 @@ export interface ProductTypeSchemaResponse {
 // Server API Interfaces
 export interface CreateProductCommand {
   name: string;
-  description?: string;
   basePrice: number;
   variants: CreateProductVariantDto[];
   images: CreateProductImageDto[]; // Ảnh chính của product
   categoryIds?: string[];
   tagIds?: string[];
+  productAttributes?: ProductAttributeInputDto[];
+}
+
+export interface ProductAttributeInputDto {
+  code: string;
+  value: unknown;
 }
 
 export interface CreateProductVariantDto {
@@ -152,7 +172,6 @@ export interface ProductListItem {
 export interface ProductDetail {
   id: string;
   name: string;
-  description: string | null;
   basePrice: number;
   status: "active" | "inactive" | "deleted";
   createdAt: string;
@@ -161,6 +180,13 @@ export interface ProductDetail {
   images: ProductImage[];
   categories: Category[];
   tags: Tag[];
+  productAttributes: Array<{
+    code: string;
+    name: string;
+    dataType: string;
+    value: unknown;
+    displayValue: string | string[] | null;
+  }>;
   stats: {
     totalVariants: number;
     totalStock: number;
@@ -284,13 +310,13 @@ export interface AdminLogsResponse {
 
 export interface UpdateProductCommand {
   name?: string;
-  description?: string;
   basePrice?: number;
   status?: "active" | "inactive";
   categoryIds?: string[];
   tagIds?: string[];
   variants?: UpdateProductVariantDto[];
   images?: UpdateProductImageDto[];
+  productAttributes?: ProductAttributeInputDto[];
 }
 
 export interface UpdateProductVariantDto {

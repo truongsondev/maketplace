@@ -277,6 +277,12 @@ export function OrderDetailClient({
                 {order ? statusText(order.status) : ""}
               </span>
             </div>
+
+            {order?.status === "CANCELLED" && order.canceledReason ? (
+              <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
+                Lý do hủy: {order.canceledReason}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

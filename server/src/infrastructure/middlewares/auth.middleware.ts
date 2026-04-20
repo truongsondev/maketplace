@@ -53,7 +53,18 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       return next();
     }
 
-    const authHeader = req.headers.authorization;
+    const isAdminNotificationSse =
+      req.method === 'GET' &&
+      (requestPath.startsWith('/api/admin/notifications/stream') ||
+        req.path.startsWith('/api/admin/notifications/stream'));
+
+    const queryToken =
+      isAdminNotificationSse && typeof req.query.token === 'string' && req.query.token.trim()
+        ? req.query.token.trim()
+        : null;
+
+    const authHeader =
+      req.headers.authorization || (queryToken ? `Bearer ${queryToken}` : undefined);
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res

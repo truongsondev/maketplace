@@ -1,21 +1,42 @@
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { createLogger } from '../../../../shared/util/logger';
 import { PayosReturnResult } from '../dto';
-import { IPaymentRepository } from '../ports/output';
+import { IPaymentRepository, IPaymentSuccessNotifier } from '../ports/output';
 import { getPayosClient } from '../../infrastructure/payos/payos.client';
 
 const logger = createLogger('HandlePayosReturnUseCase');
 
+type PayosPaymentLink = {
+  amount: number;
+  amountPaid: number;
+  amountRemaining: number;
+  id: string;
+  status: string;
+  transactionDateTime?: string;
+};
+
+type GetPaymentLinkFn = (orderCode: number) => Promise<PayosPaymentLink>;
+
 export class HandlePayosReturnUseCase {
-  constructor(private readonly paymentRepository: IPaymentRepository) {}
+  private readonly getPaymentLink: GetPaymentLinkFn;
+
+  constructor(
+    private readonly paymentRepository: IPaymentRepository,
+    private readonly paymentSuccessNotifier: IPaymentSuccessNotifier,
+    getPaymentLink?: GetPaymentLinkFn,
+  ) {
+    this.getPaymentLink =
+      getPaymentLink ??
+      (async (orderCode: number) =>
+        (await getPayosClient().paymentRequests.get(orderCode)) as PayosPaymentLink);
+  }
 
   async execute(orderCode: string): Promise<PayosReturnResult> {
     if (!/^\d+$/.test(orderCode)) {
       throw new BadRequestError('orderCode must be numeric');
     }
 
-    const payos = getPayosClient();
-    const paymentLink = await payos.paymentRequests.get(Number(orderCode));
+    const paymentLink = await this.getPaymentLink(Number(orderCode));
     const payment = await this.paymentRepository.findByOrderCode(orderCode);
 
     // Safety net: reconcile DB if webhook hasn't updated yet.
@@ -60,6 +81,25 @@ export class HandlePayosReturnUseCase {
           dbStatus: payment.status,
           updated,
         });
+
+        if (updated && isPaid) {
+          const refreshed = await this.paymentRepository.findByOrderCode(orderCode);
+          if (refreshed && refreshed.status === 'PAID') {
+            try {
+              await this.paymentSuccessNotifier.notify({
+                orderId: refreshed.orderId,
+                orderCode: refreshed.orderCode,
+                amount: refreshed.amount,
+                paidAt: refreshed.paidAt ?? new Date(),
+              });
+            } catch (error) {
+              logger.warn('Payment success notification failed in return reconcile', {
+                orderCode,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+        }
       }
     }
 

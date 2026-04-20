@@ -211,21 +211,6 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-/// OTP cho xác minh email (đăng ký/đăng nhập)
-model Otp {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  email        String   @unique @db.VarChar(255)
-  otp          String   @db.VarChar(20)
-  passwordHash String?  @map("password_hash") @db.VarChar(255)
-  expiresAt    DateTime @map("expires_at")
-  attempts     Int      @default(0)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("otps")
-}
-
 /// Email verification tokens for registration flow
 model EmailVerificationToken {
   id        String   @id @default(uuid()) @db.VarChar(36)
@@ -371,7 +356,6 @@ model Product {
   wishlist         Wishlist[]
   reviews          Review[]
   priceHistory     ProductPriceHistory[]
-  campaignProducts CampaignProduct[]
 
   attributeValues  ProductAttributeValue[]
 
@@ -554,7 +538,6 @@ model AttributeOption {
   productValues ProductAttributeValue[]
   productMultiSelectJoins ProductAttributeValueOption[]
   variantValues VariantAttributeValue[]
-  variantMultiSelectJoins VariantAttributeValueOption[]
 
   @@unique([attributeId, value])
   @@index([attributeId, sortOrder])
@@ -648,24 +631,10 @@ model VariantAttributeValue {
   attribute AttributeDefinition  @relation(fields: [attributeId], references: [id], onDelete: Cascade)
   option    AttributeOption?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
 
-  multiSelectOptions VariantAttributeValueOption[]
-
   @@unique([variantId, attributeId])
   @@index([attributeId, optionId])
   @@index([deletedAt])
   @@map("variant_attribute_values")
-}
-
-model VariantAttributeValueOption {
-  variantAttributeValueId String @map("variant_attribute_value_id") @db.VarChar(36)
-  optionId                String @map("option_id") @db.VarChar(36)
-
-  value  VariantAttributeValue @relation(fields: [variantAttributeValueId], references: [id], onDelete: Cascade)
-  option AttributeOption       @relation(fields: [optionId], references: [id], onDelete: Cascade)
-
-  @@id([variantAttributeValueId, optionId])
-  @@index([optionId])
-  @@map("variant_attribute_value_options")
 }
 
 /// Tag - nhãn tự do gắn vào sản phẩm
@@ -754,7 +723,6 @@ model Order {
   refundTransactions RefundTransaction[]
   cancelRequest OrderCancelRequest?
   statusHistory OrderStatusHistory[]
-  invoice       Invoice?
   discount      Discount?            @relation(fields: [discountId], references: [id])
   discountUsage DiscountUsage?
 
@@ -882,7 +850,6 @@ model Discount {
 
   // Relations
   usages    DiscountUsage[]
-  campaigns CampaignDiscount[]
   orders    Order[]
 
   @@index([isActive, startAt, endAt])
@@ -921,53 +888,6 @@ model DiscountUsage {
   @@index([discountId])
   @@index([userId])
   @@map("discount_usages")
-}
-
-/// Chiến dịch khuyến mãi - nhóm sản phẩm giảm giá theo thời gian
-model Campaign {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  name        String   @db.VarChar(255)
-  description String?  @db.Text
-  startAt     DateTime @map("start_at")
-  endAt       DateTime @map("end_at")
-  isActive    Boolean  @default(true) @map("is_active")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  products  CampaignProduct[]
-  discounts CampaignDiscount[]
-
-  @@map("campaigns")
-}
-
-/// Sản phẩm tham gia chiến dịch khuyến mãi
-model CampaignProduct {
-  campaignId      String  @map("campaign_id") @db.VarChar(36)
-  productId       String  @map("product_id") @db.VarChar(36)
-  /// % giảm riêng cho sản phẩm trong chiến dịch (0.00 - 100.00)
-  discountPercent Decimal @map("discount_percent") @db.Decimal(5, 2)
-
-  // Relations
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@id([campaignId, productId])
-  @@map("campaign_products")
-}
-
-/// Mã giảm giá áp dụng trong chiến dịch
-model CampaignDiscount {
-  campaignId String @map("campaign_id") @db.VarChar(36)
-  discountId String @map("discount_id") @db.VarChar(36)
-
-  // Relations
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
-
-  @@id([campaignId, discountId])
-  @@map("campaign_discounts")
 }
 
 // ============================================================================
@@ -1135,25 +1055,6 @@ model ReviewImage {
 
   @@index([reviewId])
   @@map("review_images")
-}
-
-// ============================================================================
-// INVOICES
-// ============================================================================
-
-/// Hóa đơn - 1:1 với đơn hàng
-model Invoice {
-  id            String  @id @default(uuid()) @db.VarChar(36)
-  orderId       String  @unique @map("order_id") @db.VarChar(36)
-  invoiceNumber String  @unique @map("invoice_number") @db.VarChar(50)
-  totalAmount   Decimal @map("total_amount") @db.Decimal(10, 2)
-
-  issuedAt DateTime @default(now()) @map("issued_at")
-
-  // Relations
-  order Order @relation(fields: [orderId], references: [id])
-
-  @@map("invoices")
 }
 
 // ============================================================================

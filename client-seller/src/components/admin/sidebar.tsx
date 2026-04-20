@@ -16,7 +16,7 @@ export function Sidebar() {
   const location = useLocation();
 
   const menuItems = [
-    { icon: LayoutDashboard, label: "Bảng điều khiển", to: "/dashboard" },
+    { icon: LayoutDashboard, label: "Tổng quan", to: "/dashboard" },
     { icon: Package, label: "Sản phẩm", to: "/products" },
     { icon: ShoppingCart, label: "Đơn hàng", to: "/orders" },
     { icon: Users, label: "Người dùng", to: "/users" },

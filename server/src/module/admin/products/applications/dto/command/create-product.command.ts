@@ -1,11 +1,16 @@
 export interface CreateProductCommand {
   name: string;
-  description?: string;
   basePrice: number;
   variants: CreateProductVariantDto[];
   categoryIds?: string[];
   tagIds?: string[];
   images: CreateProductImageDto[];
+  productAttributes?: ProductAttributeInputDto[];
+}
+
+export interface ProductAttributeInputDto {
+  code: string;
+  value: unknown;
 }
 
 export interface CreateProductVariantDto {

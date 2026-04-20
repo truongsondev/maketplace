@@ -5,15 +5,32 @@ import {
 } from '../../../entities/product/product.entity';
 import { GetProductsListCommand } from '../../dto';
 
+export interface ProductAttributeInput {
+  code: string;
+  value: unknown;
+}
+
+export interface ProductAttributeDetail {
+  code: string;
+  name: string;
+  dataType: string;
+  value: unknown;
+  displayValue: string | string[] | null;
+}
+
 export interface IProductRepository {
   save(product: Product): Promise<Product>;
 
   saveWithDetails(
-    product: Product,
+    product: {
+      name: string;
+      basePrice: number;
+    },
     variants: ProductVariant[],
     categoryIds: string[],
     tagIds: string[],
     images: ProductImageProps[],
+    productAttributes?: ProductAttributeInput[],
   ): Promise<Product>;
 
   findById(id: string): Promise<Product | null>;
@@ -24,6 +41,7 @@ export interface IProductRepository {
     images: any[];
     categories: any[];
     tags: any[];
+    productAttributes: ProductAttributeDetail[];
   } | null>;
 
   findManyWithFilters(command: GetProductsListCommand): Promise<{
@@ -40,7 +58,6 @@ export interface IProductRepository {
     productId: string,
     productData: {
       name?: string;
-      description?: string;
       basePrice?: number;
       isDeleted?: boolean;
     },
@@ -48,6 +65,7 @@ export interface IProductRepository {
     categoryIds?: string[],
     tagIds?: string[],
     images?: ProductImageProps[],
+    productAttributes?: ProductAttributeInput[],
   ): Promise<Product>;
 
   softDelete(productId: string): Promise<void>;

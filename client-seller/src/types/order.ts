@@ -70,6 +70,16 @@ export interface AdminOrderListItem {
     email: string | null;
     phone: string | null;
   };
+  shipping?: {
+    addressId: string | null;
+    recipient: string;
+    phone: string | null;
+    addressLine: string | null;
+    ward: string | null;
+    district: string | null;
+    city: string | null;
+    source: "LATEST_USER_ADDRESS" | "USER_PROFILE_FALLBACK";
+  };
   payment: {
     method: string | null;
     status: string | null;
@@ -142,6 +152,27 @@ export interface AdminOrderStatusBreakdownResponse {
 export interface AdminOrderTimeseriesResponse {
   success: boolean;
   data: AdminOrderTimeseries;
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrderConfirmCheckData {
+  orderId: string;
+  currentStatus: OrderStatus;
+  canConfirm: boolean;
+  issues: string[];
+  blockingItems: Array<{
+    orderItemId: string;
+    productId: string;
+    productName: string;
+    variantId: string | null;
+    reasons: string[];
+  }>;
+}
+
+export interface AdminOrderConfirmCheckResponse {
+  success: boolean;
+  data: AdminOrderConfirmCheckData;
   message: string;
   timestamp: string;
 }

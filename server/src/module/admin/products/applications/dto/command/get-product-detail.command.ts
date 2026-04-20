@@ -5,7 +5,6 @@ export interface GetProductDetailCommand {
 export interface GetProductDetailResult {
   id: string;
   name: string;
-  description?: string;
   basePrice: number;
   status: string;
   createdAt: Date;
@@ -14,7 +13,16 @@ export interface GetProductDetailResult {
   images: ProductImageDetailDto[];
   categories: CategoryDetailDto[];
   tags: TagDetailDto[];
+  productAttributes: ProductAttributeDetailDto[];
   stats: ProductStatsDto;
+}
+
+export interface ProductAttributeDetailDto {
+  code: string;
+  name: string;
+  dataType: string;
+  value: unknown;
+  displayValue: string | string[] | null;
 }
 
 export interface ProductVariantDetailDto {

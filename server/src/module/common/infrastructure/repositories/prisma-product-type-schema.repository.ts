@@ -55,7 +55,7 @@ export class PrismaProductTypeSchemaRepository implements IProductTypeSchemaRepo
       }));
 
     if (!productType) {
-      return { productType: null, variantAxisAttributes: [] };
+      return { productType: null, variantAxisAttributes: [], productAttributes: [] };
     }
 
     const ptas = await this.prisma.productTypeAttribute.findMany({
@@ -74,20 +74,18 @@ export class PrismaProductTypeSchemaRepository implements IProductTypeSchemaRepo
     );
 
     const attributeIds = ptas.map((p) => p.attributeId);
-    if (attributeIds.length === 0) {
-      return { productType, variantAxisAttributes: [] };
-    }
-
-    const defs = await this.prisma.attributeDefinition.findMany({
-      where: { id: { in: attributeIds } },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        dataType: true,
-        unit: true,
-      },
-    });
+    const defs = attributeIds.length
+      ? await this.prisma.attributeDefinition.findMany({
+          where: { id: { in: attributeIds } },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            dataType: true,
+            unit: true,
+          },
+        })
+      : [];
 
     const axisAttributes: AxisAttributeDto[] = defs.map((d) => ({
       id: d.id,
@@ -105,9 +103,75 @@ export class PrismaProductTypeSchemaRepository implements IProductTypeSchemaRepo
       return a.code.localeCompare(b.code);
     });
 
+    const productAttributesMap = await this.prisma.productTypeAttribute.findMany({
+      where: {
+        productTypeId: productType.id,
+        isVariantAxis: false,
+      },
+      select: {
+        attributeId: true,
+        isRequired: true,
+        isFilterable: true,
+      },
+    });
+
+    const productAttributeIds = productAttributesMap.map((row) => row.attributeId);
+
+    const productAttributeDefs = productAttributeIds.length
+      ? await this.prisma.attributeDefinition.findMany({
+          where: {
+            id: { in: productAttributeIds },
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            dataType: true,
+            unit: true,
+            options: {
+              where: { deletedAt: null },
+              select: {
+                id: true,
+                value: true,
+                label: true,
+                sortOrder: true,
+              },
+              orderBy: [{ sortOrder: 'asc' }, { label: 'asc' }],
+            },
+          },
+        })
+      : [];
+
+    const mapByAttributeId = new Map(
+      productAttributesMap.map((row) => [row.attributeId, row] as const),
+    );
+
+    const productAttributes = productAttributeDefs.map((def) => {
+      const map = mapByAttributeId.get(def.id);
+      return {
+        id: def.id,
+        code: def.code,
+        name: def.name,
+        dataType: String(def.dataType),
+        unit: def.unit,
+        isRequired: Boolean(map?.isRequired),
+        isFilterable: Boolean(map?.isFilterable),
+        options: def.options.map((opt) => ({
+          id: opt.id,
+          value: opt.value,
+          label: opt.label,
+          sortOrder: opt.sortOrder,
+        })),
+      };
+    });
+
+    productAttributes.sort((a, b) => a.name.localeCompare(b.name));
+
     return {
       productType,
       variantAxisAttributes: axisAttributes,
+      productAttributes,
     };
   }
 }

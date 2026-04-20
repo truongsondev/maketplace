@@ -8,6 +8,7 @@ import {
   Activity,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { dashboardService } from "@/services/api";
 
 function formatVnd(amount: number): string {
@@ -62,6 +63,8 @@ function buildSparklinePath(
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+
   const overviewQuery = useQuery({
     queryKey: ["dashboard", "overview"],
     queryFn: dashboardService.getOverview,
@@ -252,42 +255,43 @@ export default function Dashboard() {
                   <h2 className="text-lg font-semibold text-gray-900">
                     Đơn hàng gần đây
                   </h2>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  <button
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    onClick={() => navigate("/orders")}
+                  >
                     Xem tất cả
                   </button>
                 </div>
-                <div className="space-y-4 flex-1 overflow-auto">
-                  {recentOrders.map((order) => {
-                    const statusLabel = mapOrderStatusToLabel(order.status);
-                    return (
-                      <div
-                        key={order.id}
-                        className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 rounded-md px-2 -mx-2 transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {order.orderCode ? `#${order.orderCode}` : order.id}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {order.customerEmail ?? "—"}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-gray-900">
-                            {formatVnd(order.totalPrice)}
-                          </p>
-                          <span
-                            className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                              statusLabel,
-                            )}`}
-                          >
-                            {statusLabel}
-                          </span>
-                        </div>
+                {recentOrders.map((order) => {
+                  const statusLabel = mapOrderStatusToLabel(order.status);
+                  return (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 rounded-md px-2 -mx-2 transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {order.orderCode ? `#${order.orderCode}` : order.id}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {order.customerEmail ?? "—"}
+                        </p>
                       </div>
-                    );
-                  })}
-                </div>
+                      <div className="text-right">
+                        <p className="font-medium text-gray-900">
+                          {formatVnd(order.totalPrice)}
+                        </p>
+                        <span
+                          className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
+                            statusLabel,
+                          )}`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 transition-all duration-200 ease-out hover:shadow-md motion-reduce:transition-none h-full flex flex-col">

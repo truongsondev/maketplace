@@ -53,6 +53,39 @@ function parseSizeValues(rawSize?: string): string[] {
     .filter(Boolean);
 }
 
+function toDisplayLabels(
+  value: string | string[] | null | undefined,
+): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).filter(Boolean);
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()];
+  }
+
+  return [];
+}
+
+function toSingleText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item))
+      .filter(Boolean)
+      .join(", ");
+  }
+  return String(value).trim();
+}
+
+function sanitizeRichTextHtml(raw: string): string {
+  if (!raw) return "";
+
+  return raw
+    .replace(/<(?!\/?(b|strong|br|p|ul|ol|li)\b)[^>]*>/gi, "")
+    .replace(/\s(on\w+|style)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+}
+
 export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
@@ -73,6 +106,77 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     isAuthenticated,
   );
   const relatedProducts = relatedProductsQuery.data?.products ?? [];
+
+  const productAttributeByCode = useMemo(() => {
+    const map = new Map<string, (typeof product.productAttributes)[number]>();
+    (product.productAttributes ?? []).forEach((attr) => {
+      map.set(attr.code, attr);
+    });
+    return map;
+  }, [product.productAttributes]);
+
+  const usageOccasionLabels = useMemo(
+    () =>
+      toDisplayLabels(
+        productAttributeByCode.get("usage_occasions")?.displayValue,
+      ),
+    [productAttributeByCode],
+  );
+
+  const targetAgeLabels = useMemo(
+    () =>
+      toDisplayLabels(
+        productAttributeByCode.get("target_age_group")?.displayValue,
+      ),
+    [productAttributeByCode],
+  );
+
+  const productStory = useMemo(
+    () => toSingleText(productAttributeByCode.get("product_story")?.value),
+    [productAttributeByCode],
+  );
+
+  const productStoryHtml = useMemo(
+    () => sanitizeRichTextHtml(productStory),
+    [productStory],
+  );
+
+  const careInstruction = useMemo(
+    () => toSingleText(productAttributeByCode.get("care_instruction")?.value),
+    [productAttributeByCode],
+  );
+
+  const fitNote = useMemo(
+    () => toSingleText(productAttributeByCode.get("fit_note")?.value),
+    [productAttributeByCode],
+  );
+
+  const sizeGuideImageUrl = useMemo(
+    () =>
+      toSingleText(productAttributeByCode.get("size_guide_image_url")?.value),
+    [productAttributeByCode],
+  );
+
+  const seoTitle = useMemo(
+    () => toSingleText(productAttributeByCode.get("seo_title")?.value),
+    [productAttributeByCode],
+  );
+
+  const seoDescription = useMemo(
+    () => toSingleText(productAttributeByCode.get("seo_description")?.value),
+    [productAttributeByCode],
+  );
+
+  const seoKeywordLabels = useMemo(() => {
+    const raw = toSingleText(productAttributeByCode.get("seo_keywords")?.value);
+    if (!raw) return [];
+
+    return raw
+      .split(/[,;|]/g)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+  }, [productAttributeByCode]);
 
   const isFavorite = favoriteIds.has(product.id);
   const isTogglingFavorite =
@@ -273,7 +377,49 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
 
   const renderTabContent = (tabId: string) => {
     if (tabId === "description") {
-      return <p className="mb-4 whitespace-pre-line">{product.description}</p>;
+      return (
+        <div className="space-y-4">
+          <p className="whitespace-pre-line">{product.description}</p>
+          {productStory ? (
+            <div>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+                Thông tin chi tiết sản phẩm
+              </h4>
+              <div
+                className="mt-2 whitespace-pre-line text-sm text-neutral-700 dark:text-neutral-300 [&_li]:ml-5 [&_li]:list-disc"
+                dangerouslySetInnerHTML={{ __html: productStoryHtml }}
+              />
+            </div>
+          ) : null}
+          {careInstruction ? (
+            <div>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+                Hướng dẫn bảo quản
+              </h4>
+              <p className="mt-2 whitespace-pre-line text-sm text-neutral-700 dark:text-neutral-300">
+                {careInstruction}
+              </p>
+            </div>
+          ) : null}
+          {seoKeywordLabels.length > 0 ? (
+            <div>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+                Từ khóa liên quan
+              </h4>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {seoKeywordLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      );
     }
 
     if (tabId === "shipping") {
@@ -287,6 +433,94 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
             ngày nếu sản phẩm còn nguyên tem mác và chưa qua sử dụng.
           </p>
         </>
+      );
+    }
+
+    if (tabId === "fit") {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+              Phù hợp cho mục đích
+            </h4>
+            {usageOccasionLabels.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {usageOccasionLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-neutral-500">
+                Chưa có thông tin mục đích sử dụng.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+              Độ tuổi phù hợp
+            </h4>
+            {targetAgeLabels.length > 0 ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {targetAgeLabels.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-neutral-500">
+                Chưa có thông tin độ tuổi phù hợp.
+              </p>
+            )}
+          </div>
+
+          {fitNote ? (
+            <div>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+                Ghi chú form dáng
+              </h4>
+              <p className="mt-2 whitespace-pre-line text-sm text-neutral-700 dark:text-neutral-300">
+                {fitNote}
+              </p>
+            </div>
+          ) : null}
+
+          {sizeGuideImageUrl ? (
+            <div>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
+                Hướng dẫn chọn size
+              </h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setImagePreviewSrc(sizeGuideImageUrl);
+                  setIsImagePreviewOpen(true);
+                }}
+                className="mt-3 block w-full max-w-md overflow-hidden rounded-sm border border-neutral-200 transition-colors hover:border-neutral-400 dark:border-neutral-700 dark:hover:border-neutral-500"
+              >
+                <Image
+                  src={sizeGuideImageUrl}
+                  alt="Ảnh hướng dẫn chọn size"
+                  width={900}
+                  height={1200}
+                  className="h-auto w-full object-cover"
+                />
+                <p className="border-t border-neutral-200 px-3 py-2 text-left text-xs font-medium text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+                  Chạm để phóng to ảnh bảng size
+                </p>
+              </button>
+            </div>
+          ) : null}
+        </div>
       );
     }
 
@@ -417,6 +651,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
 
   const detailTabs = [
     { id: "description", label: "Mô tả" },
+    { id: "fit", label: "Phù hợp sử dụng" },
     { id: "shipping", label: "Vận chuyển & Đổi trả" },
     {
       id: "reviews",
@@ -462,16 +697,23 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
 
   const fallbackVariant = product.variants[0];
   const variantSku = (selectedVariant || fallbackVariant)?.sku;
+  const hasSellableVariant = product.variants.length > 0;
   const maxAllowedQuantity = canPurchase ? Math.min(stockAvailable, 10) : 1;
   const safeQuantity = canPurchase ? Math.min(quantity, maxAllowedQuantity) : 1;
   const addToCartDisabled =
     isAddingToCart ||
+    !hasSellableVariant ||
     !canPurchase ||
     !isColorSelected ||
     !isSizeSelected ||
     !selectedVariant?.id;
 
   const handleAddToCart = () => {
+    if (!hasSellableVariant) {
+      toast.warning("Sản phẩm chưa cấu hình phiên bản bán");
+      return;
+    }
+
     if (!isColorSelected) {
       toast.warning("Vui lòng chọn màu sắc");
       return;
@@ -717,6 +959,18 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                 {product.name}
               </h1>
 
+              {seoTitle && seoTitle !== product.name ? (
+                <p className="mb-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                  {seoTitle}
+                </p>
+              ) : null}
+
+              {seoDescription ? (
+                <p className="mb-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+                  {seoDescription}
+                </p>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-4 border-b border-neutral-200 dark:border-neutral-700 pb-3">
                 <div className="flex items-center gap-1 text-sm">
                   <span className="font-semibold text-black dark:text-white">
@@ -762,6 +1016,43 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
               </div>
 
               <div className="mt-4 space-y-4">
+                {(usageOccasionLabels.length > 0 ||
+                  targetAgeLabels.length > 0) && (
+                  <div className="space-y-2 rounded-sm border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-800/60">
+                    {usageOccasionLabels.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                          Mục đích:
+                        </span>
+                        {usageOccasionLabels.map((label) => (
+                          <span
+                            key={label}
+                            className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {targetAgeLabels.length > 0 ? (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="font-semibold text-neutral-700 dark:text-neutral-200">
+                          Độ tuổi:
+                        </span>
+                        {targetAgeLabels.map((label) => (
+                          <span
+                            key={label}
+                            className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                          >
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 <div className="flex items-start gap-4">
                   <span className="w-24 shrink-0 text-sm text-neutral-500">
                     Vận chuyển
@@ -804,19 +1095,33 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     <span className="w-24 shrink-0 text-sm text-neutral-500">
                       Kích cỡ
                     </span>
-                    <div className="flex flex-wrap gap-2">
-                      {sizeOptions.map((option) => (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {sizeOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() =>
+                              !option.disabled && handleSizeChange(option.value)
+                            }
+                            disabled={option.disabled}
+                            className={`min-w-12 px-3 py-2 rounded-sm text-sm border transition-colors ${currentSelectedSize === option.value ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-neutral-300 dark:border-neutral-600 text-neutral-800 dark:text-neutral-100"} ${option.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                          >
+                            {option.value}
+                          </button>
+                        ))}
+                      </div>
+                      {sizeGuideImageUrl ? (
                         <button
-                          key={option.value}
-                          onClick={() =>
-                            !option.disabled && handleSizeChange(option.value)
-                          }
-                          disabled={option.disabled}
-                          className={`min-w-12 px-3 py-2 rounded-sm text-sm border transition-colors ${currentSelectedSize === option.value ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-neutral-300 dark:border-neutral-600 text-neutral-800 dark:text-neutral-100"} ${option.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+                          type="button"
+                          onClick={() => {
+                            setImagePreviewSrc(sizeGuideImageUrl);
+                            setIsImagePreviewOpen(true);
+                          }}
+                          className="text-xs font-semibold text-neutral-700 underline underline-offset-2 hover:text-black dark:text-neutral-300 dark:hover:text-white"
                         >
-                          {option.value}
+                          Xem ảnh hướng dẫn chọn size
                         </button>
-                      ))}
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -859,6 +1164,13 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                   </div>
                 )}
 
+                {!hasSellableVariant ? (
+                  <div className="text-xs rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
+                    Sản phẩm hiện chưa có phiên bản để bán. Vui lòng quay lại
+                    sau.
+                  </div>
+                ) : null}
+
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     onClick={handleAddToCart}
@@ -878,12 +1190,14 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     )}
                   </button>
 
-                  <Link
-                    href="/cart"
-                    className="h-12 px-10 rounded-sm bg-black hover:bg-neutral-800 text-white font-bold transition-colors inline-flex items-center justify-center"
+                  <button
+                    type="button"
+                    disabled={addToCartDisabled}
+                    onClick={handleAddToCart}
+                    className="h-12 px-10 rounded-sm bg-black hover:bg-neutral-800 text-white font-bold transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Mua ngay
-                  </Link>
+                  </button>
 
                   <button
                     onClick={handleToggleFavorite}
@@ -1031,7 +1345,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
           role="dialog"
           aria-modal="true"
           aria-label="Xem ảnh sản phẩm"
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
               handleCloseImagePreview();

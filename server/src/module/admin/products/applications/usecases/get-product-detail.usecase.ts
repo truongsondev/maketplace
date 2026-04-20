@@ -18,7 +18,7 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       throw new ProductNotFoundError(command.productId);
     }
 
-    const { product, variants, images, categories, tags } = result;
+    const { product, variants, images, categories, tags, productAttributes } = result;
 
     // Calculate stats
     const totalStock = variants.reduce((sum, v) => sum + v.stockAvailable, 0);
@@ -72,7 +72,6 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
     return {
       id: product.id!,
       name: product.name,
-      description: product.description,
       basePrice: product.basePrice,
       status: product.isDeleted ? 'deleted' : 'active',
       createdAt: product.createdAt!,
@@ -81,6 +80,7 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       images: imageDtos,
       categories: categoryDtos,
       tags: tagDtos,
+      productAttributes,
       stats: {
         totalVariants: variants.length,
         totalStock,

@@ -48,6 +48,94 @@ function slugFromName(raw: unknown): string {
 export class PrismaProductRepository implements IProductRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private mapProductAttributesFromAttributeValues(attributeValues: any[]): Array<{
+    code: string;
+    name: string;
+    dataType: string;
+    value: unknown;
+    displayValue: string | string[] | null;
+  }> {
+    return (attributeValues ?? []).map((av: any) => {
+      const dataType = String(av?.attribute?.dataType ?? 'TEXT');
+
+      if (dataType === 'MULTI_SELECT') {
+        const options = (av?.multiSelectOptions ?? [])
+          .map((item: any) => item.option)
+          .filter((opt: any) => opt && !opt.deletedAt)
+          .sort((a: any, b: any) => {
+            const ao = Number(a.sortOrder ?? 0);
+            const bo = Number(b.sortOrder ?? 0);
+            if (ao !== bo) return ao - bo;
+            return String(a.label ?? '').localeCompare(String(b.label ?? ''));
+          });
+
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value: options.map((opt: any) => String(opt.value)),
+          displayValue: options.map((opt: any) => String(opt.label)),
+        };
+      }
+
+      if (dataType === 'SELECT') {
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value: av.option?.value ?? null,
+          displayValue: av.option?.label ?? null,
+        };
+      }
+
+      if (dataType === 'NUMBER') {
+        const value =
+          av.numberValue === null || av.numberValue === undefined ? null : Number(av.numberValue);
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value,
+          displayValue: value === null ? null : String(value),
+        };
+      }
+
+      if (dataType === 'BOOLEAN') {
+        const value =
+          av.booleanValue === null || av.booleanValue === undefined
+            ? null
+            : Boolean(av.booleanValue);
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value,
+          displayValue: value === null ? null : value ? 'Có' : 'Không',
+        };
+      }
+
+      if (dataType === 'DATE') {
+        const value = av.dateValue ? new Date(av.dateValue).toISOString() : null;
+        return {
+          code: av.attribute.code,
+          name: av.attribute.name,
+          dataType,
+          value,
+          displayValue: value,
+        };
+      }
+
+      const text = av.textValue ? String(av.textValue) : null;
+      return {
+        code: av.attribute.code,
+        name: av.attribute.name,
+        dataType,
+        value: text,
+        displayValue: text,
+      };
+    });
+  }
+
   private mergeVariantAttributesFromAttributeValues(variant: any): any {
     const merged: Record<string, any> = {
       ...(variant?.attributes && typeof variant.attributes === 'object' ? variant.attributes : {}),
@@ -79,16 +167,36 @@ export class PrismaProductRepository implements IProductRepository {
   private async resolveCategoryDescendantIds(
     categorySlugOrId: string,
   ): Promise<Set<string> | null> {
+    const normalizedCategoryInput = categorySlugOrId.trim();
+    if (!normalizedCategoryInput) return null;
+
     const baseCategory = await this.prisma.category.findFirst({
       where: {
-        OR: [{ id: categorySlugOrId }, { slug: categorySlugOrId }],
+        deletedAt: null,
+        OR: [{ id: normalizedCategoryInput }, { slug: normalizedCategoryInput }],
       },
       select: {
         id: true,
       },
     });
 
-    if (!baseCategory) return null;
+    const fallbackCategory =
+      baseCategory ??
+      (await this.prisma.category.findFirst({
+        where: {
+          deletedAt: null,
+          OR: [
+            { slug: { contains: normalizedCategoryInput } },
+            { name: { contains: normalizedCategoryInput } },
+          ],
+        },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+        },
+      }));
+
+    if (!fallbackCategory) return null;
 
     const categories = await this.prisma.category.findMany({
       select: {
@@ -106,7 +214,7 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     const descendantIds = new Set<string>();
-    const stack: string[] = [baseCategory.id];
+    const stack: string[] = [fallbackCategory.id];
 
     while (stack.length > 0) {
       const currentId = stack.pop()!;
@@ -122,6 +230,29 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     return descendantIds;
+  }
+
+  private collectDescendantCategoryIds(
+    rootId: string,
+    childrenByParentId: Map<string, string[]>,
+  ): string[] {
+    const visited = new Set<string>();
+    const stack: string[] = [rootId];
+
+    while (stack.length > 0) {
+      const currentId = stack.pop()!;
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+
+      const children = childrenByParentId.get(currentId) ?? [];
+      for (const childId of children) {
+        if (!visited.has(childId)) {
+          stack.push(childId);
+        }
+      }
+    }
+
+    return Array.from(visited);
   }
 
   private buildVariantAndForFacetQuery(
@@ -364,6 +495,45 @@ export class PrismaProductRepository implements IProductRepository {
       });
     }
 
+    if (filters.usageOccasion) {
+      const normalizedUsage = normalizeOptionValue(filters.usageOccasion);
+
+      productWhere.AND = [
+        ...(productWhere.AND ?? []),
+        {
+          attributeValues: {
+            some: {
+              deletedAt: null,
+              attribute: { code: 'usage_occasions' },
+              OR: [
+                ...(normalizedUsage
+                  ? [
+                      { option: { value: normalizedUsage } },
+                      {
+                        multiSelectOptions: {
+                          some: {
+                            option: { value: normalizedUsage },
+                          },
+                        },
+                      },
+                    ]
+                  : []),
+                { option: { label: { equals: filters.usageOccasion } } },
+                {
+                  multiSelectOptions: {
+                    some: {
+                      option: { label: { equals: filters.usageOccasion } },
+                    },
+                  },
+                },
+                { textValue: { equals: filters.usageOccasion } },
+              ],
+            },
+          },
+        },
+      ];
+    }
+
     // Filter by price range (check variant price)
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
       variantAnd.push({
@@ -375,9 +545,23 @@ export class PrismaProductRepository implements IProductRepository {
     }
 
     if (filters.search) {
-      const normalized = filters.search.trim();
+      const normalized = filters.search.trim().replace(/\s+/g, ' ');
       if (normalized) {
-        productWhere.OR = [{ name: { contains: normalized } }];
+        const tokens = Array.from(
+          new Set(
+            normalized
+              .split(' ')
+              .map((token) => token.trim())
+              .filter((token) => token.length >= 2),
+          ),
+        ).slice(0, 8);
+
+        const searchOr: any[] = [{ name: { contains: normalized } }];
+        for (const token of tokens) {
+          searchOr.push({ name: { contains: token } });
+        }
+
+        productWhere.AND = [...(productWhere.AND ?? []), { OR: searchOr }];
       }
     }
 
@@ -475,6 +659,40 @@ export class PrismaProductRepository implements IProductRepository {
             },
           },
         },
+        attributeValues: {
+          where: {
+            deletedAt: null,
+            attribute: { deletedAt: null, scope: 'PRODUCT' },
+          },
+          include: {
+            attribute: {
+              select: {
+                code: true,
+                name: true,
+                dataType: true,
+              },
+            },
+            option: {
+              select: {
+                value: true,
+                label: true,
+                deletedAt: true,
+              },
+            },
+            multiSelectOptions: {
+              include: {
+                option: {
+                  select: {
+                    value: true,
+                    label: true,
+                    sortOrder: true,
+                    deletedAt: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -490,6 +708,9 @@ export class PrismaProductRepository implements IProductRepository {
       variants: (row.variants ?? []).map((v: any) =>
         this.mergeVariantAttributesFromAttributeValues(v),
       ),
+      productAttributes: this.mapProductAttributesFromAttributeValues(
+        (row as any).attributeValues ?? [],
+      ),
     };
 
     return Product.fromPersistenceWithDetails(normalizedRow);
@@ -499,86 +720,113 @@ export class PrismaProductRepository implements IProductRepository {
     categoryLimit: number,
     productLimit: number,
   ): Promise<CategoryShowcase[]> {
-    try {
-      const rows = await this.prisma.category.findMany({
-        where: {
-          products: {
-            some: {
-              product: {
-                isDeleted: false,
-              },
-            },
-          },
-        },
-        select: {
+    const categories = await this.prisma.category.findMany({
+      where: {
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        imageUrl: true,
+        parentId: true,
+        sortOrder: true,
+        createdAt: true,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    const childrenByParentId = new Map<string, string[]>();
+    for (const category of categories) {
+      if (!category.parentId) continue;
+      const bucket = childrenByParentId.get(category.parentId) ?? [];
+      bucket.push(category.id);
+      childrenByParentId.set(category.parentId, bucket);
+    }
+
+    const rootCategories = categories.filter((category) => !category.parentId);
+
+    const buildShowcases = async (includePromotionFlags: boolean): Promise<CategoryShowcase[]> => {
+      const showcases: CategoryShowcase[] = [];
+
+      for (const root of rootCategories) {
+        if (showcases.length >= categoryLimit) break;
+
+        const descendantIds = this.collectDescendantCategoryIds(root.id, childrenByParentId);
+
+        const productSelect: any = {
           id: true,
           name: true,
-          slug: true,
-          imageUrl: true,
-          products: {
+          basePrice: true,
+          variants: {
             where: {
-              product: {
-                isDeleted: false,
-              },
+              isDeleted: false,
             },
-            take: productLimit,
             orderBy: {
-              product: {
-                createdAt: 'desc',
-              },
+              price: 'asc',
             },
+            take: 1,
             select: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  basePrice: true,
-                  isNew: true,
-                  isSale: true,
-                  variants: {
-                    where: {
-                      isDeleted: false,
-                    },
-                    orderBy: {
-                      price: 'asc',
-                    },
-                    take: 1,
-                    select: {
-                      price: true,
-                    },
-                  },
-                  images: {
-                    where: {
-                      isPrimary: true,
-                    },
-                    take: 1,
-                    select: {
-                      url: true,
-                    },
-                  },
+              price: true,
+            },
+          },
+          images: {
+            where: {
+              isPrimary: true,
+            },
+            take: 1,
+            select: {
+              url: true,
+            },
+          },
+        };
+
+        if (includePromotionFlags) {
+          productSelect.isNew = true;
+          productSelect.isSale = true;
+        }
+
+        const products = await this.prisma.product.findMany({
+          where: {
+            isDeleted: false,
+            categories: {
+              some: {
+                categoryId: {
+                  in: descendantIds,
                 },
               },
             },
           },
-        },
-        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-        take: categoryLimit,
-      });
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: productLimit,
+          select: productSelect,
+        });
 
-      return rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        imageUrl: row.imageUrl,
-        products: row.products.map((item) => ({
-          id: item.product.id,
-          name: item.product.name,
-          imageUrl: item.product.images[0]?.url ?? null,
-          minPrice: Number(item.product.variants[0]?.price ?? item.product.basePrice),
-          isNew: item.product.isNew,
-          isSale: item.product.isSale,
-        })),
-      }));
+        if (products.length === 0) continue;
+
+        showcases.push({
+          id: root.id,
+          name: root.name,
+          slug: root.slug,
+          imageUrl: root.imageUrl,
+          products: products.map((product: any) => ({
+            id: product.id,
+            name: product.name,
+            imageUrl: product.images[0]?.url ?? null,
+            minPrice: Number(product.variants[0]?.price ?? product.basePrice),
+            isNew: includePromotionFlags ? Boolean(product.isNew) : false,
+            isSale: includePromotionFlags ? Boolean(product.isSale) : false,
+          })),
+        });
+      }
+
+      return showcases;
+    };
+
+    try {
+      return await buildShowcases(true);
     } catch (error) {
       const isUnknownIsNewFieldError =
         error instanceof Error &&
@@ -589,84 +837,208 @@ export class PrismaProductRepository implements IProductRepository {
         throw error;
       }
 
-      const rows = await this.prisma.category.findMany({
-        where: {
-          products: {
-            some: {
-              product: {
-                isDeleted: false,
+      return buildShowcases(false);
+    }
+  }
+
+  private pickCollection(product: any): { slug: string; name: string } {
+    const category = product?.categories?.[0]?.category;
+    return {
+      slug: String(category?.slug ?? 'ao').trim() || 'ao',
+      name: String(category?.name ?? 'Bst Moi').trim() || 'Bst Moi',
+    };
+  }
+
+  private pickProductImage(product: any): string | null {
+    const image = product?.images?.[0]?.url;
+    if (typeof image === 'string' && image.trim()) {
+      return image.trim();
+    }
+    return null;
+  }
+
+  private extractUsageOccasions(product: any): string[] {
+    const values: string[] = [];
+    const attributeValues = Array.isArray(product?.attributeValues) ? product.attributeValues : [];
+
+    for (const av of attributeValues) {
+      if (av?.attribute?.code !== 'usage_occasions') continue;
+
+      if (typeof av?.option?.value === 'string' && av.option.value.trim()) {
+        values.push(av.option.value.trim());
+      }
+
+      const joins = Array.isArray(av?.multiSelectOptions) ? av.multiSelectOptions : [];
+      for (const join of joins) {
+        if (typeof join?.option?.value === 'string' && join.option.value.trim()) {
+          values.push(join.option.value.trim());
+        }
+      }
+    }
+
+    return Array.from(new Set(values));
+  }
+
+  async findHomeTeamContent() {
+    const products = await this.prisma.product.findMany({
+      where: {
+        isDeleted: false,
+        deletedAt: null,
+        images: {
+          some: {},
+        },
+        variants: {
+          some: {
+            isDeleted: false,
+            stockAvailable: { gt: 0 },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 48,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        images: {
+          where: { isPrimary: true },
+          take: 1,
+          select: { url: true },
+        },
+        categories: {
+          orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
+          take: 1,
+          include: {
+            category: {
+              select: {
+                name: true,
+                slug: true,
               },
             },
           },
         },
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          imageUrl: true,
-          products: {
-            where: {
-              product: {
-                isDeleted: false,
-              },
+        attributeValues: {
+          where: {
+            deletedAt: null,
+            attribute: { code: 'usage_occasions' },
+          },
+          select: {
+            option: {
+              select: { value: true },
             },
-            take: productLimit,
-            orderBy: {
-              product: {
-                createdAt: 'desc',
-              },
-            },
-            select: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  basePrice: true,
-                  variants: {
-                    where: {
-                      isDeleted: false,
-                    },
-                    orderBy: {
-                      price: 'asc',
-                    },
-                    take: 1,
-                    select: {
-                      price: true,
-                    },
-                  },
-                  images: {
-                    where: {
-                      isPrimary: true,
-                    },
-                    take: 1,
-                    select: {
-                      url: true,
-                    },
-                  },
+            multiSelectOptions: {
+              select: {
+                option: {
+                  select: { value: true },
                 },
               },
             },
+            attribute: {
+              select: { code: true },
+            },
           },
         },
-        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
-        take: categoryLimit,
-      });
+      },
+    });
 
-      return rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        imageUrl: row.imageUrl,
-        products: row.products.map((item) => ({
-          id: item.product.id,
-          name: item.product.name,
-          imageUrl: item.product.images[0]?.url ?? null,
-          minPrice: Number(item.product.variants[0]?.price ?? item.product.basePrice),
-          isNew: false,
-          isSale: false,
-        })),
-      }));
+    const withImage = products.filter((product: any) => Boolean(this.pickProductImage(product)));
+    if (withImage.length === 0) {
+      return {
+        teamCards: [],
+        highlights: [],
+        gallery: [],
+      };
     }
+
+    const usageByProductId = new Map<string, string[]>();
+    for (const product of withImage) {
+      usageByProductId.set(product.id, this.extractUsageOccasions(product));
+    }
+
+    const usedIds = new Set<string>();
+    const teamCandidates: any[] = [];
+
+    const sportsProduct = withImage.find((product: any) => {
+      const usages = usageByProductId.get(product.id) ?? [];
+      return usages.includes('tap_the_thao');
+    });
+
+    if (sportsProduct) {
+      teamCandidates.push(sportsProduct);
+      usedIds.add(sportsProduct.id);
+    }
+
+    for (const product of withImage) {
+      if (teamCandidates.length >= 3) break;
+      if (usedIds.has(product.id)) continue;
+      teamCandidates.push(product);
+      usedIds.add(product.id);
+    }
+
+    const teamCards = teamCandidates.map((product: any, index: number) => {
+      const imageUrl = this.pickProductImage(product)!;
+      const collection = this.pickCollection(product);
+      const usages = usageByProductId.get(product.id) ?? [];
+      const usageOccasion = usages.includes('tap_the_thao') ? 'tap_the_thao' : undefined;
+
+      return {
+        id: `team-${product.id}`,
+        title: String(product.name),
+        description:
+          String(product.description ?? '').trim() ||
+          `Goi y phoi do linh hoat tu bo suu tap ${collection.name}.`,
+        imageUrl,
+        collectionSlug: collection.slug,
+        query: String(product.name ?? '').trim(),
+        usageOccasion,
+        scope: usageOccasion ? ('all' as const) : undefined,
+        sortOrder: index,
+      };
+    });
+
+    const highlightCandidates = withImage
+      .filter((product: any) => !usedIds.has(product.id))
+      .slice(0, 2);
+    const highlights = highlightCandidates.map((product: any, index: number) => {
+      const imageUrl = this.pickProductImage(product)!;
+      const collection = this.pickCollection(product);
+      const subtitle = index === 0 ? 'Work Fit' : 'Weekend Fit';
+      const title = index === 0 ? 'Di lam' : 'Di choi';
+
+      return {
+        id: `highlight-${product.id}`,
+        title,
+        subtitle,
+        description:
+          String(product.description ?? '').trim() ||
+          `Kham pha ${collection.name.toLowerCase()} de de dang phoi do moi ngay.`,
+        imageUrl,
+        ctaLabel: index === 0 ? 'Xem do di lam' : 'Xem do di choi',
+        collectionSlug: collection.slug,
+        query: collection.name,
+      };
+    });
+
+    const gallery = withImage.slice(0, 12).map((product: any) => {
+      const imageUrl = this.pickProductImage(product)!;
+      const collection = this.pickCollection(product);
+      const usages = usageByProductId.get(product.id) ?? [];
+      const usageOccasion = usages.includes('tap_the_thao') ? 'tap_the_thao' : undefined;
+
+      return {
+        id: `gallery-${product.id}`,
+        imageUrl,
+        collectionSlug: collection.slug,
+        query: String(product.name ?? '').trim(),
+        usageOccasion,
+      };
+    });
+
+    return {
+      teamCards,
+      highlights,
+      gallery,
+    };
   }
 
   private toDomain(row: any): Product {

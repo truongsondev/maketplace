@@ -12,6 +12,7 @@ import { AddProductFavoriteUseCase } from './applications/usecases/add-product-f
 import { RemoveProductFavoriteUseCase } from './applications/usecases/remove-product-favorite.usecase';
 import { GetFavoriteProductsUseCase } from './applications/usecases/get-favorite-products.usecase';
 import { GetRelatedProductsFromOrdersUseCase } from './applications/usecases/get-related-products-from-orders.usecase';
+import { GetHomeTeamContentUseCase } from './applications/usecases/get-home-team-content.usecase';
 import { ProductController } from './interface-adapter/controller/product.controller';
 import { ProductAPI } from './infrastructure/api/product.api';
 
@@ -28,6 +29,7 @@ export function createProductModule(): Router {
   const removeProductFavoriteUseCase = new RemoveProductFavoriteUseCase(wishlistRepository);
   const getFavoriteProductsUseCase = new GetFavoriteProductsUseCase(wishlistRepository);
   const getRelatedProductsFromOrdersUseCase = new GetRelatedProductsFromOrdersUseCase(prisma);
+  const getHomeTeamContentUseCase = new GetHomeTeamContentUseCase(productRepository);
 
   const controller = new ProductController(
     getCategoryStatsUseCase,
@@ -38,6 +40,7 @@ export function createProductModule(): Router {
     removeProductFavoriteUseCase,
     getFavoriteProductsUseCase,
     getRelatedProductsFromOrdersUseCase,
+    getHomeTeamContentUseCase,
   );
 
   const productAPI = new ProductAPI(controller);

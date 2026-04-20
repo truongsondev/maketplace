@@ -76,6 +76,7 @@ export interface MyOrderListItem {
   id: string;
   createdAt: string;
   status: OrderStatus;
+  canceledReason: string | null;
   returnStatus?: ReturnFlowStatus | null;
   refund?: OrderRefundInfo | null;
   cancelRequest?: OrderCancelRequestInfo | null;

@@ -52,6 +52,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: prod-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_prod_data:/var/lib/rabbitmq
+    networks:
+      - prod-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Backend API
   backend:
     build:
@@ -68,6 +86,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_PAYMENT_EXCHANGE: shop_events
+      RABBITMQ_PAYMENT_SUCCESS_ROUTING_KEY: order.payment.success
+      RABBITMQ_ADMIN_NOTIFICATION_QUEUE: admin_notification_q
+      RABBITMQ_ADMIN_NOTIFICATION_DLX: admin_notification_dlx
+      RABBITMQ_ADMIN_NOTIFICATION_DLQ: admin_notification_dlq
       ENABLE_FILE_LOGGING: "true"
     env_file:
       - ./server/.env.prod
@@ -77,6 +101,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - prod-network
@@ -113,6 +139,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       ENABLE_FILE_LOGGING: "true"
     env_file:
       - ./server/.env.prod
@@ -124,6 +151,8 @@ services:
       mysql:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - prod-network
@@ -164,6 +193,8 @@ volumes:
   mysql_prod_data:
     driver: local
   redis_prod_data:
+    driver: local
+  rabbitmq_prod_data:
     driver: local
   backend_logs:
     driver: local

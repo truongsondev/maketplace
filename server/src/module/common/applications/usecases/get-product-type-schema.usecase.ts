@@ -11,7 +11,7 @@ export class GetProductTypeSchemaUseCase implements IGetProductTypeSchemaUseCase
   async execute(query: GetProductTypeSchemaQuery): Promise<ProductTypeSchemaDto> {
     const categoryId = String(query.categoryId ?? '').trim();
     if (!categoryId) {
-      return { productType: null, variantAxisAttributes: [] };
+      return { productType: null, variantAxisAttributes: [], productAttributes: [] };
     }
 
     this.logger.info('Resolving product type schema', { categoryId });

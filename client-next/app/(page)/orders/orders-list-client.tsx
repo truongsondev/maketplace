@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock3, PackageCheck, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Loader2,
+  PackageCheck,
+  X,
+} from "lucide-react";
 import {
   useCancelMyOrder,
   useMyOrderCounts,
@@ -20,6 +27,8 @@ import { cartService } from "@/services/cart.service";
 import { useAuthStore } from "@/stores/auth.store";
 import type { MyOrderListItem, OrderTab } from "@/types/order.types";
 import { useRelatedProductsFromMyOrders } from "@/hooks/use-products";
+
+const ORDERS_PAGE_LIMIT = 6;
 
 function formatMoney(value: string) {
   const n = Number(value);
@@ -286,6 +295,12 @@ function OrderCard({
                     {cancelRequestStatusText(order.cancelRequest.status)}
                   </span>
                 ) : null}
+
+                {order.status === "CANCELLED" && order.canceledReason ? (
+                  <p className="w-full text-xs font-medium text-red-600 dark:text-red-400">
+                    Lý do hủy: {order.canceledReason}
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
@@ -361,6 +376,7 @@ export function OrdersListClient() {
   const searchParams = useSearchParams();
   const [isDark, setIsDark] = useState(false);
   const [tab, setTab] = useState<OrderTab>("all");
+  const [page, setPage] = useState(1);
   const [cancelingOrderId, setCancelingOrderId] = useState<string | null>(null);
   const [requestingPaidCancelOrderId, setRequestingPaidCancelOrderId] =
     useState<string | null>(null);
@@ -388,7 +404,12 @@ export function OrdersListClient() {
   }, [isDark]);
 
   const countsQuery = useMyOrderCounts();
-  const ordersQuery = useMyOrders({ tab, sort: "new", page: 1, limit: 12 });
+  const ordersQuery = useMyOrders({
+    tab,
+    sort: "new",
+    page,
+    limit: ORDERS_PAGE_LIMIT,
+  });
   const relatedProductsQuery = useRelatedProductsFromMyOrders(
     12,
     Boolean(isAuthenticated),
@@ -419,6 +440,18 @@ export function OrdersListClient() {
       { key: "canceled" as const, label: "Đã hủy", count: c?.canceled ?? 0 },
     ];
   }, [countsQuery.data]);
+
+  const totalPages = Math.max(ordersQuery.data?.pagination.totalPages ?? 1, 1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [tab]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const handleCancelOrder = (order: MyOrderListItem) => {
     setCancelingOrderId(order.id);
@@ -492,7 +525,9 @@ export function OrdersListClient() {
                       <button
                         key={t.key}
                         type="button"
-                        onClick={() => setTab(t.key)}
+                        onClick={() => {
+                          setTab(t.key);
+                        }}
                         className={`relative -mb-px whitespace-nowrap px-1 py-3 text-sm font-semibold transition-colors ${
                           active
                             ? "text-black dark:text-white"
@@ -555,6 +590,42 @@ export function OrdersListClient() {
               </div>
             )}
           </div>
+
+          {(ordersQuery.data?.items?.length ?? 0) > 0 && totalPages > 1 ? (
+            <section className="mt-6 flex items-center justify-between rounded-sm border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-black sm:px-5">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                Trang {page} / {totalPages}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={page <= 1 || ordersQuery.isFetching}
+                  className="inline-flex h-9 items-center gap-1 rounded-sm border border-neutral-300 px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Trước
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={page >= totalPages || ordersQuery.isFetching}
+                  className="inline-flex h-9 items-center gap-1 rounded-sm border border-neutral-300 px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-900"
+                >
+                  Sau
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                {ordersQuery.isFetching ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-neutral-500 dark:text-neutral-400" />
+                ) : null}
+              </div>
+            </section>
+          ) : null}
 
           {isAuthenticated ? (
             <section className="mt-10 rounded-sm border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-5">

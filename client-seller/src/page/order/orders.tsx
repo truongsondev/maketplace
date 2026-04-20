@@ -9,6 +9,7 @@ import type {
   AdminOrderTimeseries,
 } from "@/types/order";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
 type RowActionItem = {
@@ -27,6 +28,11 @@ function formatMoney(value: string) {
     currency: "VND",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+function toMoneyNumber(value: string) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
 }
 
 function formatDate(value: string) {
@@ -161,6 +167,26 @@ function paymentStatusText(status?: string | null) {
   }
 }
 
+function formatShippingAddress(order: AdminOrderListItem) {
+  const shipping = order.shipping;
+  if (!shipping) {
+    return "Chua co du lieu dia chi giao hang";
+  }
+
+  const parts = [
+    shipping.addressLine,
+    shipping.ward,
+    shipping.district,
+    shipping.city,
+  ]
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v) => v.length > 0);
+
+  return parts.length > 0
+    ? parts.join(", ")
+    : "Chua co du lieu dia chi giao hang";
+}
+
 function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -192,7 +218,10 @@ function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
     <div className="relative" ref={menuRef}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
         className="inline-flex h-10 items-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -218,7 +247,8 @@ function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
                 key={action.key}
                 type="button"
                 disabled={action.disabled}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (action.disabled) {
                     return;
                   }
@@ -242,6 +272,7 @@ function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
 }
 
 export default function OrdersPage() {
+  const location = useLocation();
   const [tab, setTab] = useState<AdminOrderTab>("all");
   const [sort, setSort] = useState<AdminOrderSort>("new");
   const [searchInput, setSearchInput] = useState("");
@@ -277,6 +308,14 @@ export default function OrdersPage() {
   const [hoveredPointPos, setHoveredPointPos] = useState<
     { x: number; y: number } | undefined
   >(undefined);
+  const [cancelModal, setCancelModal] = useState<
+    { orderId: string; status: string } | undefined
+  >(undefined);
+  const [detailModal, setDetailModal] = useState<
+    AdminOrderListItem | undefined
+  >(undefined);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   const tabs = useMemo(
     () => [
@@ -348,6 +387,13 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const nextSearch = query.get("search")?.trim() || "";
+    setSearchInput(nextSearch);
+    setSearch(nextSearch || undefined);
+  }, [location.search]);
+
+  useEffect(() => {
     fetchOrders();
   }, [tab, sort, search]);
 
@@ -375,21 +421,74 @@ export default function OrdersPage() {
     }
   };
 
-  const handleCancel = async (orderId: string) => {
+  const openCancelModal = (orderId: string, status: string) => {
+    setCancelModal({ orderId, status });
+    setCancelReason("");
+  };
+
+  const closeCancelModal = () => {
+    if (cancelSubmitting) {
+      return;
+    }
+    setCancelModal(undefined);
+    setCancelReason("");
+  };
+
+  const openDetailModal = (order: AdminOrderListItem) => {
+    setDetailModal(order);
+  };
+
+  const closeDetailModal = () => {
+    setDetailModal(undefined);
+  };
+
+  const handleCancel = async () => {
+    if (!cancelModal) {
+      return;
+    }
+
+    const mustProvideReason = cancelModal.status === "PAID";
+    if (mustProvideReason && !cancelReason.trim()) {
+      toast.error("Vui lòng nhập lý do hủy cho đơn đã thanh toán");
+      return;
+    }
+
     try {
-      await orderService.cancelOrder(orderId);
+      setCancelSubmitting(true);
+      await orderService.cancelOrder(
+        cancelModal.orderId,
+        cancelReason.trim() || undefined,
+      );
       toast.success("Đã hủy đơn hàng");
+      setCancelModal(undefined);
+      setCancelReason("");
       fetchCounts();
       fetchAnalytics();
       fetchOrders();
     } catch (e) {
       toast.error("Hủy đơn hàng thất bại");
       console.error(e);
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
   const handleConfirm = async (orderId: string) => {
     try {
+      const check = await orderService.checkConfirmOrder(orderId);
+      if (!check.data.canConfirm) {
+        const firstBlockingItem = check.data.blockingItems[0];
+        const firstBlockingReason = firstBlockingItem?.reasons?.[0];
+        const firstIssue = check.data.issues[0];
+
+        toast.error(
+          firstBlockingReason ||
+            firstIssue ||
+            "Đơn hàng không hợp lệ để xác nhận",
+        );
+        return;
+      }
+
       await orderService.confirmOrder(orderId);
       toast.success("Đã xác nhận đơn hàng");
       fetchCounts();
@@ -846,7 +945,10 @@ export default function OrdersPage() {
                       {orders.map((order) => {
                         const first = order.items[0];
                         const extraCount = Math.max(order.items.length - 1, 0);
-                        const canCancel = order.status === "PENDING";
+                        const canCancel =
+                          order.status === "PENDING" ||
+                          order.status === "PAID" ||
+                          order.status === "CONFIRMED";
 
                         const primaryLabel = primaryActionLabel(order.status);
                         const handlePrimary = () => {
@@ -918,7 +1020,8 @@ export default function OrdersPage() {
                         secondaryActions.push({
                           key: `cancel-order-${order.id}`,
                           label: "Hủy đơn",
-                          onClick: () => handleCancel(order.id),
+                          onClick: () =>
+                            openCancelModal(order.id, order.status),
                           disabled: !canCancel,
                           tone: "danger",
                         });
@@ -926,7 +1029,8 @@ export default function OrdersPage() {
                         return (
                           <div
                             key={order.id}
-                            className="grid grid-cols-12 border-b border-slate-100 px-6 py-5 transition-colors hover:bg-slate-50/60"
+                            className="grid cursor-pointer grid-cols-12 border-b border-slate-100 px-6 py-5 transition-colors hover:bg-slate-50/60"
+                            onClick={() => openDetailModal(order)}
                           >
                             <div className="col-span-4">
                               <div className="flex items-start gap-4">
@@ -1020,7 +1124,10 @@ export default function OrdersPage() {
                             <div className="col-span-3 flex items-center justify-end gap-2">
                               {canPrimary && primaryLabel !== "—" ? (
                                 <button
-                                  onClick={handlePrimary}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePrimary();
+                                  }}
                                   className="whitespace-nowrap rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                                 >
                                   {primaryLabel}
@@ -1076,6 +1183,227 @@ export default function OrdersPage() {
           </div>
         </main>
       </div>
+
+      {cancelModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Xác nhận hủy đơn
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              {cancelModal.status === "PAID"
+                ? "Đơn đã thanh toán, vui lòng nhập lý do hủy (bắt buộc)."
+                : "Nhập lý do hủy đơn (không bắt buộc)."}
+            </p>
+
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              rows={4}
+              className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+              placeholder="Ví dụ: Khách yêu cầu đổi mẫu khác..."
+            />
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeCancelModal}
+                disabled={cancelSubmitting}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelSubmitting}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {cancelSubmitting ? "Đang xử lý..." : "Xác nhận hủy đơn"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {detailModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4"
+          onClick={closeDetailModal}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-cyan-700">
+                  Chi tiết đơn hàng
+                </p>
+                <h3 className="mt-1 text-xl font-bold text-slate-900">
+                  Mã đơn: {detailModal.id}
+                </h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Tạo lúc {formatDate(detailModal.createdAt)}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
+                    detailModal.status,
+                  )}`}
+                >
+                  {statusText(detailModal.status)}
+                </span>
+                <button
+                  type="button"
+                  onClick={closeDetailModal}
+                  className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Giao hàng
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  {detailModal.shipping?.recipient ?? detailModal.user.label}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {detailModal.shipping?.phone ??
+                    detailModal.user.phone ??
+                    "Khong co so dien thoai"}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  {formatShippingAddress(detailModal)}
+                </p>
+                {detailModal.shipping?.source === "USER_PROFILE_FALLBACK" ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Ghi chu: hien thi theo profile user do chua co dia chi luu
+                    cho don.
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Thanh toán
+                </p>
+                <p className="mt-2 text-sm text-slate-700">
+                  Phương thức: {detailModal.payment.method ?? "—"}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Trạng thái: {paymentStatusText(detailModal.payment.status)}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Mã giao dịch: {detailModal.payment.orderCode ?? "—"}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Tổng quan
+                </p>
+                <p className="mt-2 text-sm text-slate-700">
+                  Số dòng sản phẩm: {detailModal.items.length}
+                </p>
+                <p className="mt-1 text-sm font-semibold text-slate-900">
+                  Tổng tiền: {formatMoney(detailModal.totalPrice)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-slate-700">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Sản phẩm</th>
+                    <th className="px-4 py-3 font-semibold">Đơn giá</th>
+                    <th className="px-4 py-3 font-semibold">SL</th>
+                    <th className="px-4 py-3 font-semibold text-right">
+                      Thành tiền
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {detailModal.items.map((item) => {
+                    const lineTotal = toMoneyNumber(item.price) * item.quantity;
+
+                    return (
+                      <tr key={item.id}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span className="text-[11px] text-slate-500">
+                                  No img
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-slate-900">
+                                {item.name}
+                              </p>
+                              {item.attributesText ? (
+                                <p className="mt-0.5 text-xs text-slate-600">
+                                  {item.attributesText}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {formatMoney(item.price)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">
+                          {item.quantity}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                          {formatMoney(String(lineTotal))}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {detailModal.cancelRequest ? (
+              <div className="mt-5 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+                <p className="font-semibold">
+                  Yêu cầu hủy:{" "}
+                  {cancelRequestStatusText(detailModal.cancelRequest.status)}
+                </p>
+                <p className="mt-1">
+                  Lý do:{" "}
+                  {cancelReasonText(detailModal.cancelRequest.reasonCode)}
+                  {detailModal.cancelRequest.reasonText
+                    ? ` - ${detailModal.cancelRequest.reasonText}`
+                    : ""}
+                </p>
+                <p className="mt-1">
+                  Hoàn tiền:{" "}
+                  {formatMoney(
+                    detailModal.cancelRefund?.amount ?? detailModal.totalPrice,
+                  )}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

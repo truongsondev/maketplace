@@ -72,7 +72,6 @@ export class UpdateProductUseCase implements IUpdateProductUseCase {
     // Prepare update data
     const productData: any = {};
     if (command.name !== undefined) productData.name = command.name;
-    if (command.description !== undefined) productData.description = command.description;
     if (command.basePrice !== undefined) productData.basePrice = command.basePrice;
     if (command.status !== undefined) productData.isDeleted = command.status === 'inactive';
 
@@ -99,6 +98,7 @@ export class UpdateProductUseCase implements IUpdateProductUseCase {
       command.categoryIds,
       command.tagIds,
       command.images,
+      command.productAttributes,
     );
 
     this.logger.info('Product updated successfully', { productId: command.productId });

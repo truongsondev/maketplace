@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
+  Bell,
   ChevronDown,
   Heart,
   Loader2,
@@ -21,6 +22,11 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCategories } from "@/hooks/use-categories";
 import { useLogout } from "@/hooks/use-logout";
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useMyNotifications,
+} from "@/hooks/use-notifications";
 import { productService } from "@/services/product.service";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -90,6 +96,17 @@ function normalizeProductImageUrl(rawUrl: string | null) {
   return absoluteUrl;
 }
 
+function formatNotificationDate(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -97,10 +114,12 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
     string | null
   >(null);
   const [storedUserLabel, setStoredUserLabel] = useState("");
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState("");
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationMenuRef = useRef<HTMLDivElement | null>(null);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
@@ -110,6 +129,12 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
   const user = useAuthStore((state) => state.user);
   const profile = useAuthStore((state) => state.profile);
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
+  const notificationsQuery = useMyNotifications(
+    { page: 1, limit: 8 },
+    isAuthenticated,
+  );
+  const markNotificationReadMutation = useMarkNotificationRead();
+  const markAllNotificationsReadMutation = useMarkAllNotificationsRead();
 
   const { data: categories = [] } = useCategories(false);
 
@@ -315,6 +340,7 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
       if (event.key === "Escape") {
         setIsMenuOpen(false);
         setIsUserMenuOpen(false);
+        setIsNotificationOpen(false);
         setActiveRootCategoryId(null);
         setIsSearchOpen(false);
         setSearchKeyword("");
@@ -331,6 +357,13 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
+      if (
+        notificationMenuRef.current &&
+        !notificationMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationOpen(false);
+      }
+
       if (
         userMenuRef.current &&
         !userMenuRef.current.contains(event.target as Node)
@@ -356,8 +389,33 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
 
   const handleNavigate = (path: string) => {
     setIsUserMenuOpen(false);
+    setIsNotificationOpen(false);
     setIsMenuOpen(false);
     router.push(path);
+  };
+
+  const unreadNotificationCount = notificationsQuery.data?.unreadCount ?? 0;
+
+  const handleOpenNotifications = () => {
+    setIsNotificationOpen((prev) => !prev);
+    setIsUserMenuOpen(false);
+  };
+
+  const handleNotificationClick = async (params: {
+    notificationId: string;
+    isRead: boolean;
+    relatedPath: string | null;
+  }) => {
+    if (!params.isRead) {
+      try {
+        await markNotificationReadMutation.mutateAsync(params.notificationId);
+      } catch {
+        // Ignore and still navigate.
+      }
+    }
+
+    setIsNotificationOpen(false);
+    router.push(params.relatedPath || "/orders");
   };
 
   const handleAuthAction = () => {
@@ -390,7 +448,7 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                 href="/"
                 className="text-sm font-semibold text-neutral-800 dark:text-neutral-50 hover:text-primary dark:hover:text-primary transition-colors"
               >
-                Home
+                Trang chủ
               </Link>
               <Link
                 href="/#new-arrivals"
@@ -475,6 +533,89 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
         </nav>
 
         <div className="flex items-center gap-3">
+          {isAuthenticated ? (
+            <div ref={notificationMenuRef} className="relative">
+              <button
+                onClick={handleOpenNotifications}
+                aria-label="Mở thông báo"
+                aria-expanded={isNotificationOpen}
+                aria-controls="user-notification-menu"
+                className="group relative flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Bell className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
+                {unreadNotificationCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {isNotificationOpen ? (
+                <div
+                  id="user-notification-menu"
+                  className="absolute right-0 top-12 z-50 w-88 max-w-[90vw] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
+                >
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      Thông báo
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => markAllNotificationsReadMutation.mutate()}
+                      disabled={
+                        markAllNotificationsReadMutation.isPending ||
+                        unreadNotificationCount === 0
+                      }
+                      className="text-xs font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto border-t border-neutral-100 dark:border-neutral-800">
+                    {notificationsQuery.isLoading ? (
+                      <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
+                        Đang tải thông báo...
+                      </div>
+                    ) : notificationsQuery.data?.items?.length ? (
+                      notificationsQuery.data.items.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            handleNotificationClick({
+                              notificationId: item.id,
+                              isRead: item.isRead,
+                              relatedPath: item.relatedPath,
+                            })
+                          }
+                          className={`block w-full border-b border-neutral-100 px-4 py-3 text-left transition-colors last:border-b-0 dark:border-neutral-800 ${
+                            item.isRead
+                              ? "bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+                              : "bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/15"
+                          }`}
+                        >
+                          <p className="text-sm text-neutral-800 dark:text-neutral-100">
+                            {item.content}
+                          </p>
+                          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                            {formatNotificationDate(item.createdAt)}
+                          </p>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
+                        Chưa có thông báo.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {isAuthenticated ? (
             <div ref={userMenuRef} className="relative hidden md:block">
               <button
@@ -815,7 +956,7 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
               onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
-              Home
+              Trang chủ
             </Link>
             <Link
               href="/#new-arrivals"
@@ -862,24 +1003,47 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                     id="mobile-user-menu"
                     className="mt-3 flex flex-col gap-2"
                   >
-                    <button
-                      onClick={() => handleNavigate("/cart")}
-                      className="w-full rounded-md bg-neutral-100 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    <Link
+                      href="/cart"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Giỏ hàng
-                    </button>
-                    <button
-                      onClick={() => handleNavigate("/profile")}
-                      className="w-full rounded-md bg-neutral-100 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    </Link>
+                    <Link
+                      href="/orders"
+                      onClick={() => {
+                        setIsNotificationOpen(false);
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    >
+                      Đơn mua
+                    </Link>
+                    <Link
+                      href="/profile"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Hồ sơ
-                    </button>
-                    <button
-                      onClick={() => handleNavigate("/favorites")}
-                      className="w-full rounded-md bg-neutral-100 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    </Link>
+                    <Link
+                      href="/favorites"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Yêu thích
-                    </button>
+                    </Link>
                     <button
                       onClick={handleAuthAction}
                       disabled={isLoggingOut}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Edit2, Trash2, Package } from "lucide-react";
 import type { ProductDetail, ProductVariant } from "@/types/api";
 import type { UpdateProductVariantDto } from "@/types/api";
@@ -23,9 +23,48 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
     Array<{ key: string; value: string }>
   >([{ key: "", value: "" }]);
 
+  const isInternalDefaultVariant = (variant: ProductVariant) => {
+    const nonEmptyAttributes = Object.entries(variant.attributes ?? {}).filter(
+      ([key, value]) => {
+        if (!key || key.trim() === "") return false;
+        if (value === null || value === undefined) return false;
+        return String(value).trim().length > 0;
+      },
+    ).length;
+
+    return (
+      nonEmptyAttributes === 0 &&
+      variant.sku.trim().toUpperCase().endsWith("-DEFAULT")
+    );
+  };
+
+  const isSimpleModeProduct =
+    product.variants.length === 1 &&
+    isInternalDefaultVariant(product.variants[0]);
+
+  const visibleVariants = isSimpleModeProduct ? [] : product.variants;
+  const internalSimpleVariant = isSimpleModeProduct
+    ? product.variants[0]
+    : null;
+  const [simpleStockAvailable, setSimpleStockAvailable] = useState<number>(
+    internalSimpleVariant?.stockAvailable ?? 0,
+  );
+  const [simpleMinStock, setSimpleMinStock] = useState<number>(
+    internalSimpleVariant?.minStock ?? 0,
+  );
+
+  useEffect(() => {
+    setSimpleStockAvailable(internalSimpleVariant?.stockAvailable ?? 0);
+    setSimpleMinStock(internalSimpleVariant?.minStock ?? 0);
+  }, [
+    internalSimpleVariant?.id,
+    internalSimpleVariant?.stockAvailable,
+    internalSimpleVariant?.minStock,
+  ]);
+
   const currentVariants: UpdateProductVariantDto[] = useMemo(
     () =>
-      product.variants.map((v) => ({
+      visibleVariants.map((v) => ({
         id: v.id,
         sku: v.sku,
         attributes: v.attributes,
@@ -33,7 +72,7 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
         stockAvailable: v.stockAvailable,
         minStock: v.minStock,
       })),
-    [product.variants],
+    [visibleVariants],
   );
 
   const resetModalState = () => {
@@ -85,7 +124,7 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
 
   const handleRemoveAllVariants = async () => {
     if (saving) return;
-    if (product.variants.length === 0) return;
+    if (visibleVariants.length === 0) return;
 
     if (!confirm("Bạn có chắc muốn xoá tất cả biến thể?")) return;
 
@@ -197,14 +236,51 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
     }
   };
 
+  const handleSaveSimpleInventory = async () => {
+    if (saving || !internalSimpleVariant) return;
+
+    if (Number.isNaN(simpleStockAvailable) || simpleStockAvailable < 0) {
+      toast.error("Tồn kho sẵn có phải là số không âm");
+      return;
+    }
+
+    if (Number.isNaN(simpleMinStock) || simpleMinStock < 0) {
+      toast.error("Tồn kho tối thiểu phải là số không âm");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await productService.updateProduct(product.id, {
+        variants: [
+          {
+            id: internalSimpleVariant.id,
+            sku: internalSimpleVariant.sku,
+            attributes: internalSimpleVariant.attributes,
+            price: internalSimpleVariant.price,
+            stockAvailable: simpleStockAvailable,
+            minStock: simpleMinStock,
+          },
+        ],
+      });
+      toast.success("Đã cập nhật tồn kho sản phẩm không biến thể");
+      onUpdate();
+    } catch (error) {
+      toast.error("Cập nhật tồn kho thất bại");
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900">
-          Biến thể sản phẩm ({product.variants.length})
+          Biến thể sản phẩm ({visibleVariants.length})
         </h3>
         <div className="flex items-center gap-2">
-          {product.variants.length > 0 && (
+          {visibleVariants.length > 0 && (
             <button
               onClick={handleRemoveAllVariants}
               disabled={saving}
@@ -225,7 +301,67 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
         </div>
       </div>
 
-      {product.variants.length === 0 ? (
+      {isSimpleModeProduct ? (
+        <div className="bg-gray-50 rounded-lg border border-gray-200 p-6 space-y-6">
+          <div className="text-center">
+            <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Sản phẩm đang ở chế độ không biến thể
+            </h3>
+            <p className="text-gray-600">
+              Hệ thống đang dùng 1 phiên bản mặc định nội bộ để tương thích giỏ
+              hàng.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white rounded-lg border border-gray-200 p-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Tồn kho sẵn có
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={simpleStockAvailable}
+                onChange={(e) =>
+                  setSimpleStockAvailable(Number(e.target.value))
+                }
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-900 mb-2">
+                Tồn kho tối thiểu
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={simpleMinStock}
+                onChange={(e) => setSimpleMinStock(Number(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={handleSaveSimpleInventory}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Lưu tồn kho
+            </button>
+            <button
+              onClick={openAddModal}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Chuyển sang có biến thể
+            </button>
+          </div>
+        </div>
+      ) : visibleVariants.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
           <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -273,7 +409,7 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
               </tr>
             </thead>
             <tbody>
-              {product.variants.map((variant) => {
+              {visibleVariants.map((variant) => {
                 const stockStatus = getStockStatus(variant);
                 return (
                   <tr
