@@ -41,7 +41,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           <div className="mb-12 text-center">
             <h2 className="font-serif text-3xl font-bold tracking-[0.3em] uppercase">
-              MAISON
+              AURA
             </h2>
           </div>
 
