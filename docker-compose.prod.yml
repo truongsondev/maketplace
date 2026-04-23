@@ -179,6 +179,8 @@ services:
     build:
       context: ./client-seller
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://admin.aura-fashion.io.vn
     container_name: prod-admin-client
     restart: always
     ports:
@@ -193,6 +195,8 @@ services:
     build:
       context: ./client-next
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://aura-fashion.io.vn
     container_name: prod-user-client
     restart: always
     ports:

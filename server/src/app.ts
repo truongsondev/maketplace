@@ -48,6 +48,14 @@ const defaultCorsOrigins = [
   'http://127.0.0.1:5173',
   'http://160.187.229.142:3000',
   'http://160.187.229.142:5173',
+  'http://aura-fashion.io.vn',
+  'https://aura-fashion.io.vn',
+  'http://www.aura-fashion.io.vn',
+  'https://www.aura-fashion.io.vn',
+  'http://admin.aura-fashion.io.vn',
+  'https://admin.aura-fashion.io.vn',
+  'http://api.aura-fashion.io.vn',
+  'https://api.aura-fashion.io.vn',
 ];
 
 const corsOriginAllowlist = new Set([
