@@ -1003,47 +1003,33 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                     id="mobile-user-menu"
                     className="mt-3 flex flex-col gap-2"
                   >
-                    <Link
-                      href="/cart"
+                    <button
+                      type="button"
                       onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsMenuOpen(false);
+                        handleNavigate("/cart");
                       }}
                       className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Giỏ hàng
-                    </Link>
-                    <Link
-                      href="/orders"
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
-                        setIsNotificationOpen(false);
-                        setIsUserMenuOpen(false);
-                        setIsMenuOpen(false);
+                        handleNavigate("/orders");
                       }}
                       className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Đơn mua
-                    </Link>
-                    <Link
-                      href="/profile"
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsMenuOpen(false);
-                      }}
-                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
-                    >
-                      Hồ sơ
-                    </Link>
-                    <Link
-                      href="/favorites"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsMenuOpen(false);
+                        handleNavigate("/favorites");
                       }}
                       className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
                     >
                       Yêu thích
-                    </Link>
+                    </button>
                     <button
                       onClick={handleAuthAction}
                       disabled={isLoggingOut}

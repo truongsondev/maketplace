@@ -99,6 +99,10 @@ export function CartItemCard({
               {item.productName}
             </Link>
 
+            <p className="mt-1 text-sm font-semibold text-neutral-900 dark:text-white lg:hidden">
+              {formatPrice(item.subtotal)}
+            </p>
+
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-300">
               {Object.entries(item.variantAttributes).map(([key, value]) => (
                 <span key={key}>
@@ -109,7 +113,7 @@ export function CartItemCard({
           </div>
         </div>
 
-        <p className="text-sm text-neutral-900 dark:text-white lg:text-base lg:text-center">
+        <p className="hidden lg:block text-sm text-neutral-900 dark:text-white lg:text-base lg:text-center">
           {formatPrice(item.unitPrice)}
         </p>
 
@@ -137,7 +141,7 @@ export function CartItemCard({
           </button>
         </div>
 
-        <p className="text-sm font-semibold text-neutral-900 dark:text-white lg:text-base lg:text-center">
+        <p className="hidden lg:block text-sm font-semibold text-neutral-900 dark:text-white lg:text-base lg:text-center">
           {formatPrice(item.subtotal)}
         </p>
 

@@ -61,7 +61,7 @@ Use Case Description chỉ cần mô tả ngắn gọn theo cú pháp của User
 
 ## CONTEXT
 
-Viết đặc tả use case usecase Xem danh sách sản phẩm public.
+Viết đặc tả use case usecase Xem thống kê danh mục..
 
 ## INSTRUCTION
 
@@ -82,3 +82,4 @@ Viết đặc tả use case usecase Xem danh sách sản phẩm public.
 ## REQUIRED OUTPUT FORMAT
 
 Output tại root/sequence/tên phù hợp .md
+Sử dụng tiếng việt có dấu

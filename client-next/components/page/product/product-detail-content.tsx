@@ -291,8 +291,9 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
   const requiresColorSelection = availableColors.length > 1;
   const requiresSizeSelection = availableSizesForCurrentColor.length > 1;
-  const isColorSelected = !requiresColorSelection || Boolean(selectedColor);
-  const isSizeSelected = !requiresSizeSelection || Boolean(selectedSize);
+  const isColorSelected =
+    !requiresColorSelection || Boolean(currentSelectedColor);
+  const isSizeSelected = !requiresSizeSelection || Boolean(currentSelectedSize);
 
   // Ensure selected image is within bounds
   const safeSelectedImage = Math.min(selectedImage, productImages.length - 1);
@@ -1190,14 +1191,12 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    disabled={addToCartDisabled}
-                    onClick={handleAddToCart}
-                    className="h-12 px-10 rounded-sm bg-black hover:bg-neutral-800 text-white font-bold transition-colors inline-flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  <Link
+                    href="/cart"
+                    className="h-12 px-10 rounded-sm bg-black hover:bg-neutral-800 text-white font-bold transition-colors inline-flex items-center justify-center"
                   >
                     Mua ngay
-                  </button>
+                  </Link>
 
                   <button
                     onClick={handleToggleFavorite}

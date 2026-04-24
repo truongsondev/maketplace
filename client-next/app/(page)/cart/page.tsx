@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   X,
@@ -129,6 +129,7 @@ export default function CartPage() {
   const updateMutation = useUpdateCartItem();
   const removeMutation = useRemoveCartItem();
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const initializedCartIdRef = useRef<string | null>(null);
 
   const [voucherCode, setVoucherCode] = useState<string>("");
   const [voucherResult, setVoucherResult] =
@@ -209,6 +210,24 @@ export default function CartPage() {
   useEffect(() => {
     setVoucherResult(null);
   }, [selectedItemIds, cart?.cartId, cart?.totalAmount, cart?.totalItems]);
+
+  // Default-select all items when opening a cart for the first time,
+  // then keep selection in sync with existing item ids.
+  useEffect(() => {
+    if (!cart) return;
+
+    const allItemIds = cart.items.map((item) => item.itemId);
+
+    if (initializedCartIdRef.current !== cart.cartId) {
+      initializedCartIdRef.current = cart.cartId;
+      setSelectedItemIds(allItemIds);
+      return;
+    }
+
+    setSelectedItemIds((prev) =>
+      prev.filter((itemId) => allItemIds.includes(itemId)),
+    );
+  }, [cart]);
 
   if (isLoading) return <CartLoading />;
   if (isError || !cart) return <CartError onRetry={() => refetch()} />;
@@ -330,7 +349,7 @@ export default function CartPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f5f5] dark:bg-neutral-950 pb-28 text-[#222222] dark:text-neutral-100">
+    <main className="min-h-screen bg-[#f5f5f5] dark:bg-neutral-950 pb-36 sm:pb-28 text-[#222222] dark:text-neutral-100">
       <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
         <div className="mx-auto flex w-full max-w-330 items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -372,14 +391,14 @@ export default function CartPage() {
         </div>
 
         <section className="overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+          <div className="flex flex-col gap-2 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
               Sản phẩm trong giỏ ({cart.totalItems})
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-end gap-3 sm:justify-start">
               <button
                 onClick={handleToggleSelectAll}
-                className="text-xs font-bold uppercase tracking-wide text-neutral-600 hover:text-black dark:hover:text-white transition-colors"
+                className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-neutral-600 hover:text-black dark:hover:text-white transition-colors"
               >
                 {isAllSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"}
               </button>
@@ -388,7 +407,7 @@ export default function CartPage() {
                 disabled={
                   selectedItemIds.length === 0 || removeMutation.isPending
                 }
-                className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-red-500 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wide text-red-500 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Trash2 className="size-3.5" />
                 Xóa đã chọn
@@ -533,42 +552,47 @@ export default function CartPage() {
       </div>
 
       <div className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 bg-white/95 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
-        <div className="mx-auto flex w-full max-w-330 items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <button
-            onClick={handleToggleSelectAll}
-            className="text-sm text-neutral-700 hover:text-black dark:text-neutral-200 dark:hover:text-white"
-          >
-            {isAllSelected
-              ? "Bỏ chọn tất cả"
-              : `Chọn tất cả (${cart.totalItems})`}
-          </button>
-          <button
-            onClick={handleDeleteSelected}
-            disabled={selectedItemIds.length === 0 || removeMutation.isPending}
-            className="text-sm text-neutral-700 hover:text-red-600 disabled:opacity-40 dark:text-neutral-200"
-          >
-            Xóa
-          </button>
-          <button className="text-sm text-black dark:text-white hover:underline">
-            Lưu vào mục Đã thích
-          </button>
+        <div className="mx-auto w-full max-w-330 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-neutral-700 dark:text-neutral-200">
+                <button
+                  onClick={handleToggleSelectAll}
+                  className="hover:text-black dark:hover:text-white"
+                >
+                  {isAllSelected
+                    ? "Bỏ chọn tất cả"
+                    : `Chọn tất cả (${cart.totalItems})`}
+                </button>
+                <button
+                  onClick={handleDeleteSelected}
+                  disabled={
+                    selectedItemIds.length === 0 || removeMutation.isPending
+                  }
+                  className="hover:text-red-600 disabled:opacity-40"
+                >
+                  Xóa
+                </button>
+                <button className="hover:underline">Lưu đã thích</button>
+              </div>
 
-          <div className="ml-auto text-right">
-            <p className="text-sm text-neutral-500 dark:text-neutral-400">
-              Tổng cộng ({hasSelection ? selectedCount : cart.totalItems} sản
-              phẩm):
-              <span className="ml-1 text-2xl font-black text-black dark:text-white">
-                {formatPrice(discountedTotal)}
-              </span>
-            </p>
+              <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+                Tổng cộng ({hasSelection ? selectedCount : cart.totalItems} sản
+                phẩm):
+                <span className="ml-1 text-xl sm:text-2xl font-black text-black dark:text-white">
+                  {formatPrice(discountedTotal)}
+                </span>
+              </p>
+            </div>
+
+            <button
+              onClick={handleCheckout}
+              disabled={updateMutation.isPending || removeMutation.isPending}
+              className="h-11 shrink-0 rounded-sm bg-black px-4 sm:px-6 text-white font-bold hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Thanh toán
+            </button>
           </div>
-          <button
-            onClick={handleCheckout}
-            disabled={updateMutation.isPending || removeMutation.isPending}
-            className="h-11 min-w-40 rounded-sm bg-black px-6 text-white font-bold hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Thanh toán
-          </button>
         </div>
       </div>
 
