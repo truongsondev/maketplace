@@ -180,7 +180,7 @@ services:
       context: ./client-seller
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://admin.aura-fashion.io.vn
+        VITE_API_BASE_URL: http://api.aura-fashion.io.vn
     container_name: prod-admin-client
     restart: always
     ports:
