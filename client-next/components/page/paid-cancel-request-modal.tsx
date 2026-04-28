@@ -23,16 +23,6 @@ function reasonLabel(reasonCode: CancelReasonCode): string {
   return found?.label ?? reasonCode;
 }
 
-function maskAccount(accountNumber: string): string {
-  if (!accountNumber) {
-    return "";
-  }
-  if (accountNumber.length <= 4) {
-    return accountNumber;
-  }
-  return `${"*".repeat(Math.max(0, accountNumber.length - 4))}${accountNumber.slice(-4)}`;
-}
-
 export function PaidCancelRequestModal({
   open,
   orderLabel,
@@ -252,7 +242,7 @@ export function PaidCancelRequestModal({
                   <p>Chi tiết: {payload.reasonText}</p>
                 ) : null}
                 <p>Tên chủ tài khoản: {payload.bankAccountName}</p>
-                <p>Số tài khoản: {maskAccount(payload.bankAccountNumber)}</p>
+                <p>Số tài khoản: {payload.bankAccountNumber}</p>
                 <p>Ngân hàng: {payload.bankName}</p>
               </div>
               <p className="mt-3 rounded-sm border border-neutral-200 bg-white p-3 font-medium text-neutral-900 dark:border-neutral-800 dark:bg-black dark:text-neutral-100">

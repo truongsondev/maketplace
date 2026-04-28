@@ -40,13 +40,21 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       req.path.startsWith('/api/payments/payos/webhook') ||
       req.path.startsWith('/api/payments/payos/return') ||
       req.path.startsWith('/api/payments/payos/orders/');
+    const isPublicCommonPath =
+      requestPath.startsWith('/api/common') || req.path.startsWith('/api/common');
+    const isPublicMockOrdersPath =
+      requestPath.startsWith('/api/mock/orders') || req.path.startsWith('/api/mock/orders');
     const isPublicEndpoint =
       requestPath.startsWith('/api/auth') ||
       isPublicProductGet ||
       isPublicPayosPath ||
+      isPublicCommonPath ||
+      isPublicMockOrdersPath ||
       req.path.startsWith('/api/auth') ||
       isPublicProductGetByPath ||
-      isPublicPayosPathByReqPath;
+      isPublicPayosPathByReqPath ||
+      isPublicCommonPath ||
+      isPublicMockOrdersPath;
 
     // Bỏ qua preflight request
     if (req.method === 'OPTIONS' || isPublicEndpoint) {
