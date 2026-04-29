@@ -5,3 +5,4 @@ export { ProductsTable } from "./products-table";
 export { BulkActions } from "./bulk-actions";
 export { ProductForm } from "./product-form";
 export { Filters } from "./filters";
+export { DateRangeFilter } from "./date-range-filter";

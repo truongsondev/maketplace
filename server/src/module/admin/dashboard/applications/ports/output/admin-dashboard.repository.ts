@@ -6,15 +6,25 @@ import type {
 
 export type AdminDashboardTimeseriesCommand = {
   /** how many days back (including today). */
-  days: number;
+  days?: number;
+  from?: Date;
+  to?: Date;
+};
+
+export type AdminDashboardOverviewCommand = {
+  days?: number;
+  from?: Date;
+  to?: Date;
 };
 
 export type ListAdminDashboardRecentOrdersCommand = {
   limit: number;
+  from?: Date;
+  to?: Date;
 };
 
 export interface IAdminDashboardRepository {
-  getOverview(): Promise<AdminDashboardOverview>;
+  getOverview(command?: AdminDashboardOverviewCommand): Promise<AdminDashboardOverview>;
   getTimeseries(command: AdminDashboardTimeseriesCommand): Promise<AdminDashboardTimeseries>;
   listRecentOrders(
     command: ListAdminDashboardRecentOrdersCommand,

@@ -1,17 +1,20 @@
 export type AdminDashboardMoney = {
   currency: 'VND';
-  today: number;
-  month: number;
-  year: number;
+  total: number;
 };
 
 export type AdminDashboardCount = {
-  today: number;
-  month: number;
-  year: number;
+  total: number;
+};
+
+export type AdminDashboardRange = {
+  from: string;
+  to: string;
+  days: number;
 };
 
 export type AdminDashboardOverview = {
+  range: AdminDashboardRange;
   revenue: AdminDashboardMoney;
   orders: AdminDashboardCount;
   itemsSold: AdminDashboardCount;

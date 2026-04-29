@@ -1,8 +1,9 @@
-import { Header, Sidebar } from "@/components/admin";
+import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
 import { logsService } from "@/services/api";
 import type { AdminLogItem, AuditActorType } from "@/types/api";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
 
 function formatDate(value: string) {
   const d = new Date(value);
@@ -82,6 +83,12 @@ function mapActionLabel(action: string): string {
 }
 
 export default function LogsPage() {
+  const [range, setRange] = useState<DateRangeValue>({
+    option: "30d",
+    from: "",
+    to: "",
+  });
+  const rangeInfo = resolveDateRange(range);
   const [items, setItems] = useState<AdminLogItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -94,13 +101,24 @@ export default function LogsPage() {
   const [actionQuery, setActionQuery] = useState("");
 
   const params = useMemo(() => {
+    const isAllRange = range.option === "all";
     return {
       page,
       limit,
       actorType: actorType === "ALL" ? undefined : actorType,
       action: actionQuery.trim() ? actionQuery.trim() : undefined,
+      from: isAllRange ? undefined : rangeInfo.from,
+      to: isAllRange ? undefined : rangeInfo.to,
     };
-  }, [page, limit, actorType, actionQuery]);
+  }, [
+    page,
+    limit,
+    actorType,
+    actionQuery,
+    rangeInfo.from,
+    rangeInfo.to,
+    range.option,
+  ]);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -123,6 +141,10 @@ export default function LogsPage() {
     fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rangeInfo.from, rangeInfo.to, range.option]);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -162,6 +184,8 @@ export default function LogsPage() {
                     }}
                   />
                 </div>
+
+                <DateRangeFilter value={range} onChange={setRange} />
               </div>
 
               <button
@@ -223,7 +247,7 @@ export default function LogsPage() {
                           {target}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-xs text-gray-600 whitespace-normal break-all max-w-[520px]">
+                          <div className="text-xs text-gray-600 whitespace-normal break-all max-w-130">
                             {previewJson(log.newData) ||
                               previewJson(log.oldData) ||
                               "-"}

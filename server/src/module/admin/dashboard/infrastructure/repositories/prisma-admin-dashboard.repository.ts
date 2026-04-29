@@ -7,29 +7,17 @@ import type {
 } from '../../applications/dto/admin-dashboard.dto';
 import type {
   AdminDashboardTimeseriesCommand,
+  AdminDashboardOverviewCommand,
   IAdminDashboardRepository,
   ListAdminDashboardRecentOrdersCommand,
 } from '../../applications/ports/output/admin-dashboard.repository';
 
 const PAID_STATUSES = ['PAID', 'SUCCESS'] as const;
 const REVENUE_ORDER_STATUS = 'DELIVERED' as const;
+const REVENUE_RETURN_STATUSES = ['REQUESTED', 'REJECTED'] as const;
 
 function startOfDay(d: Date): Date {
   const next = new Date(d);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function startOfMonth(d: Date): Date {
-  const next = new Date(d);
-  next.setDate(1);
-  next.setHours(0, 0, 0, 0);
-  return next;
-}
-
-function startOfYear(d: Date): Date {
-  const next = new Date(d);
-  next.setMonth(0, 1);
   next.setHours(0, 0, 0, 0);
   return next;
 }
@@ -60,46 +48,68 @@ function buildDateRange(days: number): { from: Date; to: Date; labels: string[] 
   return { from, to: endExclusive, labels };
 }
 
+function buildDateRangeFromDates(from: Date, to: Date): { from: Date; to: Date; labels: string[] } {
+  const start = startOfDay(from);
+  const endExclusive = new Date(to);
+  const labels: string[] = [];
+  const cursor = new Date(start);
+  while (cursor < endExclusive) {
+    labels.push(formatDateOnly(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { from: start, to: endExclusive, labels };
+}
+
+function resolveRange(
+  command: { days?: number; from?: Date; to?: Date } | undefined,
+  options: { defaultDays: number; maxDays: number },
+): { from: Date; to: Date; labels: string[]; days: number } {
+  if (command?.from && command?.to) {
+    const { from, to, labels } = buildDateRangeFromDates(command.from, command.to);
+    const days = labels.length;
+    if (days > options.maxDays) {
+      throw new Error(`range must be <= ${options.maxDays} days`);
+    }
+    return { from, to, labels, days };
+  }
+
+  const rawDays = Number(command?.days ?? options.defaultDays);
+  const days = Math.max(1, Math.min(Math.floor(rawDays), options.maxDays));
+  const { from, to, labels } = buildDateRange(days);
+  return { from, to, labels, days };
+}
+
 export class PrismaAdminDashboardRepository implements IAdminDashboardRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async getOverview(): Promise<AdminDashboardOverview> {
-    const now = new Date();
-    const todayStart = startOfDay(now);
-    const monthStart = startOfMonth(now);
-    const yearStart = startOfYear(now);
+  async getOverview(command?: AdminDashboardOverviewCommand): Promise<AdminDashboardOverview> {
+    const { from, to, days } = resolveRange(command, { defaultDays: 30, maxDays: 365 });
 
-    const [today, month, year] = await Promise.all([
-      this.getPaidAggregates(todayStart, now),
-      this.getPaidAggregates(monthStart, now),
-      this.getPaidAggregates(yearStart, now),
-    ]);
+    const totals = await this.getPaidAggregates(from, to);
 
     return {
+      range: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        days,
+      },
       revenue: {
         currency: 'VND',
-        today: today.revenue,
-        month: month.revenue,
-        year: year.revenue,
+        total: totals.revenue,
       },
       orders: {
-        today: today.orders,
-        month: month.orders,
-        year: year.orders,
+        total: totals.orders,
       },
       itemsSold: {
-        today: today.itemsSold,
-        month: month.itemsSold,
-        year: year.itemsSold,
+        total: totals.itemsSold,
       },
       profit: null,
-      updatedAt: now.toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   }
 
   async getTimeseries(command: AdminDashboardTimeseriesCommand): Promise<AdminDashboardTimeseries> {
-    const days = Math.max(1, Math.min(Math.floor(command.days || 30), 90));
-    const { from, to, labels } = buildDateRange(days);
+    const { from, to, labels, days } = resolveRange(command, { defaultDays: 30, maxDays: 90 });
 
     const revenueRows = await this.prisma.$queryRaw<
       Array<{
@@ -115,6 +125,7 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
       INNER JOIN orders o ON o.id = p.order_id
       WHERE p.status IN (${Prisma.join(PAID_STATUSES)})
         AND o.status = ${REVENUE_ORDER_STATUS}
+        AND (o.return_status IS NULL OR o.return_status IN (${Prisma.join(REVENUE_RETURN_STATUSES)}))
         AND p.paid_at IS NOT NULL
         AND p.paid_at >= ${from}
         AND p.paid_at < ${to}
@@ -132,6 +143,7 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
       INNER JOIN payments p ON p.order_id = o.id
       WHERE p.status IN (${Prisma.join(PAID_STATUSES)})
         AND o.status = ${REVENUE_ORDER_STATUS}
+        AND (o.return_status IS NULL OR o.return_status IN (${Prisma.join(REVENUE_RETURN_STATUSES)}))
         AND p.paid_at IS NOT NULL
         AND p.paid_at >= ${from}
         AND p.paid_at < ${to}
@@ -181,6 +193,16 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
     const orders = await this.prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
       take,
+      where: {
+        ...(command.from || command.to
+          ? {
+              createdAt: {
+                ...(command.from ? { gte: command.from } : {}),
+                ...(command.to ? { lt: command.to } : {}),
+              },
+            }
+          : {}),
+      },
       select: {
         id: true,
         createdAt: true,
@@ -215,6 +237,7 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
           paidAt: { gte: from, lt: to },
           order: {
             status: REVENUE_ORDER_STATUS,
+            OR: [{ returnStatus: null }, { returnStatus: { in: [...REVENUE_RETURN_STATUSES] } }],
           },
         },
         _sum: { amount: true },
@@ -224,6 +247,7 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
         where: {
           order: {
             status: REVENUE_ORDER_STATUS,
+            OR: [{ returnStatus: null }, { returnStatus: { in: [...REVENUE_RETURN_STATUSES] } }],
             payment: {
               status: { in: [...PAID_STATUSES] },
               paidAt: { gte: from, lt: to },

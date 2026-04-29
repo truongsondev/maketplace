@@ -20,9 +20,7 @@ export type OrderStatus =
 export type ReturnFlowStatus =
   | "REQUESTED"
   | "APPROVED"
-  | "WAITING_PICKUP"
   | "SHIPPING"
-  | "RETURNING"
   | "COMPLETED"
   | "REJECTED";
 
@@ -33,6 +31,7 @@ export type CancelReasonCode =
   | "BUY_OTHER_ITEM"
   | "FOUND_CHEAPER"
   | "OTHER";
+export type ReturnReasonCode = "WRONG_MODEL" | "WRONG_SIZE" | "DEFECTIVE";
 export type CancelRequestStatus =
   | "REQUESTED"
   | "APPROVED"
@@ -75,6 +74,7 @@ export interface OrderListItemProduct {
 export interface MyOrderListItem {
   id: string;
   createdAt: string;
+  receivedAt: string | null;
   status: OrderStatus;
   canceledReason: string | null;
   returnStatus?: ReturnFlowStatus | null;
@@ -90,6 +90,16 @@ export interface MyOrderListItem {
     transactionPaidAt: string | null;
   };
   items: OrderListItemProduct[];
+}
+
+export interface ReturnRequestPayload {
+  orderId: string;
+  reasonCode: ReturnReasonCode;
+  reason?: string;
+  evidenceImages: Array<{ url: string; publicId?: string | null }>;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankName: string;
 }
 
 export interface MyOrdersListData {

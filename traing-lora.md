@@ -24,9 +24,9 @@ Chứng minh máy bạn:
 
 Bạn cần:
 
-- Python 3.10
-- Git
-- driver NVIDIA/CUDA ổn
+- Python 3.10 (Đã làm)
+- Git (Đã làm)
+- driver NVIDIA/CUDA ổn (Đã làm)
 - tạo virtual environment
 
 ### 2) Cài bộ thư viện
@@ -197,20 +197,7 @@ Nói thẳng: phần này quyết định nhiều hơn cả tham số train.
 
 ### 1) Chốt chủ đề train
 
-Đừng tham. Chỉ chọn một phạm vi hẹp.
-
-Ví dụ tốt:
-
-- ảnh thời trang nữ studio
-- áo sơ mi nữ
-- hoodie streetwear
-- ảnh lookbook quần áo sáng nền sạch
-
-Ví dụ dở:
-
-- quần áo nam nữ lẫn lộn
-- ảnh đời thường lẫn shop lẫn selfie
-- nhiều góc máy, nhiều kiểu nền, nhiều chất lượng
+- Áo thun nam
 
 ### 2) Thu thập ảnh
 

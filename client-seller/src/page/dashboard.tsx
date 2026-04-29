@@ -10,6 +10,13 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { dashboardService } from "@/services/api";
+import { DateRangeFilter } from "@/components/admin";
+import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
+import { useState } from "react";
+import type {
+  DashboardRecentOrder,
+  DashboardTimeseriesPoint,
+} from "@/types/dashboard";
 
 function formatVnd(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
@@ -64,22 +71,57 @@ function buildSparklinePath(
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [range, setRange] = useState<DateRangeValue>({
+    option: "30d",
+    from: "",
+    to: "",
+  });
+  const rangeInfo = resolveDateRange(range);
+  const isAllRange = range.option === "all";
+  const overviewParams = isAllRange
+    ? { days: rangeInfo.days }
+    : { from: rangeInfo.from, to: rangeInfo.to };
+  const timeseriesParams = isAllRange
+    ? { days: rangeInfo.days }
+    : { from: rangeInfo.from, to: rangeInfo.to };
+  const recentOrdersParams = isAllRange
+    ? { limit: 5 }
+    : { limit: 5, from: rangeInfo.from, to: rangeInfo.to };
 
   const overviewQuery = useQuery({
-    queryKey: ["dashboard", "overview"],
-    queryFn: dashboardService.getOverview,
+    queryKey: [
+      "dashboard",
+      "overview",
+      range.option,
+      rangeInfo.from,
+      rangeInfo.to,
+    ],
+    queryFn: () => dashboardService.getOverview(overviewParams),
     staleTime: 1000 * 30,
   });
 
   const timeseriesQuery = useQuery({
-    queryKey: ["dashboard", "timeseries", 30],
-    queryFn: () => dashboardService.getTimeseries(30),
+    queryKey: [
+      "dashboard",
+      "timeseries",
+      range.option,
+      rangeInfo.from,
+      rangeInfo.to,
+    ],
+    queryFn: () => dashboardService.getTimeseries(timeseriesParams),
     staleTime: 1000 * 30,
   });
 
   const recentOrdersQuery = useQuery({
-    queryKey: ["dashboard", "recent-orders", 5],
-    queryFn: () => dashboardService.getRecentOrders(5),
+    queryKey: [
+      "dashboard",
+      "recent-orders",
+      5,
+      range.option,
+      rangeInfo.from,
+      rangeInfo.to,
+    ],
+    queryFn: () => dashboardService.getRecentOrders(recentOrdersParams),
     staleTime: 1000 * 15,
   });
 
@@ -87,91 +129,53 @@ export default function Dashboard() {
   const recentOrders = recentOrdersQuery.data ?? [];
 
   const seriesRevenues =
-    timeseriesQuery.data?.points?.map((p) => p.revenue) ?? [];
-  const seriesOrders = timeseriesQuery.data?.points?.map((p) => p.orders) ?? [];
-  const todayRevenue = overview?.revenue?.today ?? 0;
-  const weekRevenue = sumLastNDays(seriesRevenues, 7);
-  const monthRevenue = overview?.revenue?.month ?? 0;
-  const maxRevenue = Math.max(todayRevenue, weekRevenue, monthRevenue, 1);
+    timeseriesQuery.data?.points?.map(
+      (p: DashboardTimeseriesPoint) => p.revenue,
+    ) ?? [];
+  const seriesOrders =
+    timeseriesQuery.data?.points?.map(
+      (p: DashboardTimeseriesPoint) => p.orders,
+    ) ?? [];
+  const totalRevenue = overview?.revenue?.total ?? 0;
+  const totalOrders = overview?.orders?.total ?? 0;
+  const totalItemsSold = overview?.itemsSold?.total ?? 0;
+  const totalDays = rangeInfo.days || timeseriesQuery.data?.days || 0;
+  const avgRevenue = totalDays ? totalRevenue / totalDays : 0;
+  const latestRevenue = seriesRevenues[seriesRevenues.length - 1] ?? 0;
+  const maxRevenue = Math.max(latestRevenue, avgRevenue, totalRevenue, 1);
 
   const sparklinePath = buildSparklinePath(seriesRevenues, 520, 120);
 
   const stats = [
     {
-      label: "Doanh thu (Hôm nay / Tháng / Năm)",
-      primary: overview ? formatVnd(overview.revenue.month) : "—",
-      secondary: overview
-        ? [
-            { k: "Hôm nay", v: formatVnd(overview.revenue.today) },
-            { k: "Tháng", v: formatVnd(overview.revenue.month) },
-            { k: "Năm", v: formatVnd(overview.revenue.year) },
-          ]
-        : [],
+      label: "Doanh thu",
+      subLabel: rangeInfo.label,
+      primary: overview ? formatVnd(totalRevenue) : "—",
       icon: DollarSign,
       color: "bg-green-500",
     },
     {
-      label: "Đơn hàng (Hôm nay / Tháng / Năm)",
+      label: "Đơn hàng",
+      subLabel: rangeInfo.label,
       primary: overview
-        ? new Intl.NumberFormat("vi-VN").format(overview.orders.month)
+        ? new Intl.NumberFormat("vi-VN").format(totalOrders)
         : "—",
-      secondary: overview
-        ? [
-            {
-              k: "Hôm nay",
-              v: new Intl.NumberFormat("vi-VN").format(overview.orders.today),
-            },
-            {
-              k: "Tháng",
-              v: new Intl.NumberFormat("vi-VN").format(overview.orders.month),
-            },
-            {
-              k: "Năm",
-              v: new Intl.NumberFormat("vi-VN").format(overview.orders.year),
-            },
-          ]
-        : [],
       icon: ShoppingCart,
       color: "bg-blue-500",
     },
     {
-      label: "Sản phẩm bán ra (Hôm nay / Tháng / Năm)",
+      label: "Sản phẩm bán ra",
+      subLabel: rangeInfo.label,
       primary: overview
-        ? new Intl.NumberFormat("vi-VN").format(overview.itemsSold.month)
+        ? new Intl.NumberFormat("vi-VN").format(totalItemsSold)
         : "—",
-      secondary: overview
-        ? [
-            {
-              k: "Hôm nay",
-              v: new Intl.NumberFormat("vi-VN").format(
-                overview.itemsSold.today,
-              ),
-            },
-            {
-              k: "Tháng",
-              v: new Intl.NumberFormat("vi-VN").format(
-                overview.itemsSold.month,
-              ),
-            },
-            {
-              k: "Năm",
-              v: new Intl.NumberFormat("vi-VN").format(overview.itemsSold.year),
-            },
-          ]
-        : [],
       icon: Package,
       color: "bg-orange-500",
     },
     {
-      label: "Lợi nhuận (Hôm nay / Tháng / Năm)",
-      primary: overview?.profit ? formatVnd(overview.profit.month) : "—",
-      secondary: overview?.profit
-        ? [
-            { k: "Hôm nay", v: formatVnd(overview.profit.today) },
-            { k: "Tháng", v: formatVnd(overview.profit.month) },
-            { k: "Năm", v: formatVnd(overview.profit.year) },
-          ]
-        : [],
+      label: "Lợi nhuận",
+      subLabel: rangeInfo.label,
+      primary: overview?.profit ? formatVnd(overview.profit.total) : "—",
       icon: TrendingUp,
       color: "bg-purple-500",
     },
@@ -201,7 +205,15 @@ export default function Dashboard() {
         <Header />
         <main className="flex-1 overflow-y-auto p-8">
           <div className="w-full h-full animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none flex flex-col">
-            <div className="mb-8"></div>
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
+                <p className="text-sm text-gray-500">
+                  Thống kê theo {rangeInfo.label.toLowerCase()}.
+                </p>
+              </div>
+              <DateRangeFilter value={range} onChange={setRange} />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {stats.map((stat, index) => {
@@ -229,21 +241,12 @@ export default function Dashboard() {
                       ) : null}
                     </div>
                     <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
+                    <p className="text-xs text-gray-400 mb-2">
+                      {stat.subLabel}
+                    </p>
                     <p className="text-2xl font-bold text-gray-900">
                       {stat.primary}
                     </p>
-                    {stat.secondary.length ? (
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {stat.secondary.map((item) => (
-                          <div key={item.k} className="text-xs text-gray-600">
-                            <div className="text-gray-500">{item.k}</div>
-                            <div className="font-medium text-gray-900 truncate">
-                              {item.v}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
                 );
               })}
@@ -262,7 +265,7 @@ export default function Dashboard() {
                     Xem tất cả
                   </button>
                 </div>
-                {recentOrders.map((order) => {
+                {recentOrders.map((order: DashboardRecentOrder) => {
                   const statusLabel = mapOrderStatusToLabel(order.status);
                   return (
                     <div
@@ -303,44 +306,46 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-4 flex-1 flex flex-col">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Hôm nay</span>
+                    <span className="text-sm text-gray-600">Gần nhất</span>
                     <span className="font-semibold text-gray-900">
-                      {overview ? formatVnd(todayRevenue) : "—"}
+                      {overview ? formatVnd(latestRevenue) : "—"}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full"
                       style={{
-                        width: `${Math.max(5, Math.min(100, Math.round((todayRevenue / maxRevenue) * 100)))}%`,
+                        width: `${Math.max(5, Math.min(100, Math.round((latestRevenue / maxRevenue) * 100)))}%`,
                       }}
                     ></div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Tuần này</span>
+                    <span className="text-sm text-gray-600">
+                      Trung bình/ngày
+                    </span>
                     <span className="font-semibold text-gray-900">
-                      {overview ? formatVnd(weekRevenue) : "—"}
+                      {overview ? formatVnd(avgRevenue) : "—"}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-green-600 h-2 rounded-full"
                       style={{
-                        width: `${Math.max(5, Math.min(100, Math.round((weekRevenue / maxRevenue) * 100)))}%`,
+                        width: `${Math.max(5, Math.min(100, Math.round((avgRevenue / maxRevenue) * 100)))}%`,
                       }}
                     ></div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Tháng này</span>
+                    <span className="text-sm text-gray-600">Tổng</span>
                     <span className="font-semibold text-gray-900">
-                      {overview ? formatVnd(monthRevenue) : "—"}
+                      {overview ? formatVnd(totalRevenue) : "—"}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-purple-600 h-2 rounded-full"
                       style={{
-                        width: `${Math.max(5, Math.min(100, Math.round((monthRevenue / maxRevenue) * 100)))}%`,
+                        width: `${Math.max(5, Math.min(100, Math.round((totalRevenue / maxRevenue) * 100)))}%`,
                       }}
                     ></div>
                   </div>
@@ -348,14 +353,14 @@ export default function Dashboard() {
                   <div className="pt-2">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm text-gray-600">
-                        30 ngày gần đây
+                        {rangeInfo.label}
                       </span>
                       <span className="text-xs text-gray-500">
                         {timeseriesQuery.isLoading
                           ? "Đang tải..."
                           : timeseriesQuery.isError
                             ? "Lỗi"
-                            : `${new Intl.NumberFormat("vi-VN").format(sumLastNDays(seriesOrders, 30))} đơn hàng`}
+                            : `${new Intl.NumberFormat("vi-VN").format(sumLastNDays(seriesOrders, totalDays || seriesOrders.length))} đơn hàng`}
                       </span>
                     </div>
                     <div className="w-full flex-1 min-h-30">

@@ -18,9 +18,18 @@ function parseDate(value: unknown, fieldName: string): Date | undefined {
     throw new BadRequestError(`${fieldName} must be an ISO date string`);
   }
 
-  const d = new Date(value);
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const dateValue = isDateOnly ? `${value}T00:00:00` : value;
+  const d = new Date(dateValue);
   if (Number.isNaN(d.getTime())) {
     throw new BadRequestError(`${fieldName} is not a valid date`);
+  }
+  if (isDateOnly) {
+    if (fieldName === 'to') {
+      d.setHours(23, 59, 59, 999);
+    } else {
+      d.setHours(0, 0, 0, 0);
+    }
   }
   return d;
 }

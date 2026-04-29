@@ -61,8 +61,26 @@ export interface AdminOrderListItem {
   returns?: {
     requested: number;
     approved: number;
+    shipping?: number;
     rejected: number;
     completed: number;
+    details?: Array<{
+      id: string;
+      orderItemId: string;
+      status:
+        | "RT_REQUESTED"
+        | "RT_APPROVED"
+        | "RT_SHIPPING"
+        | "RT_REJECTED"
+        | "RT_COMPLETED";
+      reason: string | null;
+      reasonCode: string | null;
+      evidenceImages: Array<{ url: string; publicId?: string | null }>;
+      bankAccountName: string | null;
+      bankAccountNumber: string | null;
+      bankName: string | null;
+      createdAt: string;
+    }>;
   };
   user: {
     id: string;

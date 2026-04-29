@@ -5,6 +5,7 @@ import type {
 } from '../../applications/dto/admin-dashboard.dto';
 import type {
   AdminDashboardTimeseriesCommand,
+  AdminDashboardOverviewCommand,
   ListAdminDashboardRecentOrdersCommand,
 } from '../../applications/ports/output/admin-dashboard.repository';
 import { GetAdminDashboardOverviewUseCase } from '../../applications/use-cases/get-admin-dashboard-overview.usecase';
@@ -18,8 +19,8 @@ export class AdminDashboardController {
     private readonly getRecentOrdersUseCase: GetAdminDashboardRecentOrdersUseCase,
   ) {}
 
-  getOverview(): Promise<AdminDashboardOverview> {
-    return this.getOverviewUseCase.execute();
+  getOverview(command?: AdminDashboardOverviewCommand): Promise<AdminDashboardOverview> {
+    return this.getOverviewUseCase.execute(command);
   }
 
   getTimeseries(command: AdminDashboardTimeseriesCommand): Promise<AdminDashboardTimeseries> {

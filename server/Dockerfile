@@ -37,4 +37,4 @@ COPY package*.json ./
 
 EXPOSE 8080
 
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "npx prisma generate && node dist/server.js"]

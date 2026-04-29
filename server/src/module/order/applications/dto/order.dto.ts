@@ -55,6 +55,7 @@ export interface OrderItemDto {
 export interface MyOrderDto {
   id: string;
   createdAt: Date;
+  receivedAt: Date | null;
   status: OrderStatus;
   canceledReason: string | null;
   returnStatus: ReturnFlowStatus | null;

@@ -74,23 +74,20 @@ enum ActorType {
 }
 
 enum ReturnStatus {
-  REQUESTED
-  APPROVED
-  REJECTED
-  COMPLETED
+  RT_REQUESTED
+  RT_APPROVED
+  RT_SHIPPING
+  RT_COMPLETED
+  RT_REJECTED
 }
 
 enum ReturnFlowStatus {
   /// Buyer yeu cau tra hang (cho duyet)
   REQUESTED
-  /// New (spec): admin da duyet yeu cau tra hang
+  /// Admin da duyet yeu cau tra hang
   APPROVED
-  /// Da duoc duyet, cho shipper den lay
-  WAITING_PICKUP
-  /// New (spec): hang dang duoc gui tra ve
+  /// Hang dang duoc gui tra ve shop
   SHIPPING
-  /// Shipper da lay hang, dang tra ve shop
-  RETURNING
   /// Shop da nhan hang tra (ket thuc)
   COMPLETED
   /// Yeu cau tra hang bi tu choi (ket thuc)
@@ -917,11 +914,16 @@ model InventoryLog {
 
 /// Yêu cầu trả hàng - liên kết với từng order_item
 model Return {
-  id          String       @id @default(uuid()) @db.VarChar(36)
-  orderItemId String       @map("order_item_id") @db.VarChar(36)
-  quantity    Int
-  reason      String?      @db.Text
-  status      ReturnStatus @default(REQUESTED)
+  id                String       @id @default(uuid()) @db.VarChar(36)
+  orderItemId       String       @map("order_item_id") @db.VarChar(36)
+  quantity          Int
+  reason            String?      @db.Text
+  reasonCode        String?      @map("reason_code") @db.VarChar(50)
+  evidenceImages    Json?        @map("evidence_images")
+  bankAccountName   String?      @map("bank_account_name") @db.VarChar(255)
+  bankAccountNumber String?      @map("bank_account_number") @db.VarChar(50)
+  bankName          String?      @map("bank_name") @db.VarChar(120)
+  status            ReturnStatus @default(RT_REQUESTED)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -929,6 +931,7 @@ model Return {
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
 
   @@index([orderItemId])
+  @@index([reasonCode])
   @@map("returns")
 }
 

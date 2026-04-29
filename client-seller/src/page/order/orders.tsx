@@ -1,4 +1,5 @@
-import { Header, Sidebar } from "@/components/admin";
+import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
+import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
 import { orderService } from "@/services/api";
 import type {
   AdminOrderListItem,
@@ -9,7 +10,7 @@ import type {
   AdminOrderTimeseries,
 } from "@/types/order";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 type RowActionItem = {
@@ -147,6 +148,19 @@ function cancelRequestStatusText(status: string) {
   }
 }
 
+function returnReasonText(code?: string | null) {
+  switch (code) {
+    case "WRONG_MODEL":
+      return "Không đúng mẫu";
+    case "WRONG_SIZE":
+      return "Không vừa, muốn đổi size";
+    case "DEFECTIVE":
+      return "Hàng bị lỗi";
+    default:
+      return code || "Chưa có lý do";
+  }
+}
+
 function paymentStatusText(status?: string | null) {
   if (!status) {
     return "Không rõ";
@@ -273,6 +287,23 @@ function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
 
 export default function OrdersPage() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [range, setRange] = useState<DateRangeValue>({
+    option: "30d",
+    from: "",
+    to: "",
+  });
+  const rangeInfo = resolveDateRange(range);
+  const isAllRange = range.option === "all";
+  const rangeParams = isAllRange
+    ? {}
+    : {
+        from: rangeInfo.from,
+        to: rangeInfo.to,
+      };
+  const analyticsParams = isAllRange
+    ? { days: rangeInfo.days }
+    : { from: rangeInfo.from, to: rangeInfo.to };
   const [tab, setTab] = useState<AdminOrderTab>("all");
   const [sort, setSort] = useState<AdminOrderSort>("new");
   const [searchInput, setSearchInput] = useState("");
@@ -290,7 +321,6 @@ export default function OrdersPage() {
     canceled: 0,
   });
 
-  const analyticsDays = 30;
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [statusBreakdown, setStatusBreakdown] = useState<
     AdminOrderStatusBreakdown | undefined
@@ -339,7 +369,7 @@ export default function OrdersPage() {
 
   const fetchCounts = async () => {
     try {
-      const res = await orderService.getCounts();
+      const res = await orderService.getCounts(rangeParams);
       setCounts(res.data);
     } catch (e) {
       console.error(e);
@@ -350,8 +380,8 @@ export default function OrdersPage() {
     try {
       setAnalyticsLoading(true);
       const [statusRes, seriesRes] = await Promise.all([
-        orderService.getAnalyticsStatus({ days: analyticsDays }),
-        orderService.getAnalyticsTimeseries({ days: analyticsDays }),
+        orderService.getAnalyticsStatus(analyticsParams),
+        orderService.getAnalyticsTimeseries(analyticsParams),
       ]);
       setStatusBreakdown(statusRes.data);
       setTimeseries(seriesRes.data);
@@ -371,6 +401,7 @@ export default function OrdersPage() {
         search,
         page: 1,
         limit: 20,
+        ...rangeParams,
       });
       setOrders(res.data.items);
     } catch (e) {
@@ -384,18 +415,37 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchCounts();
     fetchAnalytics();
-  }, []);
+  }, [rangeInfo.from, rangeInfo.to, range.option]);
 
   useEffect(() => {
     const query = new URLSearchParams(location.search);
     const nextSearch = query.get("search")?.trim() || "";
-    setSearchInput(nextSearch);
-    setSearch(nextSearch || undefined);
+    const orderId = query.get("orderId")?.trim() || "";
+    const keyword = nextSearch || orderId;
+    setSearchInput(keyword);
+    setSearch(keyword || undefined);
   }, [location.search]);
 
   useEffect(() => {
     fetchOrders();
-  }, [tab, sort, search]);
+  }, [tab, sort, search, rangeInfo.from, rangeInfo.to, range.option]);
+
+  useEffect(() => {
+    const orderId = new URLSearchParams(location.search).get("orderId")?.trim();
+    if (loading) {
+      return;
+    }
+
+    if (!orderId) {
+      setDetailModal((prev) => (prev ? undefined : prev));
+      return;
+    }
+
+    const matched = orders.find((order) => order.id === orderId);
+    if (matched) {
+      setDetailModal((prev) => (prev?.id === matched.id ? prev : matched));
+    }
+  }, [location.search, orders, loading]);
 
   const handleApplySearch = () => {
     const s = searchInput.trim();
@@ -405,7 +455,12 @@ export default function OrdersPage() {
   const handleExport = async () => {
     try {
       setExporting(true);
-      const blob = await orderService.exportOrders({ tab, search, sort });
+      const blob = await orderService.exportOrders({
+        tab,
+        search,
+        sort,
+        ...rangeParams,
+      });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -436,10 +491,28 @@ export default function OrdersPage() {
 
   const openDetailModal = (order: AdminOrderListItem) => {
     setDetailModal(order);
+    const query = new URLSearchParams(location.search);
+    query.set("orderId", order.id);
+    navigate(
+      {
+        pathname: location.pathname,
+        search: query.toString() ? `?${query.toString()}` : "",
+      },
+      { replace: true },
+    );
   };
 
   const closeDetailModal = () => {
     setDetailModal(undefined);
+    const query = new URLSearchParams(location.search);
+    query.delete("orderId");
+    navigate(
+      {
+        pathname: location.pathname,
+        search: query.toString() ? `?${query.toString()}` : "",
+      },
+      { replace: true },
+    );
   };
 
   const handleCancel = async () => {
@@ -517,6 +590,7 @@ export default function OrdersPage() {
     try {
       await orderService.approveReturns(orderId);
       toast.success("Đã duyệt trả hàng");
+      setDetailModal(undefined);
       fetchOrders();
     } catch (e) {
       toast.error("Duyệt trả hàng thất bại");
@@ -568,6 +642,7 @@ export default function OrdersPage() {
     try {
       await orderService.rejectReturns(orderId);
       toast.success("Đã từ chối trả hàng");
+      setDetailModal(undefined);
       fetchOrders();
     } catch (e) {
       toast.error("Từ chối trả hàng thất bại");
@@ -594,6 +669,9 @@ export default function OrdersPage() {
                   <p className="mt-2 text-sm text-slate-600">
                     Theo dõi luồng đơn và xử lý nhanh các hành động vận hành.
                   </p>
+                  <div className="mt-4">
+                    <DateRangeFilter value={range} onChange={setRange} />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -633,7 +711,7 @@ export default function OrdersPage() {
                       Đơn hàng theo trạng thái
                     </p>
                     <p className="mt-1 text-xs text-slate-600">
-                      {analyticsDays} ngày gần nhất
+                      {rangeInfo.label}
                     </p>
                   </div>
                   {statusBreakdown ? (
@@ -716,7 +794,7 @@ export default function OrdersPage() {
                       Số lượng đơn theo thời gian
                     </p>
                     <p className="mt-1 text-xs text-slate-600">
-                      {analyticsDays} ngày gần nhất
+                      {rangeInfo.label}
                     </p>
                   </div>
                   {timeseries ? (
@@ -1317,6 +1395,97 @@ export default function OrdersPage() {
                 </p>
               </div>
             </div>
+
+            {detailModal.returns?.details?.length ? (
+              <div className="mt-5 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-4 text-sm text-cyan-950">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-base">
+                      Yêu cầu trả hàng/hoàn tiền
+                    </p>
+                    <p className="mt-1">
+                      SĐT liên hệ:{" "}
+                      {detailModal.shipping?.phone ??
+                        detailModal.user.phone ??
+                        "Không có số điện thoại"}
+                    </p>
+                    <p className="mt-1">
+                      Địa chỉ lấy hàng: {formatShippingAddress(detailModal)}
+                    </p>
+                  </div>
+
+                  {detailModal.returnStatus === "REQUESTED" ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveReturns(detailModal.id)}
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Chấp nhận yêu cầu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectReturns(detailModal.id)}
+                        className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+                      >
+                        Từ chối yêu cầu
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  {detailModal.returns.details.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl border border-cyan-100 bg-white/80 p-3"
+                    >
+                      <div className="grid gap-2 md:grid-cols-2">
+                        <p>
+                          Lý do:{" "}
+                          <span className="font-semibold">
+                            {returnReasonText(item.reasonCode)}
+                          </span>
+                        </p>
+                        <p>Trạng thái: {item.status}</p>
+                        {item.reason ? (
+                          <p className="md:col-span-2">
+                            Mô tả thêm: {item.reason}
+                          </p>
+                        ) : null}
+                        <p className="md:col-span-2">
+                          Thông tin chuyển khoản:{" "}
+                          {item.bankAccountName ?? "—"} -{" "}
+                          {item.bankAccountNumber ?? "—"} -{" "}
+                          {item.bankName ?? "—"}
+                        </p>
+                      </div>
+
+                      {item.evidenceImages.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {item.evidenceImages.map((image, index) => (
+                            <a
+                              key={`${item.id}-${image.url}-${index}`}
+                              href={image.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block h-20 w-20 overflow-hidden rounded-lg border border-cyan-100 bg-white"
+                            >
+                              <img
+                                src={image.url}
+                                alt={`Ảnh minh chứng ${index + 1}`}
+                                className="h-full w-full object-cover"
+                                loading="lazy"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">

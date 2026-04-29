@@ -11,6 +11,61 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return Math.floor(parsed);
 }
 
+type ParsedDateInput = { date: Date; isDateOnly: boolean };
+
+function startOfDay(d: Date): Date {
+  const next = new Date(d);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function parseDateInput(value: unknown, fieldName: string): ParsedDateInput | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string') {
+    throw new BadRequestError(`${fieldName} must be a date string`);
+  }
+
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const dateValue = isDateOnly ? `${value}T00:00:00` : value;
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestError(`${fieldName} is not a valid date`);
+  }
+
+  return { date: parsed, isDateOnly };
+}
+
+function parseDateRangeFilter(query: Request['query']): { from?: Date; to?: Date } {
+  const fromInput = parseDateInput(query.from, 'from');
+  const toInput = parseDateInput(query.to, 'to');
+
+  if (!fromInput && !toInput) {
+    return {};
+  }
+
+  const from = fromInput
+    ? fromInput.isDateOnly
+      ? startOfDay(fromInput.date)
+      : fromInput.date
+    : undefined;
+  let to = toInput ? (toInput.isDateOnly ? startOfDay(toInput.date) : toInput.date) : undefined;
+  if (toInput?.isDateOnly && to) {
+    to = addDays(to, 1);
+  }
+
+  if (from && to && from >= to) {
+    throw new BadRequestError('from must be before to');
+  }
+
+  return { from, to };
+}
+
 function parseRefundStatus(value: unknown): RefundStatus | undefined {
   if (value === undefined || value === null || value === '') {
     return undefined;
@@ -60,6 +115,7 @@ export class AdminRefundAPI {
       search: typeof req.query.search === 'string' ? req.query.search.trim() : undefined,
       status: parseRefundStatus(req.query.status),
       type: parseRefundType(req.query.type),
+      ...parseDateRangeFilter(req.query),
       sortBy:
         req.query.sortBy === 'processedAt' || req.query.sortBy === 'amount'
           ? req.query.sortBy

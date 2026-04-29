@@ -47,6 +47,14 @@ class AdminNotificationHub {
       client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
     }
   }
+
+  sendCancelRequest(userId: string, payload: NotificationRealtimePayload): void {
+    for (const client of this.clients.values()) {
+      if (client.userId !== userId) continue;
+      client.res.write('event: cancel_request\n');
+      client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    }
+  }
 }
 
 export const adminNotificationHub = new AdminNotificationHub();

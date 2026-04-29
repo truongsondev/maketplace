@@ -265,6 +265,8 @@ export const orderService = {
     sort?: AdminOrderSort;
     page?: number;
     limit?: number;
+    from?: string;
+    to?: string;
   }): Promise<AdminOrdersListResponse> => {
     const response = await apiClient.get("/admin/orders", { params });
     return response.data;
@@ -274,6 +276,8 @@ export const orderService = {
     tab?: AdminOrderTab;
     search?: string;
     sort?: AdminOrderSort;
+    from?: string;
+    to?: string;
   }): Promise<Blob> => {
     const response = await apiClient.get("/admin/orders/export", {
       params,
@@ -282,13 +286,18 @@ export const orderService = {
     return response.data;
   },
 
-  getCounts: async (): Promise<AdminOrdersCountsResponse> => {
-    const response = await apiClient.get("/admin/orders/counts");
+  getCounts: async (params?: {
+    from?: string;
+    to?: string;
+  }): Promise<AdminOrdersCountsResponse> => {
+    const response = await apiClient.get("/admin/orders/counts", { params });
     return response.data;
   },
 
   getAnalyticsStatus: async (params?: {
     days?: number;
+    from?: string;
+    to?: string;
   }): Promise<AdminOrderStatusBreakdownResponse> => {
     const response = await apiClient.get("/admin/orders/analytics/status", {
       params,
@@ -298,6 +307,8 @@ export const orderService = {
 
   getAnalyticsTimeseries: async (params?: {
     days?: number;
+    from?: string;
+    to?: string;
   }): Promise<AdminOrderTimeseriesResponse> => {
     const response = await apiClient.get("/admin/orders/analytics/timeseries", {
       params,
@@ -542,6 +553,8 @@ export const refundService = {
     type?: AdminRefundType;
     sortBy?: "requestedAt" | "processedAt" | "amount";
     sortOrder?: "asc" | "desc";
+    from?: string;
+    to?: string;
   }): Promise<AdminRefundListResponse> => {
     const response = await apiClient.get("/admin/refunds", { params });
     return response.data;
@@ -559,19 +572,33 @@ export const refundService = {
 };
 
 export const dashboardService = {
-  getOverview: async (): Promise<DashboardOverview> => {
-    const response = await apiClient.get("/admin/dashboard/overview");
-    return response.data.data;
-  },
-  getTimeseries: async (days: number): Promise<DashboardTimeseries> => {
-    const response = await apiClient.get("/admin/dashboard/timeseries", {
-      params: { days },
+  getOverview: async (params?: {
+    days?: number;
+    from?: string;
+    to?: string;
+  }): Promise<DashboardOverview> => {
+    const response = await apiClient.get("/admin/dashboard/overview", {
+      params,
     });
     return response.data.data;
   },
-  getRecentOrders: async (limit = 5): Promise<DashboardRecentOrder[]> => {
+  getTimeseries: async (params?: {
+    days?: number;
+    from?: string;
+    to?: string;
+  }): Promise<DashboardTimeseries> => {
+    const response = await apiClient.get("/admin/dashboard/timeseries", {
+      params,
+    });
+    return response.data.data;
+  },
+  getRecentOrders: async (params?: {
+    limit?: number;
+    from?: string;
+    to?: string;
+  }): Promise<DashboardRecentOrder[]> => {
     const response = await apiClient.get("/admin/dashboard/recent-orders", {
-      params: { limit },
+      params,
     });
     return response.data.data.items;
   },

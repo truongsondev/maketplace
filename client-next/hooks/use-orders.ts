@@ -6,6 +6,7 @@ import type {
   CancelReasonCode,
   OrderSort,
   OrderTab,
+  ReturnRequestPayload,
 } from "@/types/order.types";
 
 export const ORDERS_QUERY_KEY = ["orders"] as const;
@@ -119,8 +120,8 @@ export function useRequestReturnOrder() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (params: { orderId: string; reason?: string }) =>
-      orderService.requestReturn(params.orderId, params.reason),
+    mutationFn: (params: ReturnRequestPayload) =>
+      orderService.requestReturn(params),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY }),

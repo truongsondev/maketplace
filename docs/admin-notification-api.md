@@ -99,6 +99,13 @@ event: low_stock
 data: {"id":"uuid","content":"Canh bao ton kho thap: Ao khoac AURA (SKU: AURA-AK-M-BLACK) con 3, nguong canh bao 5","isRead":false,"createdAt":"2026-04-20T08:30:00.000Z"}
 ```
 
+### Event: `cancel_request`
+
+```text
+event: cancel_request
+data: {"id":"uuid","content":"Yeu cau huy don hang #123456 da duoc gui. Ly do: Mua san pham khac","isRead":false,"createdAt":"2026-04-20T09:15:00.000Z"}
+```
+
 ## Frontend integration note
 
 - Client mo stream bang `new EventSource(`${API_BASE_URL}/api/admin/notifications/stream?token=${accessToken}`)`.
@@ -114,3 +121,4 @@ data: {"id":"uuid","content":"Canh bao ton kho thap: Ao khoac AURA (SKU: AURA-AK
 - RabbitMQ consumer co dedupe key theo `orderId` de tranh tao thong bao trung khi redelivery.
 - Neu RabbitMQ publish loi, backend fallback xu ly truc tiep de khong block webhook flow.
 - Low-stock chi phat thong bao khi ton kho vua cat qua nguong (`stockOnHand` tu lon hon `minStock` xuong nho hon hoac bang `minStock`) va co dedupe key theo `variantId + stockOnHand` de tranh spam.
+- Cancel-request thong bao admin chi duoc tao khi yeu cau chuyen sang trang thai `REQUESTED` tu trang thai khac, de tranh spam khi nguoi dung submit lai cung mot yeu cau.

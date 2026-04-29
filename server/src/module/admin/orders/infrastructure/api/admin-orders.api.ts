@@ -18,6 +18,77 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return Math.floor(n);
 }
 
+type ParsedDateInput = { date: Date; isDateOnly: boolean };
+
+function startOfDay(d: Date): Date {
+  const next = new Date(d);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function parseDateInput(value: unknown, fieldName: string): ParsedDateInput | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string') {
+    throw new BadRequestError(`${fieldName} must be a date string`);
+  }
+
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const dateValue = isDateOnly ? `${value}T00:00:00` : value;
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new BadRequestError(`${fieldName} is not a valid date`);
+  }
+
+  return { date: parsed, isDateOnly };
+}
+
+function parseDateRangeFilter(query: Request['query']): { from?: Date; to?: Date } {
+  const fromInput = parseDateInput(query.from, 'from');
+  const toInput = parseDateInput(query.to, 'to');
+
+  if (!fromInput && !toInput) {
+    return {};
+  }
+
+  const from = fromInput
+    ? fromInput.isDateOnly
+      ? startOfDay(fromInput.date)
+      : fromInput.date
+    : undefined;
+  let to = toInput ? (toInput.isDateOnly ? startOfDay(toInput.date) : toInput.date) : undefined;
+  if (toInput?.isDateOnly && to) {
+    to = addDays(to, 1);
+  }
+
+  if (from && to && from >= to) {
+    throw new BadRequestError('from must be before to');
+  }
+
+  return { from, to };
+}
+
+function parseAnalyticsRange(query: Request['query']): { from?: Date; to?: Date; days?: number } {
+  const range = parseDateRangeFilter(query);
+  if (range.from || range.to) {
+    if (!range.from || !range.to) {
+      throw new BadRequestError('from and to are required when filtering by date range');
+    }
+    return range;
+  }
+
+  const days = parsePositiveInt(query.days, 30);
+  if (days > 365) {
+    throw new BadRequestError('days must be <= 365');
+  }
+  return { days };
+}
+
 function mapTabToStatuses(tab: AdminOrderTab | undefined): OrderStatus[] | undefined {
   if (!tab || tab === 'all') return undefined;
   if (tab === 'pending') return ['PENDING'];
@@ -115,14 +186,14 @@ export class AdminOrdersAPI {
   }
 
   private async getAnalyticsStatus(req: Request, res: Response): Promise<void> {
-    const days = parsePositiveInt(req.query.days, 30);
-    const result = await this.analyticsController.getStatusBreakdown({ days });
+    const range = parseAnalyticsRange(req.query);
+    const result = await this.analyticsController.getStatusBreakdown(range);
     res.status(200).json(ResponseFormatter.success(result, 'OK'));
   }
 
   private async getAnalyticsTimeseries(req: Request, res: Response): Promise<void> {
-    const days = parsePositiveInt(req.query.days, 30);
-    const result = await this.analyticsController.getTimeseries({ days });
+    const range = parseAnalyticsRange(req.query);
+    const result = await this.analyticsController.getTimeseries(range);
     res.status(200).json(ResponseFormatter.success(result, 'OK'));
   }
 
@@ -419,10 +490,20 @@ export class AdminOrdersAPI {
     const limit = Math.min(parsePositiveInt(req.query.limit, 10), 50);
     const skip = (page - 1) * limit;
 
+    const range = parseDateRangeFilter(req.query);
+
     const statuses = mapTabToStatuses(tab);
 
     const where: Prisma.OrderWhereInput = {
       ...(statuses ? { status: { in: statuses } } : {}),
+      ...(range.from || range.to
+        ? {
+            createdAt: {
+              ...(range.from ? { gte: range.from } : {}),
+              ...(range.to ? { lt: range.to } : {}),
+            },
+          }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -515,6 +596,13 @@ export class AdminOrdersAPI {
                 select: {
                   id: true,
                   status: true,
+                  reason: true,
+                  reasonCode: true,
+                  evidenceImages: true,
+                  bankAccountName: true,
+                  bankAccountNumber: true,
+                  bankName: true,
+                  createdAt: true,
                 },
               },
             },
@@ -526,13 +614,28 @@ export class AdminOrdersAPI {
     const items = orders.map((o) => {
       const userLabel = o.user.email ?? o.user.phone ?? o.user.id;
 
-      const returnsSummary = { requested: 0, approved: 0, rejected: 0, completed: 0 };
+      const returnsSummary = { requested: 0, approved: 0, shipping: 0, rejected: 0, completed: 0 };
+      const returnDetails = o.items.flatMap((it) =>
+        (it.returns ?? []).map((r) => ({
+          id: r.id,
+          orderItemId: it.id,
+          status: r.status,
+          reason: r.reason,
+          reasonCode: r.reasonCode,
+          evidenceImages: Array.isArray(r.evidenceImages) ? r.evidenceImages : [],
+          bankAccountName: r.bankAccountName,
+          bankAccountNumber: r.bankAccountNumber,
+          bankName: r.bankName,
+          createdAt: r.createdAt,
+        })),
+      );
       for (const it of o.items) {
         for (const r of it.returns ?? []) {
-          if (r.status === 'REQUESTED') returnsSummary.requested += 1;
-          else if (r.status === 'APPROVED') returnsSummary.approved += 1;
-          else if (r.status === 'REJECTED') returnsSummary.rejected += 1;
-          else if (r.status === 'COMPLETED') returnsSummary.completed += 1;
+          if (r.status === 'RT_REQUESTED') returnsSummary.requested += 1;
+          else if (r.status === 'RT_APPROVED') returnsSummary.approved += 1;
+          else if (r.status === 'RT_SHIPPING') returnsSummary.shipping += 1;
+          else if (r.status === 'RT_REJECTED') returnsSummary.rejected += 1;
+          else if (r.status === 'RT_COMPLETED') returnsSummary.completed += 1;
         }
       }
 
@@ -542,7 +645,10 @@ export class AdminOrdersAPI {
         status: o.status,
         returnStatus: o.returnStatus ?? null,
         totalPrice: o.totalPrice,
-        returns: returnsSummary,
+        returns: {
+          ...returnsSummary,
+          details: returnDetails,
+        },
         cancelRequest: o.cancelRequest
           ? {
               id: o.cancelRequest.id,
@@ -631,10 +737,20 @@ export class AdminOrdersAPI {
     const search = (req.query.search as string | undefined)?.trim();
     const sort = (req.query.sort as OrderSort | undefined) ?? 'new';
 
+    const range = parseDateRangeFilter(req.query);
+
     const statuses = mapTabToStatuses(tab);
 
     const where: Prisma.OrderWhereInput = {
       ...(statuses ? { status: { in: statuses } } : {}),
+      ...(range.from || range.to
+        ? {
+            createdAt: {
+              ...(range.from ? { gte: range.from } : {}),
+              ...(range.to ? { lt: range.to } : {}),
+            },
+          }
+        : {}),
       ...(search
         ? {
             OR: [
@@ -715,8 +831,19 @@ export class AdminOrdersAPI {
   }
 
   private async getCounts(req: Request, res: Response): Promise<void> {
+    const range = parseDateRangeFilter(req.query);
     const rows = await this.prisma.order.groupBy({
       by: ['status'],
+      where: {
+        ...(range.from || range.to
+          ? {
+              createdAt: {
+                ...(range.from ? { gte: range.from } : {}),
+                ...(range.to ? { lt: range.to } : {}),
+              },
+            }
+          : {}),
+      },
       _count: { _all: true },
     });
 

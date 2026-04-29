@@ -7,6 +7,7 @@ import type {
   MyOrderListItem,
   OrderSort,
   OrderTab,
+  ReturnRequestPayload,
 } from "@/types/order.types";
 
 function buildQueryString(
@@ -129,10 +130,17 @@ export const orderService = {
     throw response as ApiErrorResponse;
   },
 
-  async requestReturn(orderId: string, reason?: string): Promise<void> {
+  async requestReturn(params: ReturnRequestPayload): Promise<void> {
     const response = await apiClient.post<{ id: string; status: string }>(
-      `api/orders/${encodeURIComponent(orderId)}/return`,
-      reason ? { reason } : {},
+      `api/orders/${encodeURIComponent(params.orderId)}/return`,
+      {
+        reasonCode: params.reasonCode,
+        reason: params.reason,
+        evidenceImages: params.evidenceImages,
+        bankAccountName: params.bankAccountName,
+        bankAccountNumber: params.bankAccountNumber,
+        bankName: params.bankName,
+      },
     );
 
     if (response.success) {

@@ -29,8 +29,8 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.return.updateMany({
-        where: { orderItemId: { in: itemIds }, status: 'REQUESTED' },
-        data: { status: 'APPROVED' },
+        where: { orderItemId: { in: itemIds }, status: 'RT_REQUESTED' },
+        data: { status: 'RT_APPROVED' },
       });
 
       const returnStatus: ReturnFlowStatus = 'APPROVED';
@@ -70,8 +70,8 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.return.updateMany({
-        where: { orderItemId: { in: itemIds }, status: 'REQUESTED' },
-        data: { status: 'REJECTED' },
+        where: { orderItemId: { in: itemIds }, status: 'RT_REQUESTED' },
+        data: { status: 'RT_REJECTED' },
       });
 
       const returnStatus: ReturnFlowStatus = 'REJECTED';
@@ -109,16 +109,16 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       throw new BadRequestError('Order not found');
     }
 
-    if (order.returnStatus === 'SHIPPING' || order.returnStatus === 'RETURNING') {
+    if (order.returnStatus === 'SHIPPING') {
       return { orderId: order.id, orderStatus: order.status, returnStatus: order.returnStatus };
     }
 
-    if (order.returnStatus !== 'APPROVED' && order.returnStatus !== 'WAITING_PICKUP') {
+    if (order.returnStatus !== 'APPROVED') {
       throw new BadRequestError('Return must be approved before marking as shipping');
     }
 
     const hasApprovedReturn = order.items.some((it) =>
-      (it.returns ?? []).some((r) => r.status === 'APPROVED'),
+      (it.returns ?? []).some((r) => r.status === 'RT_APPROVED'),
     );
 
     if (!hasApprovedReturn) {
@@ -127,10 +127,17 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
 
     const returnStatus: ReturnFlowStatus = 'SHIPPING';
 
-    await this.prisma.order.update({
-      where: { id: params.orderId },
-      data: { returnStatus },
-      select: { id: true },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.return.updateMany({
+        where: { orderItemId: { in: order.items.map((it) => it.id) }, status: 'RT_APPROVED' },
+        data: { status: 'RT_SHIPPING' },
+      });
+
+      await tx.order.update({
+        where: { id: params.orderId },
+        data: { returnStatus },
+        select: { id: true },
+      });
     });
 
     return { orderId: order.id, orderStatus: order.status, returnStatus };
@@ -164,7 +171,7 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       throw new BadRequestError('Only delivered orders can be completed as returned');
     }
 
-    if (order.returnStatus !== 'SHIPPING' && order.returnStatus !== 'RETURNING') {
+    if (order.returnStatus !== 'SHIPPING') {
       throw new BadRequestError('Return must be in SHIPPING status before completing');
     }
 
@@ -175,8 +182,8 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.return.updateMany({
-        where: { orderItemId: { in: itemIds }, status: 'APPROVED' },
-        data: { status: 'COMPLETED' },
+        where: { orderItemId: { in: itemIds }, status: { in: ['RT_APPROVED', 'RT_SHIPPING'] } },
+        data: { status: 'RT_COMPLETED' },
       });
 
       const returnStatus: ReturnFlowStatus = 'COMPLETED';

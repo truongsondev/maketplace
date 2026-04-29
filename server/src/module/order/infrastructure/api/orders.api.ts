@@ -23,24 +23,27 @@ function parseCancelReason(value: unknown): CancelReason {
   throw new BadRequestError('Invalid cancel reason');
 }
 
-function parseOrderCancelledNotification(content: string): {
+function parseOrderNotificationContent(content: string): {
   message: string;
   relatedPath: string | null;
 } {
-  const markerRegex = /^\[ORDER_CANCELLED\|([^\]]+)\]\s*/;
-  const match = content.match(markerRegex);
-  if (!match) {
+  const markers = [/^\[ORDER_CANCELLED\|([^\]]+)\]\s*/, /^\[ORDER_RECEIVED\|([^\]]+)\]\s*/];
+
+  for (const markerRegex of markers) {
+    const match = content.match(markerRegex);
+    if (!match) continue;
+
+    const orderId = match[1]?.trim();
+    const message = content.replace(markerRegex, '').trim();
     return {
-      message: content,
-      relatedPath: null,
+      message,
+      relatedPath: orderId ? `/orders?orderId=${encodeURIComponent(orderId)}` : '/orders',
     };
   }
 
-  const orderId = match[1]?.trim();
-  const message = content.replace(markerRegex, '').trim();
   return {
-    message,
-    relatedPath: orderId ? `/orders?orderId=${encodeURIComponent(orderId)}` : '/orders',
+    message: content,
+    relatedPath: null,
   };
 }
 
@@ -169,11 +172,23 @@ export class OrdersAPI {
     }
 
     const reason = (req.body as any)?.reason;
+    const reasonCode = String((req.body as any)?.reasonCode || '').trim().toUpperCase();
+    const bankAccountName = String((req.body as any)?.bankAccountName || '').trim();
+    const bankAccountNumber = String((req.body as any)?.bankAccountNumber || '').trim();
+    const bankName = String((req.body as any)?.bankName || '').trim();
+    const evidenceImages = Array.isArray((req.body as any)?.evidenceImages)
+      ? (req.body as any).evidenceImages
+      : [];
 
     const result = await this.orderReturnsController.requestReturn({
       userId,
       orderId,
+      reasonCode,
       reason: typeof reason === 'string' ? reason : null,
+      evidenceImages,
+      bankAccountName,
+      bankAccountNumber,
+      bankName,
     });
 
     res
@@ -282,7 +297,7 @@ export class OrdersAPI {
     res.status(200).json(
       ResponseFormatter.success({
         items: notifications.map((item) => {
-          const parsed = parseOrderCancelledNotification(item.content);
+          const parsed = parseOrderNotificationContent(item.content);
           return {
             id: item.id,
             content: parsed.message,

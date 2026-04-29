@@ -60,7 +60,7 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
         id: true,
         status: true,
         returnStatus: true,
-        items: { select: { returns: { select: { status: true } } } },
+        items: { select: { id: true, returns: { select: { status: true } } } },
       },
     });
 
@@ -68,16 +68,16 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       throw new BadRequestError('Order not found');
     }
 
-    if (order.returnStatus === 'SHIPPING' || order.returnStatus === 'RETURNING') {
+    if (order.returnStatus === 'SHIPPING') {
       return { id: order.id, status: order.status, returnStatus: order.returnStatus };
     }
 
-    if (order.returnStatus !== 'APPROVED' && order.returnStatus !== 'WAITING_PICKUP') {
+    if (order.returnStatus !== 'APPROVED') {
       throw new BadRequestError('Return must be approved before marking as shipping');
     }
 
     const hasApprovedReturn = (order.items ?? []).some((it) =>
-      (it.returns ?? []).some((r) => r.status === 'APPROVED'),
+      (it.returns ?? []).some((r) => r.status === 'RT_APPROVED'),
     );
 
     if (!hasApprovedReturn) {
@@ -86,10 +86,20 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
 
     const returnStatus: ReturnFlowStatus = 'SHIPPING';
 
-    const updated = await this.prisma.order.update({
-      where: { id: orderId },
-      data: { returnStatus },
-      select: { id: true, status: true, returnStatus: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.return.updateMany({
+        where: {
+          orderItemId: { in: (order.items ?? []).map((it) => it.id) },
+          status: 'RT_APPROVED',
+        },
+        data: { status: 'RT_SHIPPING' },
+      });
+
+      return tx.order.update({
+        where: { id: orderId },
+        data: { returnStatus },
+        select: { id: true, status: true, returnStatus: true },
+      });
     });
 
     return {
@@ -118,7 +128,7 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       throw new BadRequestError('Only delivered orders can be completed as returned');
     }
 
-    if (order.returnStatus !== 'SHIPPING' && order.returnStatus !== 'RETURNING') {
+    if (order.returnStatus !== 'SHIPPING') {
       throw new BadRequestError('Return must be SHIPPING before completing');
     }
 
@@ -129,8 +139,8 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.return.updateMany({
-        where: { orderItemId: { in: itemIds }, status: 'APPROVED' },
-        data: { status: 'COMPLETED' },
+        where: { orderItemId: { in: itemIds }, status: { in: ['RT_APPROVED', 'RT_SHIPPING'] } },
+        data: { status: 'RT_COMPLETED' },
       });
 
       const updatedOrder = await tx.order.update({

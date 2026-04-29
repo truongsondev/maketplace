@@ -11,6 +11,7 @@ import {
   useRequestReturnOrder,
 } from "@/hooks/use-orders";
 import { PaidCancelRequestModal } from "@/components/page/paid-cancel-request-modal";
+import { ReturnRequestModal } from "@/components/page/return-request-modal";
 import {
   useCreateReview,
   useOrderReviewStatus,
@@ -91,16 +92,24 @@ function cancelRequestStatusText(status: string) {
   }
 }
 
+function isReturnWindowOpen(receivedAt?: string | null): boolean {
+  if (!receivedAt) return false;
+  const receivedTime = new Date(receivedAt).getTime();
+  if (Number.isNaN(receivedTime)) return false;
+  const expiresAt = receivedTime + 3 * 24 * 60 * 60 * 1000;
+  return Date.now() <= expiresAt;
+}
+
 export function OrderDetailClient({
   orderId,
   mode = "page",
-  onClose,
 }: {
   orderId: string;
   mode?: "page" | "modal";
   onClose?: () => void;
 }) {
   const [openPaidCancelModal, setOpenPaidCancelModal] = useState(false);
+  const [openReturnModal, setOpenReturnModal] = useState(false);
   const [reviewingItemId, setReviewingItemId] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
@@ -159,7 +168,12 @@ export function OrderDetailClient({
     order?.cancelRequest?.status !== "APPROVED";
 
   const canConfirmReceived = order?.status === "SHIPPED";
-  const canRequestReturn = order?.status === "DELIVERED";
+  const canRequestReturn =
+    order?.status === "DELIVERED" &&
+    isReturnWindowOpen(order?.receivedAt) &&
+    !order.returnStatus;
+  const isReturnExpired =
+    order?.status === "DELIVERED" && !isReturnWindowOpen(order?.receivedAt);
 
   const isSubmittingReview =
     signatureMutation.isPending ||
@@ -228,7 +242,30 @@ export function OrderDetailClient({
       : "rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-black";
 
   const deliveryLines = useMemo(() => {
-    const raw: any = order as any;
+    type MaybeAddress = {
+      fullName?: string | null;
+      name?: string | null;
+      phoneNumber?: string | null;
+      phone?: string | null;
+      addressLine1?: string | null;
+      street?: string | null;
+      line1?: string | null;
+      addressLine2?: string | null;
+      ward?: string | null;
+      line2?: string | null;
+      city?: string | null;
+      district?: string | null;
+      country?: string | null;
+    };
+    type OrderWithOptionalAddresses = typeof order & {
+      shippingAddress?: MaybeAddress | null;
+      deliveryAddress?: MaybeAddress | null;
+      address?: MaybeAddress | null;
+      customerAddress?: MaybeAddress | null;
+      shipping?: { address?: MaybeAddress | null } | null;
+    };
+
+    const raw = order as OrderWithOptionalAddresses;
     if (!raw) return [] as string[];
 
     const candidates = [
@@ -311,12 +348,7 @@ export function OrderDetailClient({
             {order && canRequestReturn ? (
               <button
                 type="button"
-                onClick={() => {
-                  const raw =
-                    window.prompt("Lý do trả hàng/hoàn tiền (tuỳ chọn)") ?? "";
-                  const reason = raw.trim() ? raw.trim() : undefined;
-                  requestReturnMutation.mutate({ orderId: order.id, reason });
-                }}
+                onClick={() => setOpenReturnModal(true)}
                 disabled={
                   requestReturnMutation.isPending || detailQuery.isLoading
                 }
@@ -324,6 +356,12 @@ export function OrderDetailClient({
               >
                 Trả hàng/Hoàn tiền
               </button>
+            ) : null}
+
+            {order && isReturnExpired ? (
+              <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+                Quá hạn trả hàng (chỉ trong 3 ngày từ lúc nhận)
+              </span>
             ) : null}
 
             {order && canCancel ? (
@@ -662,6 +700,58 @@ export function OrderDetailClient({
                 onError: (error) => {
                   reject(error);
                 },
+              },
+            );
+          });
+        }}
+      />
+
+      <ReturnRequestModal
+        open={Boolean(order && openReturnModal)}
+        orderLabel={order ? (order.orderCode ?? order.id) : ""}
+        isSubmitting={
+          requestReturnMutation.isPending ||
+          signatureMutation.isPending ||
+          uploadImageMutation.isPending
+        }
+        onClose={() => {
+          if (requestReturnMutation.isPending || uploadImageMutation.isPending) {
+            return;
+          }
+          setOpenReturnModal(false);
+        }}
+        onConfirm={async (payload) => {
+          if (!order) return;
+
+          const signature = await signatureMutation.mutateAsync({
+            orderId: order.id,
+          });
+          const uploads = await Promise.all(
+            payload.images.map((file) =>
+              uploadImageMutation.mutateAsync({ file, signature }),
+            ),
+          );
+
+          await new Promise<void>((resolve, reject) => {
+            requestReturnMutation.mutate(
+              {
+                orderId: order.id,
+                reasonCode: payload.reasonCode,
+                reason: payload.reason,
+                evidenceImages: uploads.map((u) => ({
+                  url: u.url,
+                  publicId: u.publicId,
+                })),
+                bankAccountName: payload.bankAccountName,
+                bankAccountNumber: payload.bankAccountNumber,
+                bankName: payload.bankName,
+              },
+              {
+                onSuccess: () => {
+                  setOpenReturnModal(false);
+                  resolve();
+                },
+                onError: (error) => reject(error),
               },
             );
           });

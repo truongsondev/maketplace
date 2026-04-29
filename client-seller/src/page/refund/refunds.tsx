@@ -1,4 +1,4 @@
-import { Header, Sidebar } from "@/components/admin";
+import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
 import { refundService } from "@/services/api";
 import type {
   AdminRefundItem,
@@ -7,6 +7,7 @@ import type {
 } from "@/types/refund";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
 
 function formatMoney(value: string, currency: string) {
   const n = Number(value);
@@ -68,6 +69,19 @@ function refundStatusClass(status: AdminRefundStatus) {
 }
 
 export default function RefundsPage() {
+  const [range, setRange] = useState<DateRangeValue>({
+    option: "30d",
+    from: "",
+    to: "",
+  });
+  const rangeInfo = resolveDateRange(range);
+  const rangeParams =
+    range.option === "all"
+      ? {}
+      : {
+          from: rangeInfo.from,
+          to: rangeInfo.to,
+        };
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<AdminRefundItem[]>([]);
   const [searchInput, setSearchInput] = useState("");
@@ -103,6 +117,7 @@ export default function RefundsPage() {
         type: type || undefined,
         sortBy: "requestedAt",
         sortOrder: "desc",
+        ...rangeParams,
       });
 
       setItems(res.data.items);
@@ -117,7 +132,7 @@ export default function RefundsPage() {
 
   useEffect(() => {
     fetchRefunds();
-  }, [search, status, type]);
+  }, [search, status, type, rangeInfo.from, rangeInfo.to, range.option]);
 
   const handleApplySearch = () => {
     const keyword = searchInput.trim();
@@ -152,6 +167,7 @@ export default function RefundsPage() {
                   Theo dõi và xử lý hoàn tiền đơn hàng
                 </p>
               </div>
+              <DateRangeFilter value={range} onChange={setRange} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">

@@ -63,6 +63,14 @@ export class PrismaAdminRefundRepository implements IAdminRefundRepository {
     const where: Prisma.RefundTransactionWhereInput = {
       ...(params.status ? { status: params.status } : {}),
       ...(params.type ? { type: params.type } : {}),
+      ...(params.from || params.to
+        ? {
+            requestedAt: {
+              ...(params.from ? { gte: params.from } : {}),
+              ...(params.to ? { lt: params.to } : {}),
+            },
+          }
+        : {}),
       ...(search
         ? {
             OR: [

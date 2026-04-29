@@ -1195,7 +1195,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     href="/cart"
                     className="h-12 px-10 rounded-sm bg-black hover:bg-neutral-800 text-white font-bold transition-colors inline-flex items-center justify-center"
                   >
-                    Mua ngay
+                    Đến giỏ hàng
                   </Link>
 
                   <button

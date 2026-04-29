@@ -113,6 +113,12 @@ export function Header() {
   const resolveNotificationTarget = (notification: AdminNotificationItem) => {
     const content = notification.content || "";
 
+    const returnMatch = content.match(/\[ORDER_RETURN\|([^\]]+)\]/i);
+    if (returnMatch?.[1]) {
+      const search = new URLSearchParams({ orderId: returnMatch[1] });
+      return `/orders?${search.toString()}`;
+    }
+
     // Payment success notification: route to orders page and prefill search by order code.
     const orderCodeMatch = content.match(/Don hang\s*#(\d+)/i);
     if (orderCodeMatch?.[1]) {
@@ -132,6 +138,9 @@ export function Header() {
 
     return "/orders";
   };
+
+  const displayNotificationContent = (content: string) =>
+    content.replace(/^\[ORDER_RETURN\|([^\]]+)\]\s*/, "");
 
   return (
     <header className="bg-white border-b border-gray-200 px-8 py-4">
@@ -250,7 +259,7 @@ export function Header() {
                                     : "text-gray-900 font-semibold"
                                 }`}
                               >
-                                {notification.content}
+                                {displayNotificationContent(notification.content)}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 {formatRelativeTime(notification.createdAt)}

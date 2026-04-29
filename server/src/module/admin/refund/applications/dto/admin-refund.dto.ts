@@ -8,6 +8,8 @@ export interface ListAdminRefundsCommand {
   type?: RefundType;
   sortBy?: 'requestedAt' | 'processedAt' | 'amount';
   sortOrder?: 'asc' | 'desc';
+  from?: Date;
+  to?: Date;
 }
 
 export interface AdminRefundSummary {

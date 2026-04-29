@@ -12,6 +12,15 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
 
   async requestReturn(input: RequestReturnInput): Promise<RequestReturnResult> {
     const safeReason = typeof input.reason === 'string' ? input.reason.trim().slice(0, 1000) : null;
+    const safeEvidenceImages = input.evidenceImages
+      .slice(0, 6)
+      .map((image) => ({
+        url: image.url.trim(),
+        publicId:
+          typeof image.publicId === 'string' && image.publicId.trim()
+            ? image.publicId.trim()
+            : null,
+      }));
 
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, userId: input.userId },
@@ -19,6 +28,8 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
         id: true,
         status: true,
         returnStatus: true,
+        totalPrice: true,
+        paymentTransaction: { select: { orderCode: true } },
         items: { select: { id: true, quantity: true } },
       },
     });
@@ -57,7 +68,43 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
             orderItemId: it.id,
             quantity: it.quantity,
             reason: safeReason,
-            status: 'REQUESTED',
+            reasonCode: input.reasonCode,
+            evidenceImages: safeEvidenceImages as Prisma.InputJsonValue,
+            bankAccountName: input.bankAccountName,
+            bankAccountNumber: input.bankAccountNumber,
+            bankName: input.bankName,
+            status: 'RT_REQUESTED',
+          })),
+        });
+      }
+
+      if (existingItemIds.size > 0) {
+        await tx.return.updateMany({
+          where: { orderItemId: { in: Array.from(existingItemIds) }, status: 'RT_REQUESTED' },
+          data: {
+            reason: safeReason,
+            reasonCode: input.reasonCode,
+            evidenceImages: safeEvidenceImages as Prisma.InputJsonValue,
+            bankAccountName: input.bankAccountName,
+            bankAccountNumber: input.bankAccountNumber,
+            bankName: input.bankName,
+          },
+        });
+      }
+
+      const admins = await tx.userRole.findMany({
+        where: { role: { code: 'ADMIN' } },
+        select: { userId: true },
+        distinct: ['userId'],
+      });
+
+      const orderLabel = order.paymentTransaction?.orderCode ?? order.id;
+      if (admins.length > 0) {
+        await tx.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.userId,
+            content: `[ORDER_RETURN|${order.id}] Don hang #${orderLabel} co yeu cau tra hang/hoan tien moi.`,
+            isRead: false,
           })),
         });
       }
@@ -72,7 +119,12 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
           oldData: { returnStatus: order.returnStatus ?? null } as Prisma.InputJsonValue,
           newData: {
             returnStatus: returnStatusToSet,
+            reasonCode: input.reasonCode,
             reason: safeReason,
+            evidenceImages: safeEvidenceImages,
+            bankName: input.bankName,
+            amount: order.totalPrice,
+            adminReceivers: admins.length,
           } as Prisma.InputJsonValue,
         },
       });

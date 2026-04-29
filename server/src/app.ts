@@ -89,15 +89,14 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-app.use(requestLoggingMiddleware);
+app.use('/api/mock/orders', createMockOrdersModule());
 
 app.use('/api/common', createCommonModule());
 app.use('/api/common/vouchers', createPublicVoucherModule());
 app.use('/api/common/banners', createPublicBannerModule());
 app.use('/api/common/locations', createPublicLocationModule());
 
-// NOTE: mock/manual endpoints for Postman testing (no auth)
-app.use('/api/mock/orders', createMockOrdersModule());
+app.use(requestLoggingMiddleware);
 
 app.use('/api/auth', createAuthModule());
 app.use('/api/admin/auth', createAdminAuthModule());

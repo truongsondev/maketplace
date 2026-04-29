@@ -4,7 +4,9 @@ import type {
 } from '../../dto/admin-order-analytics.dto';
 
 export type AdminOrderAnalyticsCommand = {
-  days: number;
+  days?: number;
+  from?: Date;
+  to?: Date;
 };
 
 export interface IAdminOrderAnalyticsRepository {

@@ -1,6 +1,8 @@
 import type { Prisma, PrismaClient } from '@/generated/prisma/client';
 import type { CancelReason, OrderStatus } from '@/generated/prisma/enums';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
+import { createLogger } from '../../../../shared/util/logger';
+import { adminNotificationHub } from '../../../../module/admin/notifications/infrastructure/realtime/admin-notification-hub';
 import type {
   CancelMyOrderResult,
   ConfirmReceivedResult,
@@ -72,6 +74,27 @@ function extractReasonFromAuditNewData(payload: Prisma.JsonValue | null): string
 
   const trimmed = reason.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+const logger = createLogger('PrismaOrderRepository');
+
+function buildAdminCancelRequestContent(input: {
+  orderId: string;
+  orderCode: string | null;
+  reasonCode: CancelReason;
+  reasonText: string | null;
+}): string {
+  const label = input.orderCode?.trim() || input.orderId;
+  const reason = input.reasonText?.trim() || String(input.reasonCode);
+  return `Yeu cau huy don hang #${label} da duoc gui. Ly do: ${reason}`;
+}
+
+function buildOrderReceivedNotificationContent(input: {
+  orderId: string;
+  orderCode: string | null;
+}): string {
+  const label = input.orderCode?.trim() || input.orderId;
+  return `[ORDER_RECEIVED|${input.orderId}] Don hang #${label} da duoc xac nhan nhan hang thanh cong.`;
 }
 
 export class PrismaOrderRepository implements IOrderRepository {
@@ -199,10 +222,11 @@ export class PrismaOrderRepository implements IOrderRepository {
     ]);
 
     const cancelledOrderIds = orders.filter((o) => o.status === 'CANCELLED').map((o) => o.id);
+    const deliveredOrderIds = orders.filter((o) => o.status === 'DELIVERED').map((o) => o.id);
 
-    const adminCancelLogs =
+    const [adminCancelLogs, receivedHistory] = await Promise.all([
       cancelledOrderIds.length > 0
-        ? await this.prisma.auditLog.findMany({
+        ? this.prisma.auditLog.findMany({
             where: {
               action: 'ADMIN_CANCEL_ORDER',
               targetId: { in: cancelledOrderIds },
@@ -214,7 +238,21 @@ export class PrismaOrderRepository implements IOrderRepository {
               newData: true,
             },
           })
-        : [];
+        : Promise.resolve([]),
+      deliveredOrderIds.length > 0
+        ? this.prisma.orderStatusHistory.findMany({
+            where: {
+              orderId: { in: deliveredOrderIds },
+              newStatus: 'DELIVERED',
+            },
+            orderBy: { changedAt: 'desc' },
+            select: {
+              orderId: true,
+              changedAt: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
     const cancelledReasonByOrderId = new Map<string, string>();
     for (const log of adminCancelLogs) {
@@ -226,6 +264,13 @@ export class PrismaOrderRepository implements IOrderRepository {
         continue;
       }
       cancelledReasonByOrderId.set(log.targetId, reason);
+    }
+
+    const receivedAtByOrderId = new Map<string, Date>();
+    for (const row of receivedHistory) {
+      if (!receivedAtByOrderId.has(row.orderId)) {
+        receivedAtByOrderId.set(row.orderId, row.changedAt);
+      }
     }
 
     const items = orders.map((o) => {
@@ -270,6 +315,7 @@ export class PrismaOrderRepository implements IOrderRepository {
             : null,
         id: o.id,
         createdAt: o.createdAt,
+        receivedAt: receivedAtByOrderId.get(o.id) ?? null,
         status: o.status,
         returnStatus: o.returnStatus ?? null,
         totalPrice: Number(o.totalPrice),
@@ -433,6 +479,11 @@ export class PrismaOrderRepository implements IOrderRepository {
     const cancelledReasonFromAudit = extractReasonFromAuditNewData(adminCancelLog?.newData ?? null);
 
     const latestRefund = order.refundTransactions[0];
+    const receivedHistory = await this.prisma.orderStatusHistory.findFirst({
+      where: { orderId: order.id, newStatus: 'DELIVERED' },
+      orderBy: { changedAt: 'desc' },
+      select: { changedAt: true },
+    });
     const shouldShowRefund =
       Boolean(latestRefund) &&
       ((latestRefund?.type === 'CANCEL_REFUND' && Boolean(order.cancelRequest)) ||
@@ -473,6 +524,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           : null,
       id: order.id,
       createdAt: order.createdAt,
+      receivedAt: receivedHistory?.changedAt ?? null,
       status: order.status,
       returnStatus: order.returnStatus ?? null,
       totalPrice: Number(order.totalPrice),
@@ -659,6 +711,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         status: true,
         totalPrice: true,
         payment: { select: { status: true } },
+        paymentTransaction: { select: { status: true, orderCode: true } },
+        cancelRequest: { select: { status: true } },
       },
     });
 
@@ -670,6 +724,27 @@ export class PrismaOrderRepository implements IOrderRepository {
     if (!['PAID', 'CONFIRMED'].includes(order.status) || !isPaymentPaid) {
       throw new BadRequestError('Only paid processing orders can request cancellation approval');
     }
+
+    const shouldNotifyAdmins = order.cancelRequest?.status !== 'REQUESTED';
+    const admins = shouldNotifyAdmins
+      ? await this.prisma.userRole.findMany({
+          where: {
+            role: {
+              code: 'ADMIN',
+            },
+          },
+          select: {
+            userId: true,
+          },
+          distinct: ['userId'],
+        })
+      : [];
+    const adminNotificationContent = buildAdminCancelRequestContent({
+      orderId,
+      orderCode: order.paymentTransaction?.orderCode ?? null,
+      reasonCode: input.reasonCode,
+      reasonText: input.reasonText,
+    });
 
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.orderCancelRequest.upsert({
@@ -723,6 +798,57 @@ export class PrismaOrderRepository implements IOrderRepository {
           reason: `Cancellation request: ${String(input.reasonCode)}${input.reasonText ? ` - ${input.reasonText}` : ''}`,
         },
       });
+
+      if (admins.length > 0) {
+        const createdRows = await Promise.all(
+          admins.map((admin) =>
+            tx.notification.create({
+              data: {
+                userId: admin.userId,
+                content: adminNotificationContent,
+                isRead: false,
+              },
+              select: {
+                id: true,
+                content: true,
+                isRead: true,
+                createdAt: true,
+                userId: true,
+              },
+            }),
+          ),
+        );
+
+        await tx.auditLog.create({
+          data: {
+            actorType: 'SYSTEM',
+            targetType: 'Order',
+            targetId: orderId,
+            action: 'ADMIN_CANCEL_REQUEST_NOTIFICATION_SENT',
+            newData: {
+              orderCode: order.paymentTransaction?.orderCode ?? null,
+              reasonCode: input.reasonCode,
+              reasonText: input.reasonText,
+              receivers: createdRows.length,
+            } as Prisma.InputJsonValue,
+          },
+        });
+
+        for (const row of createdRows) {
+          adminNotificationHub.sendCancelRequest(row.userId, {
+            id: row.id,
+            content: row.content,
+            isRead: row.isRead,
+            createdAt: row.createdAt.toISOString(),
+          });
+        }
+
+        logger.info('Admin cancel-request notifications sent', {
+          orderId,
+          orderCode: order.paymentTransaction?.orderCode ?? null,
+          receivers: createdRows.length,
+        });
+      }
 
       await tx.auditLog.create({
         data: {
@@ -778,7 +904,11 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, userId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        paymentTransaction: { select: { orderCode: true } },
+      },
     });
 
     if (!order) {
@@ -792,6 +922,11 @@ export class PrismaOrderRepository implements IOrderRepository {
     if (order.status !== 'SHIPPED') {
       throw new BadRequestError('Only shipped orders can be confirmed as received');
     }
+
+    const receivedNotificationContent = buildOrderReceivedNotificationContent({
+      orderId,
+      orderCode: order.paymentTransaction?.orderCode ?? null,
+    });
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
@@ -818,6 +953,26 @@ export class PrismaOrderRepository implements IOrderRepository {
           action: 'USER_ORDER_RECEIVED_CONFIRMED',
           oldData: { status: order.status } as Prisma.InputJsonValue,
           newData: { status: 'DELIVERED' } as Prisma.InputJsonValue,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId,
+          content: receivedNotificationContent,
+          isRead: false,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorType: 'SYSTEM',
+          targetType: 'Order',
+          targetId: orderId,
+          action: 'USER_ORDER_RECEIVED_NOTIFICATION_SENT',
+          newData: {
+            orderCode: order.paymentTransaction?.orderCode ?? null,
+          } as Prisma.InputJsonValue,
         },
       });
 

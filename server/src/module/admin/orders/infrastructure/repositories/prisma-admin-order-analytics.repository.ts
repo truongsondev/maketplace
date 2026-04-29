@@ -42,10 +42,38 @@ function buildDateRange(days: number): { from: Date; to: Date; labels: string[] 
   return { from, to: endExclusive, labels };
 }
 
+function buildDateRangeFromDates(from: Date, to: Date): { from: Date; to: Date; labels: string[] } {
+  const start = startOfDay(from);
+  const endExclusive = new Date(to);
+  const labels: string[] = [];
+  const cursor = new Date(start);
+  while (cursor < endExclusive) {
+    labels.push(formatDateOnly(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { from: start, to: endExclusive, labels };
+}
+
 function clampDays(input: number): number {
   const n = Number(input);
   if (!Number.isFinite(n) || n <= 0) return 30;
   return Math.max(1, Math.min(Math.floor(n), 365));
+}
+
+function resolveRange(command: AdminOrderAnalyticsCommand): {
+  from: Date;
+  to: Date;
+  labels: string[];
+  days: number;
+} {
+  if (command.from && command.to) {
+    const { from, to, labels } = buildDateRangeFromDates(command.from, command.to);
+    return { from, to, labels, days: labels.length };
+  }
+
+  const days = clampDays(command.days ?? 30);
+  const { from, to, labels } = buildDateRange(days);
+  return { from, to, labels, days };
 }
 
 const ALL_ORDER_STATUSES: OrderStatus[] = [
@@ -64,8 +92,7 @@ export class PrismaAdminOrderAnalyticsRepository implements IAdminOrderAnalytics
   async getStatusBreakdown(
     command: AdminOrderAnalyticsCommand,
   ): Promise<AdminOrderStatusBreakdown> {
-    const days = clampDays(command.days);
-    const { from, to } = buildDateRange(days);
+    const { from, to, days } = resolveRange(command);
 
     const rows = await this.prisma.order.groupBy({
       by: ['status'],
@@ -98,8 +125,7 @@ export class PrismaAdminOrderAnalyticsRepository implements IAdminOrderAnalytics
   }
 
   async getTimeseries(command: AdminOrderAnalyticsCommand): Promise<AdminOrderTimeseries> {
-    const days = clampDays(command.days);
-    const { from, to, labels } = buildDateRange(days);
+    const { from, to, labels, days } = resolveRange(command);
 
     const rows = await this.prisma.$queryRaw<
       Array<{ date: Date | string; total: bigint | number | null }>

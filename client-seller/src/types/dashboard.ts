@@ -1,12 +1,11 @@
 export type DashboardOverview = {
-  revenue: { currency: "VND"; today: number; month: number; year: number };
-  orders: { today: number; month: number; year: number };
-  itemsSold: { today: number; month: number; year: number };
+  range: { from: string; to: string; days: number };
+  revenue: { currency: "VND"; total: number };
+  orders: { total: number };
+  itemsSold: { total: number };
   profit: {
     currency: "VND";
-    today: number;
-    month: number;
-    year: number;
+    total: number;
   } | null;
   updatedAt: string;
 };
