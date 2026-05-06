@@ -401,11 +401,15 @@ export default function Home() {
       source: "homepage_search",
       placement: "home_search",
       metadata: {
-        resultCount: searchProductsData?.total ?? 0,
+        resultCount: searchProductsData?.pagination.total ?? 0,
         queryLength: trimmed.length,
       },
     });
-  }, [debouncedSearchKeyword, isSearchLoading, searchProductsData?.total]);
+  }, [
+    debouncedSearchKeyword,
+    isSearchLoading,
+    searchProductsData?.pagination.total,
+  ]);
 
   useEffect(() => {
     if (isDark) {
