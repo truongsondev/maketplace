@@ -25,7 +25,7 @@ function makeCart(quantity = 2): Cart {
 }
 
 describe('Cart item management use cases', () => {
-  it('UpdateCartItemUseCase should reserve additional stock when quantity increases', async () => {
+  it('UpdateCartItemUseCase should update quantity when stock is available', async () => {
     const cartRepository = {
       findByUserId: jest.fn(),
       create: jest.fn(),
@@ -58,8 +58,6 @@ describe('Cart item management use cases', () => {
           isDeleted: false,
         },
       })),
-      reserveStock: jest.fn(),
-      releaseStock: jest.fn(),
     };
 
     const imageRepository = {
@@ -73,11 +71,10 @@ describe('Cart item management use cases', () => {
     );
     await useCase.execute('user-1', { itemId: 'item-1', quantity: 3 });
 
-    expect(variantRepository.reserveStock).toHaveBeenCalledWith('variant-1', 1);
     expect(cartRepository.updateItemQuantity).toHaveBeenCalledWith('item-1', 3);
   });
 
-  it('RemoveCartItemUseCase should release reserved stock', async () => {
+  it('RemoveCartItemUseCase should remove cart item', async () => {
     const cartRepository = {
       findByUserId: jest.fn(),
       create: jest.fn(),
@@ -95,24 +92,13 @@ describe('Cart item management use cases', () => {
       getCartDetail: jest.fn(async () => new Cart('cart-1', 'user-1', new Date(), [])),
     };
 
-    const variantRepository = {
-      findByIdWithProduct: jest.fn(),
-      reserveStock: jest.fn(),
-      releaseStock: jest.fn(),
-    };
-
     const imageRepository = {
       findImageForVariant: jest.fn(),
     };
 
-    const useCase = new RemoveCartItemUseCase(
-      cartRepository as any,
-      variantRepository as any,
-      imageRepository as any,
-    );
+    const useCase = new RemoveCartItemUseCase(cartRepository as any, imageRepository as any);
     await useCase.execute('user-1', 'item-1');
 
     expect(cartRepository.removeItem).toHaveBeenCalledWith('item-1');
-    expect(variantRepository.releaseStock).toHaveBeenCalledWith('variant-1', 2);
   });
 });

@@ -621,6 +621,8 @@ export class PrismaOrderRepository implements IOrderRepository {
         select: { id: true, status: true },
       });
 
+      await this.releaseReservedStockForOrder(tx, orderId);
+
       await tx.orderStatusHistory.create({
         data: {
           orderId,
@@ -980,5 +982,60 @@ export class PrismaOrderRepository implements IOrderRepository {
     });
 
     return updated;
+  }
+
+  private async releaseReservedStockForOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { variantId: true, quantity: true },
+    });
+
+    const quantityByVariantId = new Map<string, number>();
+    for (const item of items) {
+      if (!item.variantId) continue;
+      quantityByVariantId.set(
+        item.variantId,
+        (quantityByVariantId.get(item.variantId) ?? 0) + item.quantity,
+      );
+    }
+
+    for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const updated = await tx.productVariant.updateMany({
+        where: {
+          id: variantId,
+          stockReserved: { gte: quantity },
+        },
+        data: {
+          stockReserved: { decrement: quantity },
+          stockAvailable: { increment: quantity },
+        },
+      });
+
+      if (updated.count === 0) {
+        const current = await tx.productVariant.findUnique({
+          where: { id: variantId },
+          select: { stockReserved: true, stockAvailable: true, stockOnHand: true },
+        });
+
+        if (!current) continue;
+
+        const nextReserved = Math.max(0, current.stockReserved - quantity);
+        const nextAvailable = Math.min(
+          current.stockOnHand,
+          Math.max(0, current.stockAvailable + quantity),
+        );
+
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: {
+            stockReserved: nextReserved,
+            stockAvailable: nextAvailable,
+          },
+        });
+      }
+    }
   }
 }

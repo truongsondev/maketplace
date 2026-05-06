@@ -4,6 +4,8 @@ import type { ApiSuccessResponse, ApiErrorResponse } from "@/types/api.types";
 export interface AddToCartRequest {
   variantId: string;
   quantity: number;
+  productId?: string;
+  source?: string;
 }
 
 export interface CartItem {

@@ -9,7 +9,9 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
+import { RecommendationShelf } from "@/components/page/recommendation-shelf";
 import { cartService } from "@/services/cart.service";
+import { trackingService } from "@/services/tracking.service";
 import { useAuthStore } from "@/stores/auth.store";
 
 type StoredCheckoutPayload = {
@@ -133,6 +135,27 @@ export function ThankYouClient() {
       setIsPayloadResolved(true);
     }
   }, [orderCodeFromUrl]);
+
+  useEffect(() => {
+    if (!payload) return;
+
+    payload.items.forEach((item, index) => {
+      if (!item.productId) return;
+      void trackingService.track({
+        eventType: "PURCHASE",
+        productId: item.productId,
+        orderId: payload.orderId,
+        source: "thank_you_page",
+        placement: "checkout_success",
+        dedupeKey: `purchase:${payload.orderId}:${item.productId}:${index}`,
+        metadata: {
+          quantity: item.quantity,
+          subtotal: item.subtotal,
+          orderCode: payload.orderCode,
+        },
+      });
+    });
+  }, [payload]);
 
   const itemsPricing = useMemo(() => {
     if (!payload) return null;
@@ -408,6 +431,16 @@ export function ThankYouClient() {
                     </Link>
                   </div>
                 </aside>
+              </section>
+
+              <section className="mt-8">
+                <RecommendationShelf
+                  kind="personalized"
+                  placement="thank_you_recommendations"
+                  title="Có thể bạn muốn mua thêm"
+                  enabled={Boolean(isAuthenticated)}
+                  emptyMessage="AI sẽ gợi ý thêm ngay khi có đủ tín hiệu mua sắm."
+                />
               </section>
             </>
           )}

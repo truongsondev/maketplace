@@ -61,6 +61,26 @@ services:
       timeout: 5s
       retries: 6
 
+  vector-db:
+    image: pgvector/pgvector:pg16
+    container_name: dev-vector-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: recommendation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - vector_dev_data:/var/lib/postgresql/data
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recommendation"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   # Backend API
   backend:
     build:
@@ -89,6 +109,14 @@ services:
       RABBITMQ_ADMIN_NOTIFICATION_QUEUE: admin_notification_q
       RABBITMQ_ADMIN_NOTIFICATION_DLX: admin_notification_dlx
       RABBITMQ_ADMIN_NOTIFICATION_DLQ: admin_notification_dlq
+      RABBITMQ_RECOMMENDATION_EXCHANGE: recommendation.events
+      RABBITMQ_RECOMMENDATION_ROUTING_KEY: tracking.ingest
+      RABBITMQ_RECOMMENDATION_QUEUE: recommendation_tracking_q
+      RABBITMQ_RECOMMENDATION_RETRY_QUEUE: recommendation_tracking_retry_q
+      RABBITMQ_RECOMMENDATION_DLQ: recommendation_tracking_dlq
+      RABBITMQ_RECOMMENDATION_DLX: recommendation.events.dlx
+      AI_SERVICE_URL: http://ai-service:8000
+      RECOMMENDATION_REFRESH_INTERVAL_MS: 900000
     env_file:
       - ./server/.env.development
     ports:
@@ -97,6 +125,8 @@ services:
       - ./server:/app
       - /app/node_modules
       - /app/generated
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy
@@ -104,9 +134,62 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      vector-db:
+        condition: service_healthy
     networks:
       - dev-network
     command: sh -c "npm ci && npx prisma generate && npx prisma migrate deploy && npm run dev"
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: dev-ai-service
+    restart: unless-stopped
+    environment:
+      VECTOR_DATABASE_URL: postgresql://postgres:postgres@vector-db:5432/recommendation
+    ports:
+      - "8000:8000"
+    depends_on:
+      vector-db:
+        condition: service_healthy
+    networks:
+      - dev-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: dev-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      backend:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    networks:
+      - dev-network
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: dev-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_dev_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - dev-network
 
   # PayOS Reconcile Worker (periodic safety-net)
   payos-reconcile-worker:
@@ -199,3 +282,5 @@ volumes:
   mysql_dev_data:
   redis_dev_data:
   rabbitmq_dev_data:
+  vector_dev_data:
+  grafana_dev_data:

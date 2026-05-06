@@ -21,12 +21,12 @@ import {
 import { useOrderReviewStatus } from "@/hooks/use-reviews";
 import { PaidCancelRequestModal } from "@/components/page/paid-cancel-request-modal";
 import { OrderDetailClient } from "@/app/(page)/orders/order-detail-client";
+import { RecommendationShelf } from "@/components/page/recommendation-shelf";
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
 import { cartService } from "@/services/cart.service";
 import { useAuthStore } from "@/stores/auth.store";
 import type { MyOrderListItem, OrderTab } from "@/types/order.types";
-import { useRelatedProductsFromMyOrders } from "@/hooks/use-products";
 
 const ORDERS_PAGE_LIMIT = 6;
 
@@ -410,10 +410,6 @@ export function OrdersListClient() {
     page,
     limit: ORDERS_PAGE_LIMIT,
   });
-  const relatedProductsQuery = useRelatedProductsFromMyOrders(
-    12,
-    Boolean(isAuthenticated),
-  );
   const cancelMutation = useCancelMyOrder();
   const requestPaidCancelMutation = useRequestPaidCancelOrder();
 
@@ -628,68 +624,14 @@ export function OrdersListClient() {
           ) : null}
 
           {isAuthenticated ? (
-            <section className="mt-10 rounded-sm border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-5">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-                    Gợi ý cho bạn
-                  </p>
-                  <h2 className="mt-2 text-lg font-black uppercase tracking-wide text-neutral-900 dark:text-white">
-                    Sản phẩm liên quan
-                  </h2>
-                </div>
-              </div>
-
-              <div className="mt-5">
-                {relatedProductsQuery.isLoading ? (
-                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
-                    Đang tải gợi ý sản phẩm...
-                  </div>
-                ) : relatedProductsQuery.isError ? (
-                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-black dark:text-neutral-200">
-                    Không thể tải sản phẩm liên quan.
-                  </div>
-                ) : (relatedProductsQuery.data?.products?.length ?? 0) === 0 ? (
-                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
-                    Chưa có gợi ý sản phẩm phù hợp.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                    {(relatedProductsQuery.data?.products ?? []).map((p) => (
-                      <Link
-                        key={p.id}
-                        href={`/product/${p.id}`}
-                        className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-transform hover:-translate-y-px hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
-                      >
-                        <div className="aspect-4/5 w-full overflow-hidden bg-neutral-50 dark:bg-neutral-950">
-                          {p.imageUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={p.imageUrl}
-                              alt={p.name}
-                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-xs text-neutral-500 dark:text-neutral-400">
-                              Không có ảnh
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-3">
-                          <p className="line-clamp-2 text-sm font-semibold uppercase text-neutral-900 group-hover:text-neutral-600 dark:text-white dark:group-hover:text-neutral-300">
-                            {p.name}
-                          </p>
-                          <p className="mt-2 text-sm font-black text-neutral-900 dark:text-white">
-                            {formatMoney(String(p.minPrice))}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
+            <section className="mt-10">
+              <RecommendationShelf
+                kind="personalized"
+                placement="orders_personalized_recommendations"
+                title="Gợi ý tiếp theo cho bạn"
+                enabled={Boolean(isAuthenticated)}
+                emptyMessage="Chưa đủ dữ liệu để tạo gợi ý cá nhân hóa."
+              />
             </section>
           ) : null}
         </div>

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
 import { createAuthModule } from './module/auth/di';
 import { createProductModule } from './module/product/di';
 import { createAdminModule } from './module/admin/products/di';
@@ -22,7 +23,9 @@ import { createAdminLogsModule } from './module/admin/logs/di';
 import { createAdminNotificationsModule } from './module/admin/notifications/di';
 import { createPublicBannerModule } from './module/banner/di';
 import { createPublicLocationModule } from './module/location/di';
+import { createRecommendationModule } from './module/recommendation/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
+import { metricsRegistry } from './shared/server/prometheus';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
 import { RedisSessionVerifier } from './infrastructure/middlewares/redis-session-verifier';
 import { requestLoggingMiddleware } from './infrastructure/middlewares/logging.middleware';
@@ -84,9 +87,15 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
+});
+
+app.get('/metrics', (req, res) => {
+  res.type('text/plain; version=0.0.4');
+  res.send(metricsRegistry.render());
 });
 
 app.use('/api/mock/orders', createMockOrdersModule());
@@ -102,6 +111,7 @@ app.use('/api/auth', createAuthModule());
 app.use('/api/admin/auth', createAdminAuthModule());
 
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
+app.use('/api', createRecommendationModule());
 app.use('/api/addresses', createAddressModule());
 app.use('/api/cart', createCartModule());
 app.use('/api/orders', createOrderModule());

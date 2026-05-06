@@ -86,6 +86,24 @@ services:
       timeout: 5s
       retries: 5
 
+  vector-db:
+    image: pgvector/pgvector:pg16
+    container_name: prod-vector-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${VECTOR_DB_NAME:-recommendation}
+      POSTGRES_USER: ${VECTOR_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${VECTOR_DB_PASSWORD:-postgres}
+    volumes:
+      - vector_prod_data:/var/lib/postgresql/data
+    networks:
+      - prod-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${VECTOR_DB_USER:-postgres} -d ${VECTOR_DB_NAME:-recommendation}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Backend API
   backend:
     build:
@@ -108,17 +126,28 @@ services:
       RABBITMQ_ADMIN_NOTIFICATION_QUEUE: admin_notification_q
       RABBITMQ_ADMIN_NOTIFICATION_DLX: admin_notification_dlx
       RABBITMQ_ADMIN_NOTIFICATION_DLQ: admin_notification_dlq
+      RABBITMQ_RECOMMENDATION_EXCHANGE: recommendation.events
+      RABBITMQ_RECOMMENDATION_ROUTING_KEY: tracking.ingest
+      RABBITMQ_RECOMMENDATION_QUEUE: recommendation_tracking_q
+      RABBITMQ_RECOMMENDATION_RETRY_QUEUE: recommendation_tracking_retry_q
+      RABBITMQ_RECOMMENDATION_DLQ: recommendation_tracking_dlq
+      RABBITMQ_RECOMMENDATION_DLX: recommendation.events.dlx
+      AI_SERVICE_URL: http://ai-service:8000
+      RECOMMENDATION_REFRESH_INTERVAL_MS: ${RECOMMENDATION_REFRESH_INTERVAL_MS:-900000}
       ENABLE_FILE_LOGGING: "true"
     env_file:
       - ./server/.env.prod
     volumes:
       - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
     depends_on:
       mysql:
         condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      vector-db:
         condition: service_healthy
     networks:
       - prod-network
@@ -157,6 +186,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
       ENABLE_FILE_LOGGING: "true"
+      AI_SERVICE_URL: http://ai-service:8000
     env_file:
       - ./server/.env.prod
     volumes:
@@ -170,9 +200,57 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      vector-db:
+        condition: service_healthy
     networks:
       - prod-network
     command: sh -c "node dist/payos-reconcile-worker.js"
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: prod-ai-service
+    restart: always
+    environment:
+      VECTOR_DATABASE_URL: postgresql://${VECTOR_DB_USER:-postgres}:${VECTOR_DB_PASSWORD:-postgres}@vector-db:5432/${VECTOR_DB_NAME:-recommendation}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-384}
+    depends_on:
+      vector-db:
+        condition: service_healthy
+    networks:
+      - prod-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prod-prometheus
+    restart: always
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      backend:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    networks:
+      - prod-network
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: prod-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_prod_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - prod-network
 
   # Admin Frontend (React - client-seller)
   admin-client:
@@ -217,4 +295,10 @@ volumes:
   rabbitmq_prod_data:
     driver: local
   backend_logs:
+    driver: local
+  backend_uploads:
+    driver: local
+  vector_prod_data:
+    driver: local
+  grafana_prod_data:
     driver: local

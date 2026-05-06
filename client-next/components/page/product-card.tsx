@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Heart, ShoppingCart, Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ProductItem } from "@/types/product";
+import { useProductCardDwellTracking } from "@/hooks/use-product-card-dwell-tracking";
 import {
   useFavoriteIds,
   useToggleFavorite,
@@ -40,9 +41,19 @@ function normalizeProductImageUrl(rawUrl: string | null) {
 
 interface ProductCardProps {
   product: ProductItem;
+  trackingPlacement?: string;
+  trackingSource?: string;
+  enableDwellTracking?: boolean;
+  dwellThresholdMs?: number;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({
+  product,
+  trackingPlacement = "product_grid",
+  trackingSource = "product_card_dwell",
+  enableDwellTracking = true,
+  dwellThresholdMs = 5000,
+}: ProductCardProps) {
   const router = useRouter();
   const { favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
@@ -51,6 +62,14 @@ export function ProductCard({ product }: ProductCardProps) {
     [product.imageUrl],
   );
   const [imageSrc, setImageSrc] = useState(normalizedImageUrl);
+  const cardRef = useProductCardDwellTracking({
+    productId: product.id,
+    productName: product.name,
+    placement: trackingPlacement,
+    source: trackingSource,
+    thresholdMs: dwellThresholdMs,
+    enabled: enableDwellTracking,
+  });
 
   const isFavorite = favoriteIds.has(product.id);
   const isTogglingFavorite =
@@ -68,8 +87,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: Implement add to cart functionality
-    console.log("Add to cart:", product.id);
+    handleViewDetail();
   };
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
@@ -90,7 +108,7 @@ export function ProductCard({ product }: ProductCardProps) {
   }, [normalizedImageUrl]);
 
   return (
-    <div className="group relative flex flex-col">
+    <div ref={cardRef} className="group relative flex flex-col">
       <div className="aspect-3/4 w-full overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800 relative">
         <button
           aria-label={isFavorite ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}

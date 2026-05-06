@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient } from '@/generated/prisma/client';
+import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { createLogger } from '../../../../shared/util/logger';
 import {
   CreatePendingTransactionInput,
@@ -68,6 +69,8 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       if (cartItems.length === 0) {
         throw new Error('Cart is empty');
       }
+
+      await this.reserveStockForCheckout(tx, cartItems);
 
       const order = await tx.order.create({
         data: {
@@ -267,6 +270,8 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         data: { status: 'CANCELLED' },
       });
 
+      await this.releaseReservedStockForOrder(tx, existing.orderId);
+
       await tx.auditLog.create({
         data: {
           actorType: 'USER',
@@ -356,6 +361,8 @@ export class PrismaPaymentRepository implements IPaymentRepository {
           input.orderCode,
         );
         await this.removePurchasedCartItems(tx, current.orderId, current.rawPayload);
+      } else {
+        await this.releaseReservedStockForOrder(tx, current.orderId);
       }
 
       await tx.auditLog.create({
@@ -508,6 +515,108 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     }
 
     return lowStockNotifications;
+  }
+
+  private async reserveStockForCheckout(
+    tx: Prisma.TransactionClient,
+    cartItems: Array<{ variantId: string | null; quantity: number }>,
+  ): Promise<void> {
+    const quantityByVariantId = new Map<string, number>();
+    for (const item of cartItems) {
+      if (!item.variantId) {
+        throw new Error('Cart item missing required variant');
+      }
+      quantityByVariantId.set(
+        item.variantId,
+        (quantityByVariantId.get(item.variantId) ?? 0) + item.quantity,
+      );
+    }
+
+    for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const current = await tx.productVariant.findUnique({
+        where: { id: variantId },
+        select: {
+          stockOnHand: true,
+          stockAvailable: true,
+          stockReserved: true,
+          isDeleted: true,
+          sku: true,
+          product: { select: { isDeleted: true } },
+        },
+      });
+
+      if (!current || current.isDeleted || current.product.isDeleted) {
+        throw new BadRequestError('San pham khong ton tai hoac da bi xoa');
+      }
+
+      const availableStock = current.stockOnHand - current.stockReserved;
+      if (availableStock < quantity || current.stockAvailable < quantity) {
+        throw new BadRequestError(`Khong du ton kho cho SKU ${current.sku}`);
+      }
+
+      await tx.productVariant.update({
+        where: { id: variantId },
+        data: {
+          stockReserved: { increment: quantity },
+          stockAvailable: { decrement: quantity },
+        },
+      });
+    }
+  }
+
+  private async releaseReservedStockForOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { variantId: true, quantity: true },
+    });
+
+    const quantityByVariantId = new Map<string, number>();
+    for (const item of items) {
+      if (!item.variantId) continue;
+      quantityByVariantId.set(
+        item.variantId,
+        (quantityByVariantId.get(item.variantId) ?? 0) + item.quantity,
+      );
+    }
+
+    for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const updated = await tx.productVariant.updateMany({
+        where: {
+          id: variantId,
+          stockReserved: { gte: quantity },
+        },
+        data: {
+          stockReserved: { decrement: quantity },
+          stockAvailable: { increment: quantity },
+        },
+      });
+
+      if (updated.count === 0) {
+        const current = await tx.productVariant.findUnique({
+          where: { id: variantId },
+          select: { stockReserved: true, stockAvailable: true, stockOnHand: true },
+        });
+
+        if (!current) continue;
+
+        const nextReserved = Math.max(0, current.stockReserved - quantity);
+        const nextAvailable = Math.min(
+          current.stockOnHand,
+          Math.max(0, current.stockAvailable + quantity),
+        );
+
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: {
+            stockReserved: nextReserved,
+            stockAvailable: nextAvailable,
+          },
+        });
+      }
+    }
   }
 
   private async removePurchasedCartItems(

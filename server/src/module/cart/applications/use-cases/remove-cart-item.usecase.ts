@@ -1,12 +1,11 @@
 import { CartDetailResult } from '../dto';
 import { CartItemNotFoundError } from '../errors';
 import { IRemoveCartItemUseCase } from '../ports/input';
-import { ICartRepository, IProductImageRepository, IVariantRepository } from '../ports/output';
+import { ICartRepository, IProductImageRepository } from '../ports/output';
 
 export class RemoveCartItemUseCase implements IRemoveCartItemUseCase {
   constructor(
     private readonly cartRepository: ICartRepository,
-    private readonly variantRepository: IVariantRepository,
     private readonly productImageRepository: IProductImageRepository,
   ) {}
 
@@ -21,7 +20,6 @@ export class RemoveCartItemUseCase implements IRemoveCartItemUseCase {
     }
 
     await this.cartRepository.removeItem(item.id);
-    await this.variantRepository.releaseStock(item.variantId, item.quantity);
 
     let updatedCart = await this.cartRepository.getCartDetail(userId);
     if (!updatedCart) {

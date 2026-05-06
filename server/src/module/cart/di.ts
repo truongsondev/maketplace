@@ -35,11 +35,7 @@ export function createCartModule(): Router {
     variantRepository,
     productImageRepository,
   );
-  const removeCartItemUseCase = new RemoveCartItemUseCase(
-    cartRepository,
-    variantRepository,
-    productImageRepository,
-  );
+  const removeCartItemUseCase = new RemoveCartItemUseCase(cartRepository, productImageRepository);
 
   // Controller
   const cartController = new CartController(

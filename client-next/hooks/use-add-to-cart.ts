@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cartService, type AddToCartRequest } from "@/services/cart.service";
+import { trackingService } from "@/services/tracking.service";
 import { CART_QUERY_KEY } from "@/hooks/use-cart";
 import type { ApiErrorResponse } from "@/types/api.types";
 
@@ -14,6 +15,18 @@ export function useAddToCart() {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      if (variables.productId) {
+        void trackingService.track({
+          eventType: "ADD_TO_CART",
+          productId: variables.productId,
+          source: variables.source ?? "web",
+          placement: "add_to_cart",
+          metadata: {
+            variantId: variables.variantId,
+            quantity: variables.quantity,
+          },
+        });
+      }
       toast.success("Đã thêm vào giỏ hàng", {
         description: `Số lượng: ${variables.quantity}`,
       });

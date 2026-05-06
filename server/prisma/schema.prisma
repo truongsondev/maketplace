@@ -155,6 +155,25 @@ enum AttributeDataType {
   MULTI_SELECT
 }
 
+enum RecommendationEventType {
+  VIEW_PRODUCT
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  PURCHASE
+  SEARCH_QUERY
+  FAVORITE_PRODUCT
+}
+
+enum RecommendationModelKind {
+  TRENDING
+  TOP_VIEWED
+  TOP_PURCHASED
+  ITEM_SIMILARITY
+  PERSONALIZED
+  HYBRID
+  SESSION_BASED
+}
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
@@ -186,6 +205,9 @@ model User {
   activityLogs               UserActivityLog[]
   wishlist                   Wishlist[]
   reviews                    Review[]
+  recommendationEvents       RecommendationEvent[]
+  recommendationCaches       RecommendationCache[]
+  userEmbeddings             UserEmbedding[]
 
   @@map("users")
 }
@@ -353,6 +375,11 @@ model Product {
   wishlist         Wishlist[]
   reviews          Review[]
   priceHistory     ProductPriceHistory[]
+  recommendationEvents RecommendationEvent[]
+  similaritySources ProductSimilarity[]   @relation("ProductSimilaritySource")
+  similarityTargets ProductSimilarity[]   @relation("ProductSimilarityTarget")
+  recommendationCaches RecommendationCache[]
+  productEmbeddings ProductEmbedding[]
 
   attributeValues  ProductAttributeValue[]
 
@@ -994,6 +1021,141 @@ model UserActivityLog {
 
   @@index([userId])
   @@map("user_activity_logs")
+}
+
+model RecommendationEvent {
+  id          String                  @id @default(uuid()) @db.VarChar(36)
+  eventType   RecommendationEventType @map("event_type")
+  userId      String?                 @map("user_id") @db.VarChar(36)
+  sessionId   String                  @map("session_id") @db.VarChar(100)
+  productId   String?                 @map("product_id") @db.VarChar(36)
+  orderId     String?                 @map("order_id") @db.VarChar(36)
+  searchQuery String?                 @map("search_query") @db.VarChar(255)
+  dedupeKey   String                  @unique @map("dedupe_key") @db.VarChar(120)
+  source      String?                 @db.VarChar(100)
+  placement   String?                 @db.VarChar(120)
+  metadata    Json?
+  occurredAt  DateTime                @map("occurred_at")
+  processedAt DateTime?               @map("processed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([productId, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@map("recommendation_events")
+}
+
+model ProductSimilarity {
+  productId        String   @map("product_id") @db.VarChar(36)
+  relatedProductId String   @map("related_product_id") @db.VarChar(36)
+  algorithm        String   @db.VarChar(50)
+  score            Decimal  @db.Decimal(8, 4)
+  rank             Int      @default(0)
+  metadata         Json?
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product        Product @relation("ProductSimilaritySource", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct Product @relation("ProductSimilarityTarget", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@id([productId, relatedProductId, algorithm])
+  @@index([relatedProductId, algorithm, score])
+  @@index([algorithm, score])
+  @@map("product_similarities")
+}
+
+model RecommendationCache {
+  id        String                  @id @default(uuid()) @db.VarChar(36)
+  cacheKey  String                  @unique @map("cache_key") @db.VarChar(255)
+  modelKind RecommendationModelKind @map("model_kind")
+  userId    String?                 @map("user_id") @db.VarChar(36)
+  productId String?                 @map("product_id") @db.VarChar(36)
+  sessionId String?                 @map("session_id") @db.VarChar(100)
+  itemsJson Json                    @map("items_json")
+  metadata  Json?
+  expiresAt DateTime                @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([modelKind, expiresAt])
+  @@index([userId, modelKind])
+  @@index([productId, modelKind])
+  @@map("recommendation_caches")
+}
+
+model ProductEmbedding {
+  productId     String  @id @map("product_id") @db.VarChar(36)
+  embedding     Json
+  embeddingText String? @map("embedding_text") @db.Text
+  modelVersion  String  @map("model_version") @db.VarChar(80)
+  dimensions    Int
+  metadata      Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_embeddings")
+}
+
+model UserEmbedding {
+  userId        String  @id @map("user_id") @db.VarChar(36)
+  embedding     Json
+  modelVersion  String  @map("model_version") @db.VarChar(80)
+  dimensions    Int
+  lastEventAt   DateTime? @map("last_event_at")
+  metadata      Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_embeddings")
+}
+
+model RecommendationExperiment {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  key         String  @unique @db.VarChar(80)
+  name        String  @db.VarChar(255)
+  description String? @db.VarChar(500)
+  status      String  @db.VarChar(40)
+  traffic     Int     @default(100)
+  variants    Json
+  metadata    Json?
+  startAt     DateTime? @map("start_at")
+  endAt       DateTime? @map("end_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status, startAt, endAt])
+  @@map("recommendation_experiments")
+}
+
+model RecommendationMetricSnapshot {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  metricDate DateTime @map("metric_date")
+  metricName String   @map("metric_name") @db.VarChar(120)
+  metricValue Decimal @map("metric_value") @db.Decimal(14, 4)
+  dimensions Json?
+  metadata   Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([metricDate, metricName])
+  @@map("recommendation_metric_snapshots")
 }
 
 // ============================================================================

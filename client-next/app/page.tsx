@@ -28,6 +28,7 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import { TeamSection } from "@/components/page/team-section";
+import { RecommendationShelf } from "@/components/page/recommendation-shelf";
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
 import { useCategories } from "@/hooks/use-categories";
@@ -37,6 +38,7 @@ import { productService } from "@/services/product.service";
 import { bannerService } from "@/services/banner.service";
 import { voucherService } from "@/services/voucher.service";
 import { useAuthStore } from "@/stores/auth.store";
+import { trackingService } from "@/services/tracking.service";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1200&q=80";
@@ -182,6 +184,7 @@ export default function Home() {
   const [topBannerCurrent, setTopBannerCurrent] = useState(0);
   const [promoApi, setPromoApi] = useState<CarouselApi>();
   const [promoCurrent, setPromoCurrent] = useState(0);
+  const lastTrackedSearchRef = useRef<string>("");
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const syncSearchFromUrl = useCallback((q: string) => {
@@ -380,6 +383,29 @@ export default function Home() {
 
     return () => window.clearTimeout(handle);
   }, [searchKeyword]);
+
+  useEffect(() => {
+    const trimmed = debouncedSearchKeyword.trim();
+    if (
+      trimmed.length < 2 ||
+      isSearchLoading ||
+      lastTrackedSearchRef.current === trimmed
+    ) {
+      return;
+    }
+
+    lastTrackedSearchRef.current = trimmed;
+    void trackingService.track({
+      eventType: "SEARCH_QUERY",
+      searchQuery: trimmed,
+      source: "homepage_search",
+      placement: "home_search",
+      metadata: {
+        resultCount: searchProductsData?.total ?? 0,
+        queryLength: trimmed.length,
+      },
+    });
+  }, [debouncedSearchKeyword, isSearchLoading, searchProductsData?.total]);
 
   useEffect(() => {
     if (isDark) {
@@ -641,6 +667,12 @@ export default function Home() {
                 ))}
               </CarouselContent>
             </Carousel>
+          </section>
+        </RevealSection>
+
+        <RevealSection delay={70}>
+          <section className="mx-auto w-full max-w-330 px-4 py-12 md:px-6 lg:px-8">
+            <RecommendationShelf kind="home" placement="home_recommendations" />
           </section>
         </RevealSection>
 

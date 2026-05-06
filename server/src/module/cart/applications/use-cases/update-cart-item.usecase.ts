@@ -56,10 +56,6 @@ export class UpdateCartItemUseCase implements IUpdateCartItemUseCase {
           available: availableStock,
         });
       }
-
-      await this.variantRepository.reserveStock(item.variantId, delta);
-    } else if (delta < 0) {
-      await this.variantRepository.releaseStock(item.variantId, Math.abs(delta));
     }
 
     await this.cartRepository.updateItemQuantity(item.id, command.quantity);

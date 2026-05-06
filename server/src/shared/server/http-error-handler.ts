@@ -34,6 +34,8 @@ export class HttpErrorHandler {
         errorCode = ErrorCode.CONFLICT;
       } else if (error.statusCode === 403) {
         errorCode = ErrorCode.FORBIDDEN;
+      } else if (error.statusCode === 503) {
+        errorCode = ErrorCode.SERVICE_UNAVAILABLE;
       }
     } else if (error instanceof BadRequestError) {
       errorCode = ErrorCode.VALIDATION_ERROR;

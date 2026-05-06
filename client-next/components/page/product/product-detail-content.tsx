@@ -23,13 +23,12 @@ import {
 import { toast } from "sonner";
 import { ProductDetail } from "@/types/product";
 import { useAddToCart } from "@/hooks/use-add-to-cart";
+import { useProductDwellTracking } from "@/hooks/use-product-dwell-tracking";
 import {
   useFavoriteIds,
   useToggleFavorite,
 } from "@/hooks/use-product-favorites";
-import { useRelatedProductsFromMyOrders } from "@/hooks/use-products";
-import { useAuthStore } from "@/stores/auth.store";
-import { ProductCard } from "../product-card";
+import { RecommendationShelf } from "../recommendation-shelf";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&h=600&fit=crop";
@@ -100,12 +99,6 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const { mutate: addToCart, isPending: isAddingToCart } = useAddToCart();
   const { favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const relatedProductsQuery = useRelatedProductsFromMyOrders(
-    12,
-    isAuthenticated,
-  );
-  const relatedProducts = relatedProductsQuery.data?.products ?? [];
 
   const productAttributeByCode = useMemo(() => {
     const map = new Map<string, (typeof product.productAttributes)[number]>();
@@ -177,6 +170,22 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
       .filter(Boolean)
       .slice(0, 12);
   }, [productAttributeByCode]);
+
+  const dwellTrackingMetadata = useMemo(
+    () => ({
+      basePrice: product.basePrice,
+    }),
+    [product.basePrice],
+  );
+
+  useProductDwellTracking({
+    productId: product.id,
+    productName: product.name,
+    source: "product_detail_dwell",
+    placement: "product_detail_page",
+    thresholdMs: 5000,
+    metadata: dwellTrackingMetadata,
+  });
 
   const isFavorite = favoriteIds.has(product.id);
   const isTogglingFavorite =
@@ -743,6 +752,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     addToCart({
       variantId: selectedVariant.id,
       quantity: safeQuantity,
+      productId: product.id,
+      source: "product_detail",
     });
   };
 
@@ -1276,32 +1287,15 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
           </div>
         </div>
 
-        {isAuthenticated &&
-        (relatedProductsQuery.isLoading || relatedProducts.length > 0) ? (
-          <section className="mt-14 md:mt-20">
-            <div className="mb-8 flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">
-                Sản phẩm liên quan
-              </h2>
-            </div>
-
-            {relatedProductsQuery.isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-neutral-500 dark:text-neutral-400">
-                <Loader2 className="size-4 animate-spin" />
-                Đang tải...
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-                {relatedProducts.map((relatedProduct) => (
-                  <ProductCard
-                    key={relatedProduct.id}
-                    product={relatedProduct}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        ) : null}
+        <section className="mt-14 md:mt-20">
+          <RecommendationShelf
+            kind="product"
+            productId={product.id}
+            placement="product_detail_recommendations"
+            title="Bạn có thể cũng thích"
+            emptyMessage="AI đang chờ thêm dữ liệu để gợi ý sản phẩm tương tự."
+          />
+        </section>
 
         <div className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 dark:border-neutral-700 bg-white/95 dark:bg-neutral-900/95 backdrop-blur shadow-[0_-8px_24px_rgba(10,10,10,0.08)]">
           <div className="max-w-360 mx-auto px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center gap-3">

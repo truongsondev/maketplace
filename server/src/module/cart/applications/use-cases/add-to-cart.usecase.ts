@@ -85,16 +85,13 @@ export class AddToCartUseCase implements IAddToCartUseCase {
       });
     }
 
-    // 7. Reserve stock
-    await this.variantRepository.reserveStock(command.variantId, command.quantity);
-
-    // 8. Get updated cart detail
+    // 7. Get updated cart detail
     const updatedCart = await this.cartRepository.getCartDetail(userId);
     if (!updatedCart) {
       throw new Error('Cart not found after update');
     }
 
-    // 9. Load images for all cart items
+    // 8. Load images for all cart items
     const cartDetailResult: CartDetailResult = {
       cartId: updatedCart.id,
       totalItems: updatedCart.totalItems,

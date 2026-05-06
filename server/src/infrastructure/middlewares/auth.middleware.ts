@@ -44,16 +44,27 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       requestPath.startsWith('/api/common') || req.path.startsWith('/api/common');
     const isPublicMockOrdersPath =
       requestPath.startsWith('/api/mock/orders') || req.path.startsWith('/api/mock/orders');
+    const isPublicRecommendationPath =
+      (req.method === 'GET' &&
+        (requestPath.startsWith('/api/recommendations/home') ||
+          requestPath.startsWith('/api/recommendations/product/'))) ||
+      (req.method === 'POST' &&
+        (requestPath === '/api/track' || req.path === '/api/track')) ||
+      (req.method === 'GET' &&
+        (req.path.startsWith('/api/recommendations/home') ||
+          req.path.startsWith('/api/recommendations/product/')));
     const isPublicEndpoint =
       requestPath.startsWith('/api/auth') ||
       isPublicProductGet ||
       isPublicPayosPath ||
       isPublicCommonPath ||
+      isPublicRecommendationPath ||
       isPublicMockOrdersPath ||
       req.path.startsWith('/api/auth') ||
       isPublicProductGetByPath ||
       isPublicPayosPathByReqPath ||
       isPublicCommonPath ||
+      isPublicRecommendationPath ||
       isPublicMockOrdersPath;
 
     // Bỏ qua preflight request

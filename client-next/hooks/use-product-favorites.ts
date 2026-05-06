@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { productService } from "@/services/product.service";
+import { trackingService } from "@/services/tracking.service";
 import { useAuthStore } from "@/stores/auth.store";
 import type { ApiErrorResponse } from "@/types/api.types";
 
@@ -65,6 +66,14 @@ export function useToggleFavorite() {
 
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: FAVORITE_PRODUCTS_QUERY_KEY });
+      if (!variables.isFavorite) {
+        void trackingService.track({
+          eventType: "FAVORITE_PRODUCT",
+          productId: variables.productId,
+          source: "web",
+          placement: "favorite_toggle",
+        });
+      }
 
       if (variables.isFavorite) {
         toast.success("Đã bỏ khỏi danh sách yêu thích");
