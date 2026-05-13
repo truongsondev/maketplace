@@ -2,6 +2,8 @@ FROM node:20-slim AS deps
 
 WORKDIR /app
 
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
 # Install full dependencies (including devDependencies) because runtime uses `npx prisma migrate deploy`.
 COPY package*.json ./
 RUN npm ci
@@ -9,6 +11,8 @@ RUN npm ci
 FROM node:20-slim AS builder
 
 WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
@@ -26,6 +30,8 @@ FROM node:20-slim AS runner
 
 WORKDIR /app
 ENV NODE_ENV=production
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
