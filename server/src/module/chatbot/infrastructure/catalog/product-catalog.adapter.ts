@@ -1,5 +1,5 @@
 import { GetProductsUseCase } from '@/module/product/applications/usecases/get-products.usecase';
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import {
   ChatbotCatalogProduct,
   ChatbotCatalogSearchInput,
