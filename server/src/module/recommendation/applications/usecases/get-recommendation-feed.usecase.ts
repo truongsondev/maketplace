@@ -13,7 +13,7 @@ const TITLES: Record<FeedKind, string> = {
 const STRATEGIES: Record<FeedKind, string> = {
   home: 'trending+top_viewed+top_purchased',
   product: 'item_similarity+category_fallback',
-  cart: 'cart_similarity+cross_sell',
+  cart: 'cart_ai+category_fallback+cross_sell',
   personalized: 'recent_behavior+hybrid',
 };
 

@@ -158,12 +158,19 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       }
 
       const excluded = cart.items.map((item) => item.productId);
-      const aiItems = await this.getAiVectorRecommendations(excluded, limit * 3, excluded, 'cart');
+      const aiItems = (
+        await this.getAiVectorRecommendations(excluded, limit * 3, excluded, 'cart')
+      ).map((item) => ({
+        ...item,
+        reason: 'AI gợi ý phù hợp với các sản phẩm trong giỏ',
+        source: 'cart_ai',
+      }));
+      const sameCategoryItems = await this.getSameCategoryFallbackForProducts(excluded, limit * 3);
       const nested = await Promise.all(
         cart.items.map((item) => this.getProductRecommendations(item.productId, limit)),
       );
       const finalItems = this.uniqueTop(
-        [...aiItems, ...nested.flat()],
+        [...aiItems, ...sameCategoryItems, ...nested.flat()],
         limit,
         excluded,
       );
@@ -247,8 +254,15 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         id: true,
         name: true,
         minPrice: true,
+        basePrice: true,
         isNew: true,
         isSale: true,
+        variants: {
+          where: { isDeleted: false },
+          orderBy: { price: 'asc' },
+          take: 1,
+          select: { price: true },
+        },
         images: {
           take: 1,
           orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
@@ -268,7 +282,12 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
           id: product.id,
           name: product.name,
           imageUrl: product.images[0]?.url ?? null,
-          minPrice: Number(product.minPrice),
+          minPrice: Number(
+            product.variants[0]?.price ??
+              (product.minPrice && Number(product.minPrice) > 0 ? product.minPrice : null) ??
+              product.basePrice ??
+              0,
+          ),
           isNew: product.isNew,
           isSale: product.isSale,
           score: item.score,
@@ -504,6 +523,45 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       score: Math.max(0.1, limit - index),
       reason: 'Cùng danh mục đang xem',
       source: 'category_fallback',
+    }));
+  }
+
+  private async getSameCategoryFallbackForProducts(
+    productIds: string[],
+    limit: number,
+  ): Promise<RecommendationItem[]> {
+    if (productIds.length === 0) return [];
+
+    const categories = await this.prisma.productCategory.findMany({
+      where: {
+        productId: { in: productIds },
+      },
+      select: { categoryId: true },
+      distinct: ['categoryId'],
+    });
+
+    if (categories.length === 0) return [];
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        id: { notIn: productIds },
+        isDeleted: false,
+        categories: {
+          some: {
+            categoryId: { in: categories.map((item) => item.categoryId) },
+          },
+        },
+      },
+      select: { id: true },
+      take: limit,
+      orderBy: [{ isNew: 'desc' }, { updatedAt: 'desc' }],
+    });
+
+    return products.map((product, index) => ({
+      productId: product.id,
+      score: Math.max(0.1, limit - index),
+      reason: 'Cùng danh mục với sản phẩm trong giỏ',
+      source: 'cart_category_fallback',
     }));
   }
 

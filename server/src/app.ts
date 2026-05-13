@@ -23,6 +23,7 @@ import { createAdminLogsModule } from './module/admin/logs/di';
 import { createAdminNotificationsModule } from './module/admin/notifications/di';
 import { createPublicBannerModule } from './module/banner/di';
 import { createPublicLocationModule } from './module/location/di';
+import { createChatbotModule } from './module/chatbot/di';
 import { createRecommendationModule } from './module/recommendation/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { metricsRegistry } from './shared/server/prometheus';
@@ -107,6 +108,7 @@ app.use('/api/common/locations', createPublicLocationModule());
 
 app.use(requestLoggingMiddleware);
 
+app.use('/api/chatbot', createChatbotModule());
 app.use('/api/auth', createAuthModule());
 app.use('/api/admin/auth', createAdminAuthModule());
 

@@ -3,6 +3,7 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "target": "ES2023",
+    "noEmit": true,
     "strict": true,
     "esModuleInterop": true,
     "baseUrl": ".",

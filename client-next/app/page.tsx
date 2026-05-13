@@ -676,7 +676,14 @@ export default function Home() {
 
         <RevealSection delay={70}>
           <section className="mx-auto w-full max-w-330 px-4 py-12 md:px-6 lg:px-8">
-            <RecommendationShelf kind="home" placement="home_recommendations" />
+            <RecommendationShelf
+              kind={isAuthenticated ? "personalized" : "home"}
+              placement={
+                isAuthenticated
+                  ? "home_personalized_recommendations"
+                  : "home_recommendations"
+              }
+            />
           </section>
         </RevealSection>
 

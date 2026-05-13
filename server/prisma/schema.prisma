@@ -174,6 +174,20 @@ enum RecommendationModelKind {
   SESSION_BASED
 }
 
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ChatSessionStatus {
+  OPEN
+  QUALIFIED
+  CONTACT_CAPTURED
+  ESCALATED
+  CLOSED
+}
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
@@ -208,6 +222,7 @@ model User {
   recommendationEvents       RecommendationEvent[]
   recommendationCaches       RecommendationCache[]
   userEmbeddings             UserEmbedding[]
+  chatSessions               ChatSession[]
 
   @@map("users")
 }
@@ -1021,6 +1036,51 @@ model UserActivityLog {
 
   @@index([userId])
   @@map("user_activity_logs")
+}
+
+model ChatSession {
+  id                      String            @id @default(uuid()) @db.VarChar(36)
+  userId                  String?           @map("user_id") @db.VarChar(36)
+  status                  ChatSessionStatus @default(OPEN)
+  channel                 String            @default("WEB_WIDGET") @db.VarChar(40)
+  guestToken              String?           @map("guest_token") @db.VarChar(100)
+  leadName                String?           @map("lead_name") @db.VarChar(120)
+  leadPhone               String?           @map("lead_phone") @db.VarChar(20)
+  leadEmail               String?           @map("lead_email") @db.VarChar(255)
+  budgetMin               Decimal?          @map("budget_min") @db.Decimal(10, 2)
+  budgetMax               Decimal?          @map("budget_max") @db.Decimal(10, 2)
+  shopperProfile          Json?             @map("shopper_profile")
+  lastIntent              String?           @map("last_intent") @db.VarChar(80)
+  lastSummary             String?           @map("last_summary") @db.VarChar(500)
+  lastSuggestedProductIds Json?             @map("last_suggested_product_ids")
+  lastMessageAt           DateTime          @default(now()) @map("last_message_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([leadPhone])
+  @@index([leadEmail])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String          @id @default(uuid()) @db.VarChar(36)
+  sessionId String          @map("session_id") @db.VarChar(36)
+  role      ChatMessageRole
+  content   String          @db.Text
+  metadata  Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
 }
 
 model RecommendationEvent {

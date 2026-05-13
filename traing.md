@@ -1,108 +1,188 @@
-# PROMPT PHÂN TÍCH CHI TIẾT ROADMAP RECOMMENDATION AI
+Mức “AI chatbot + API sản phẩm + CRM + tự động chốt đơn” là một hệ thống bán hàng gần như bán tự động hoàn chỉnh. Về bản chất, đây không còn là chatbot đơn lẻ mà là một lớp giao diện hội thoại nằm trên một kiến trúc backend thương mại điện tử + CRM + AI reasoning layer.
 
-Bạn là **Senior Business Analyst + AI Product Architect + Fullstack System Designer**.
+Dưới đây là quy trình triển khai đúng chuẩn kỹ thuật (thực tế dùng trong hệ thống bán hàng lớn).
 
-Tôi đang xây dựng chức năng **gợi ý sản phẩm dựa trên hành vi người dùng bằng AI** cho website thương mại điện tử.
+Trước tiên là kiến trúc tổng thể hệ thống.
 
-Hãy phân tích chi tiết từng giai đoạn triển khai dưới đây:
+Bạn sẽ có 5 khối chính:
 
-- Giai đoạn 0: Chuẩn bị dữ liệu và phạm vi
-- Giai đoạn 1: Tracking và chất lượng dữ liệu
-- Giai đoạn 2: Gợi ý nền tảng / Baseline Recommendation
-- Giai đoạn 3: Hybrid Recommendation + Ranking theo ngữ cảnh
-- Giai đoạn 4: Cá nhân hóa realtime + A/B Testing
-- Giai đoạn 5: Tối ưu vận hành và mở rộng
+Frontend chatbot widget trên website
+Backend chatbot server (API gateway)
+AI engine (LLM như Gemini hoặc model nội bộ)
+Product API (kho dữ liệu sản phẩm)
+CRM/Order system (quản lý khách hàng + đơn hàng trong server nội bộ)
 
-## Yêu cầu phân tích cho từng giai đoạn
+Luồng hoạt động cơ bản: user chat → widget → backend → AI + product API + CRM → trả kết quả → hiển thị lại chat.
 
-Với mỗi giai đoạn, hãy trình bày theo cấu trúc sau:
+Xây dựng Product API (nền tảng dữ liệu bán hàng)
 
-### 1. Mục tiêu chính
+Đây là lõi “biết bán cái gì”.
 
-Giải thích giai đoạn này dùng để làm gì, giải quyết vấn đề gì.
+API cần có các endpoint:
 
-### 2. Vì sao cần giai đoạn này
+(lọc theo giá, danh mục, nhu cầu)
+(chi tiết sản phẩm)
+(tồn kho)
+(giá + khuyến mãi)
+SEARCH
 
-Nêu rõ nếu bỏ qua giai đoạn này thì hệ thống sẽ gặp lỗi gì.
+Dữ liệu cần chuẩn hóa:
 
-### 3. Input cần có
+tên sản phẩm
+nhóm nhu cầu (use case)
+mức giá
+thuộc tính (size, màu, cấu hình…)
+lợi ích (benefit-based data, rất quan trọng cho AI)
+Tích hợp CRM (quản lý khách hàng và đơn hàng)
 
-Liệt kê dữ liệu, tài liệu, hệ thống, API hoặc điều kiện cần chuẩn bị.
+CRM sẽ lưu toàn bộ hành vi chat.
 
-### 4. Công việc cần thực hiện
+Cần các API:
 
-Phân tích chi tiết các task cần làm ở góc nhìn:
+POST (tạo khách hàng)
+POST (tạo đơn)
+PATCH (cập nhật trạng thái)
+GET
 
-- Business Analyst
-- Backend
-- Frontend
-- Database
-- AI/ML
-- DevOps nếu có
+CRM có thể là hệ thống nội bộ trong server (ưu tiên cho project hiện tại),
 
-### 5. AI / thuật toán sử dụng
+Quan trọng: mỗi cuộc chat = một “lead session”.
 
-Giải thích rõ ở giai đoạn này có dùng AI không.
-Nếu có, hãy nêu:
+AI chatbot engine (bộ não bán hàng)
 
-- Loại thuật toán
-- Ví dụ thực tế
-- Khi nào nên dùng
-- Ưu điểm
-- Nhược điểm
+Đây là phần quan trọng nhất.
 
-### 6. Output của giai đoạn
+AI không chỉ trả lời, mà phải có “tool use” (gọi API).
 
-Nêu rõ sau giai đoạn này phải bàn giao được gì.
+AI cần được thiết kế với 3 lớp:
 
-### 7. Tiêu chí hoàn thành
+(1) System Prompt (vai trò)
 
-Đưa ra checklist cụ thể để biết giai đoạn này đã xong.
+là nhân viên tư vấn bán hàng
+mục tiêu: tối đa hóa chuyển đổi
+luôn đề xuất sản phẩm từ API, không bịa
 
-### 8. Rủi ro thường gặp
+(2) Tool calling functions:
 
-Liệt kê các lỗi thực tế có thể xảy ra.
+searchProducts()
+getProductDetail()
+createLead()
+createOrder()
 
-### 9. Ví dụ minh họa
+(3) Memory context:
 
-Dùng ví dụ website bán quần áo hoặc sàn thương mại điện tử để giải thích.
+lịch sử chat
+nhu cầu khách
+ngân sách
+sản phẩm đã xem
+Logic bán hàng (conversion flow)
 
-### 10. Gợi ý công nghệ triển khai
+AI chatbot bán hàng cao cấp phải đi theo pipeline:
 
-Đề xuất tech stack phù hợp với:
+Bước 1: Khai thác nhu cầu
+→ hỏi mục đích sử dụng, ngân sách, sở thích
 
-- Frontend: Next.js, ReacJS
-- Backend: Node.js / Express
-- Database: MySQL
-- Cache: Redis
-- AI Service: Python
-- Message Queue: RabbitMQ
-- Deployment: Docker
+Bước 2: Gợi ý sản phẩm từ API
+→ gọi searchProducts()
 
-## Yêu cầu cách viết
+Bước 3: So sánh 2–3 sản phẩm
+→ ưu/nhược điểm, phù hợp nhu cầu
 
-- Viết bằng tiếng Việt.
-- Giải thích dễ hiểu, không quá học thuật.
-- Có bảng so sánh nếu cần.
-- Có ví dụ thực tế.
-- Phân biệt rõ phần nào là rule-based, phần nào là machine learning, phần nào là AI nâng cao.
-- Tập trung vào tư duy triển khai thực tế cho mini project hoặc đồ án.
-- Không nói chung chung.
-- Nếu có thuật ngữ khó, hãy giải thích ngay bên cạnh.
+Bước 4: Xử lý phản đối
+→ giá cao, chưa tin, cần suy nghĩ
 
-## Đầu ra mong muốn
+Bước 5: Chốt đơn hoặc tạo lead
+→ createOrder() hoặc createLead()
 
-Hãy tạo một tài liệu phân tích đầy đủ dạng Markdown, có mục lục, tiêu đề rõ ràng, dễ copy vào file `.md`.
+Bước 6: CRM tiếp nhận
+→ chuyển sang sale nếu cần
 
-Cuối cùng, hãy thêm phần:
+Nhiệm vụ:
 
-## Roadmap đề xuất cho mini project
+nhận message từ frontend
+gọi AI API
+xử lý function calling
+kết nối product API + CRM
+trả response về frontend
 
-Trong phần này, hãy đề xuất phiên bản đơn giản nhất nên làm trước, gồm:
+Quan trọng: backend phải là “orchestrator”, không để AI gọi trực tiếp database.
 
-- Những giai đoạn bắt buộc phải làm
-- Những giai đoạn có thể fake/mock
-- Những giai đoạn nên để nâng cấp sau
-- Kiến trúc hệ thống đề xuất
-- API recommendation mẫu
-- Flow dữ liệu từ user action đến recommendation
+Chatbot widget trên website
+
+Một script JS nhúng:
+
+floating chat button
+UI chat window
+streaming message (real-time typing)
+gửi message qua WebSocket hoặc REST API
+
+Nâng cao:
+
+hiển thị sản phẩm dạng card trong chat
+nút “Mua ngay”
+nút “Nhận tư vấn”
+Tự động chốt đơn (automation layer)
+
+Đây là điểm tạo khác biệt lớn.
+
+Có 3 mức tự động:
+
+Mức 1: tạo lead
+→ AI thu SĐT + nhu cầu → CRM
+
+Mức 2: tạo đơn bán tự động
+→ AI gọi createOrder()
+
+Mức 3: auto checkout
+→ tạo link thanh toán
+
+Tối ưu chuyển đổi (growth layer)
+
+Sau khi chạy thật:
+
+Theo dõi:
+
+CTR sản phẩm trong chat
+tỷ lệ tạo lead
+tỷ lệ chốt đơn
+câu hỏi khiến khách thoát chat
+
+Tối ưu:
+
+prompt AI
+cách hỏi mở đầu
+thứ tự gợi ý sản phẩm
+mức giá hiển thị
+Stack gợi ý triển khai thực tế
+
+Frontend:
+
+Next.js widget
+
+Backend:
+
+Node.js (Express) + Prisma
+
+AI:
+
+Gemini API (function calling, gọi qua backend)
+
+Database:
+
+MariaDB
+
+CRM/Order:
+
+Module noi bo trong server (orders, customers, admin)
+
+Realtime:
+
+WebSocket / Socket.io (neu can)
+
+Nếu bạn muốn, tôi có thể làm tiếp 1 trong 3 thứ cực thực chiến:
+
+Sơ đồ kiến trúc hệ thống dạng diagram chuẩn dev
+Prompt AI chatbot bán hàng tối ưu conversion (rất quan trọng)
+Code mẫu Node.js + Gemini function calling + product API
+
+Chỉ cần nói hướng bạn muốn triển khai.
