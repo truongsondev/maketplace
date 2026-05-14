@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { authService, type LoginRequest } from "@/services/auth.service";
@@ -14,6 +14,7 @@ function resolvePostLoginPath(redirect?: string): string {
 
 export function useLogin(redirectAfterLogin?: string) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const setSession = useAuthStore((s) => s.setSession);
 
   return useMutation({
@@ -27,6 +28,7 @@ export function useLogin(redirectAfterLogin?: string) {
           refreshToken: data.token.refreshToken,
         },
       });
+      queryClient.removeQueries({ queryKey: ["recommendations"] });
       toast.success("Chào mừng trở lại!", {
         description: `Đã đăng nhập với ${data.user.email}`,
       });

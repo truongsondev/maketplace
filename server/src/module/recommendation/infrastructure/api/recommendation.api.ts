@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import express, { Request, Response } from 'express';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
@@ -8,6 +9,45 @@ import { RecommendationEventPayload } from '../../entities/recommendation.types'
 import { recommendationEventBus } from '../messaging/recommendation-event-bus';
 
 const logger = createLogger('RecommendationAPI');
+const MAX_DEDUPE_KEY_LENGTH = 120;
+
+function cleanString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+}
+
+function buildDedupeKey(source: string): string {
+  const normalized = source.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= MAX_DEDUPE_KEY_LENGTH) {
+    return normalized;
+  }
+
+  return `trk:${createHash('sha256').update(normalized).digest('hex')}`;
+}
+
+function createTrackingDedupeKey(params: {
+  provided: unknown;
+  eventType: string;
+  userId: string | null;
+  sessionId: string;
+  productId: string | null;
+  orderId: string | null;
+  searchQuery: string | null;
+  occurredAt: string;
+}): string {
+  const provided = cleanString(params.provided);
+  if (provided) {
+    return buildDedupeKey(provided);
+  }
+
+  const target =
+    params.productId ?? params.orderId ?? (params.searchQuery ? `q:${params.searchQuery}` : 'na');
+
+  return buildDedupeKey(
+    [params.eventType, params.userId ?? 'guest', params.sessionId, target, params.occurredAt].join(
+      ':',
+    ),
+  );
+}
 
 function ensureSessionId(req: Request): string {
   const sessionId =
@@ -23,7 +63,8 @@ function ensureSessionId(req: Request): string {
 }
 
 function parseLimit(req: Request, defaultLimit = 12): number {
-  const raw = typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : defaultLimit;
+  const raw =
+    typeof req.query.limit === 'string' ? Number.parseInt(req.query.limit, 10) : defaultLimit;
   if (!Number.isInteger(raw) || raw <= 0 || raw > 30) {
     throw new BadRequestError('limit must be an integer between 1 and 30');
   }
@@ -63,27 +104,36 @@ export class RecommendationAPI {
       throw new BadRequestError('eventType is invalid');
     }
 
-    const dedupeKey =
-      req.body?.dedupeKey ||
-      req.header('x-idempotency-key') ||
-      `${eventType}:${req.userId ?? 'guest'}:${sessionId}:${req.body?.productId ?? req.body?.searchQuery ?? 'na'}:${req.body?.occurredAt ?? new Date().toISOString()}`;
+    const occurredAt = cleanString(req.body?.occurredAt) ?? new Date().toISOString();
+    const productId = cleanString(req.body?.productId);
+    const orderId = cleanString(req.body?.orderId);
+    const searchQuery = cleanString(req.body?.searchQuery);
+    const dedupeKey = createTrackingDedupeKey({
+      provided: req.body?.dedupeKey ?? req.header('x-idempotency-key'),
+      eventType,
+      userId: req.userId ?? null,
+      sessionId,
+      productId,
+      orderId,
+      searchQuery,
+      occurredAt,
+    });
 
     const payload: RecommendationEventPayload = {
       eventType,
       userId: req.userId ?? null,
       sessionId,
-      productId: typeof req.body?.productId === 'string' ? req.body.productId : null,
-      orderId: typeof req.body?.orderId === 'string' ? req.body.orderId : null,
-      searchQuery: typeof req.body?.searchQuery === 'string' ? req.body.searchQuery : null,
+      productId,
+      orderId,
+      searchQuery,
       source: typeof req.body?.source === 'string' ? req.body.source : 'web',
       placement: typeof req.body?.placement === 'string' ? req.body.placement : null,
       metadata: typeof req.body?.metadata === 'object' ? req.body.metadata : null,
       dedupeKey,
-      occurredAt:
-        typeof req.body?.occurredAt === 'string'
-          ? req.body.occurredAt
-          : new Date().toISOString(),
+      occurredAt,
     };
+
+    const result = await this.recommendationController.track(payload);
 
     try {
       await recommendationEventBus.publish(payload);
@@ -92,14 +142,11 @@ export class RecommendationAPI {
         dedupeKey: payload.dedupeKey,
       });
     } catch (error) {
-      logger.warn('Failed to publish recommendation event, falling back to direct ingest', {
+      logger.warn('Failed to publish recommendation event after direct ingest', {
         error,
       });
-      await this.recommendationController.track(payload);
     }
-    res
-      .status(202)
-      .json(ResponseFormatter.success({ accepted: true }, 'Tracking event accepted'));
+    res.status(202).json(ResponseFormatter.success(result, 'Tracking event accepted'));
   }
 
   private async getHome(req: Request, res: Response): Promise<void> {
@@ -140,7 +187,9 @@ export class RecommendationAPI {
       sessionId,
       limit,
     );
-    res.status(200).json(ResponseFormatter.success(result, 'Personalized recommendations retrieved'));
+    res
+      .status(200)
+      .json(ResponseFormatter.success(result, 'Personalized recommendations retrieved'));
   }
 
   private async getAnalytics(req: Request, res: Response): Promise<void> {

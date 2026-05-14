@@ -47,6 +47,7 @@ export class PrismaChatSessionRepository implements IChatSessionRepository {
   async create(params: CreateChatSessionParams): Promise<ChatSessionRecord> {
     const row = await this.prisma.chatSession.create({
       data: {
+        userId: params.userId ?? null,
         guestToken: params.guestToken,
       },
       include: {

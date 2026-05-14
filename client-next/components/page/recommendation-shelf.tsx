@@ -103,7 +103,7 @@ export function RecommendationShelf({
             {Array.from({ length: Math.min(limit, 4) }).map((_, index) => (
               <div
                 key={index}
-                className="aspect-[3/4] animate-pulse rounded-sm bg-neutral-100 dark:bg-neutral-800"
+                className="aspect-3/4 animate-pulse rounded-sm bg-neutral-100 dark:bg-neutral-800"
               />
             ))}
           </div>

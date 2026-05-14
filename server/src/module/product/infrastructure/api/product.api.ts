@@ -10,6 +10,7 @@ export class ProductAPI {
   readonly router = express.Router();
   private readonly logger = createLogger('ProductAPI');
   private readonly homeCacheTtlSeconds = 600;
+  private readonly cacheTimeoutMs = 300;
 
   constructor(private readonly productController: ProductController) {
     this.initializeRoutes();
@@ -268,7 +269,7 @@ export class ProductAPI {
 
   private async getCache(key: string): Promise<any | null> {
     try {
-      const raw = await redis.get(key);
+      const raw = await this.withTimeout(redis.get(key), this.cacheTimeoutMs);
       if (!raw) {
         return null;
       }
@@ -282,9 +283,29 @@ export class ProductAPI {
 
   private async setCache(key: string, payload: any): Promise<void> {
     try {
-      await redis.setex(key, this.homeCacheTtlSeconds, JSON.stringify(payload));
+      await this.withTimeout(
+        redis.setex(key, this.homeCacheTtlSeconds, JSON.stringify(payload)),
+        this.cacheTimeoutMs,
+      );
     } catch (error) {
       this.logger.warn('Failed to write cache', { key, error });
+    }
+  }
+
+  private async withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    let timeout: NodeJS.Timeout | undefined;
+
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Cache operation timed out')), timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
     }
   }
 }

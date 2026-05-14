@@ -23,3 +23,12 @@ export function getSessionId(): string {
   return created;
 }
 
+export function resetSessionId(): string {
+  if (typeof window === "undefined") {
+    return "server-render-session";
+  }
+
+  const created = createSessionId();
+  window.localStorage.setItem(SESSION_STORAGE_KEY, created);
+  return created;
+}

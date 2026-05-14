@@ -44,12 +44,13 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       requestPath.startsWith('/api/common') || req.path.startsWith('/api/common');
     const isPublicMockOrdersPath =
       requestPath.startsWith('/api/mock/orders') || req.path.startsWith('/api/mock/orders');
+    const isPublicChatbotPath =
+      requestPath.startsWith('/api/chatbot') || req.path.startsWith('/api/chatbot');
     const isPublicRecommendationPath =
       (req.method === 'GET' &&
         (requestPath.startsWith('/api/recommendations/home') ||
           requestPath.startsWith('/api/recommendations/product/'))) ||
-      (req.method === 'POST' &&
-        (requestPath === '/api/track' || req.path === '/api/track')) ||
+      (req.method === 'POST' && (requestPath === '/api/track' || req.path === '/api/track')) ||
       (req.method === 'GET' &&
         (req.path.startsWith('/api/recommendations/home') ||
           req.path.startsWith('/api/recommendations/product/')));
@@ -60,15 +61,17 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       isPublicCommonPath ||
       isPublicRecommendationPath ||
       isPublicMockOrdersPath ||
+      isPublicChatbotPath ||
       req.path.startsWith('/api/auth') ||
       isPublicProductGetByPath ||
       isPublicPayosPathByReqPath ||
       isPublicCommonPath ||
       isPublicRecommendationPath ||
-      isPublicMockOrdersPath;
+      isPublicMockOrdersPath ||
+      isPublicChatbotPath;
 
     // Bỏ qua preflight request
-    if (req.method === 'OPTIONS' || isPublicEndpoint) {
+    if (req.method === 'OPTIONS') {
       return next();
     }
 
@@ -84,6 +87,29 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
 
     const authHeader =
       req.headers.authorization || (queryToken ? `Bearer ${queryToken}` : undefined);
+
+    const attachOptionalUserId = async (): Promise<void> => {
+      if (!authHeader || !authHeader.startsWith('Bearer ')) return;
+
+      try {
+        const userId = await sessionVerifier.verifySession(authHeader.slice('Bearer '.length));
+        if (userId) {
+          req.userId = userId;
+        }
+      } catch {
+        // Public endpoints still work anonymously when optional auth cannot be verified.
+      }
+    };
+
+    if (isPublicEndpoint) {
+      const shouldAttachOptionalUser =
+        (req.method === 'POST' && (requestPath === '/api/track' || req.path === '/api/track')) ||
+        isPublicChatbotPath;
+      if (shouldAttachOptionalUser) {
+        await attachOptionalUserId();
+      }
+      return next();
+    }
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res

@@ -16,9 +16,13 @@ function buildQuery(params: Record<string, string | number | undefined>) {
   return serialized ? `?${serialized}` : "";
 }
 
-async function getFeed(path: string, limit: number): Promise<RecommendationFeed> {
+async function getFeed(
+  path: string,
+  limit: number,
+): Promise<RecommendationFeed> {
+  const sessionId = getSessionId();
   const response = await apiClient.get<RecommendationFeed>(
-    `${path}${buildQuery({ limit, sessionId: getSessionId() })}`,
+    `${path}${buildQuery({ limit, sessionId })}`,
   );
 
   if (response.success) {
@@ -45,4 +49,3 @@ export const recommendationService = {
     return getFeed("api/recommendations/personalized", limit);
   },
 };
-

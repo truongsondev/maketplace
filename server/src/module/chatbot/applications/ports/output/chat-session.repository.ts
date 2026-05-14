@@ -1,10 +1,5 @@
 export type ChatMessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
-export type ChatSessionStatus =
-  | 'OPEN'
-  | 'QUALIFIED'
-  | 'CONTACT_CAPTURED'
-  | 'ESCALATED'
-  | 'CLOSED';
+export type ChatSessionStatus = 'OPEN' | 'QUALIFIED' | 'CONTACT_CAPTURED' | 'ESCALATED' | 'CLOSED';
 
 export interface ChatMessageRecord {
   id: string;
@@ -35,6 +30,7 @@ export interface ChatSessionRecord {
 }
 
 export interface CreateChatSessionParams {
+  userId?: string | null;
   guestToken?: string;
 }
 

@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   CreditCard,
@@ -19,7 +19,6 @@ import {
   RotateCcw,
   ShieldCheck,
   Truck,
-  X,
 } from "lucide-react";
 import {
   Carousel,
@@ -132,10 +131,10 @@ function RevealSection({
   const ref = useRef<HTMLDivElement | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
+  const shouldShow = prefersReducedMotion || isVisible;
 
   useEffect(() => {
     if (prefersReducedMotion) {
-      setIsVisible(true);
       return;
     }
 
@@ -163,8 +162,8 @@ function RevealSection({
       ref={ref}
       className={className}
       style={{
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible ? "translateY(0px)" : "translateY(18px)",
+        opacity: shouldShow ? 1 : 0,
+        transform: shouldShow ? "translateY(0px)" : "translateY(18px)",
         transition: prefersReducedMotion
           ? "none"
           : `opacity 500ms ease ${delay}ms, transform 500ms ease ${delay}ms`,
@@ -185,6 +184,7 @@ export default function Home() {
   const [promoApi, setPromoApi] = useState<CarouselApi>();
   const [promoCurrent, setPromoCurrent] = useState(0);
   const lastTrackedSearchRef = useRef<string>("");
+  const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const syncSearchFromUrl = useCallback((q: string) => {
@@ -208,11 +208,7 @@ export default function Home() {
     page: 1,
   });
 
-  const {
-    data: searchProductsData,
-    isFetching: isSearchLoading,
-    isError: isSearchError,
-  } = useQuery({
+  const { data: searchProductsData, isFetching: isSearchLoading } = useQuery({
     queryKey: ["products", "search", debouncedSearchKeyword],
     queryFn: () =>
       productService.getProducts({
@@ -395,19 +391,24 @@ export default function Home() {
     }
 
     lastTrackedSearchRef.current = trimmed;
-    void trackingService.track({
-      eventType: "SEARCH_QUERY",
-      searchQuery: trimmed,
-      source: "homepage_search",
-      placement: "home_search",
-      metadata: {
-        resultCount: searchProductsData?.pagination.total ?? 0,
-        queryLength: trimmed.length,
-      },
-    });
+    void trackingService
+      .track({
+        eventType: "SEARCH_QUERY",
+        searchQuery: trimmed,
+        source: "homepage_search",
+        placement: "home_search",
+        metadata: {
+          resultCount: searchProductsData?.pagination.total ?? 0,
+          queryLength: trimmed.length,
+        },
+      })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["recommendations"] });
+      });
   }, [
     debouncedSearchKeyword,
     isSearchLoading,
+    queryClient,
     searchProductsData?.pagination.total,
   ]);
 
@@ -682,6 +683,11 @@ export default function Home() {
                 isAuthenticated
                   ? "home_personalized_recommendations"
                   : "home_recommendations"
+              }
+              emptyMessage={
+                isAuthenticated
+                  ? "Chưa có đủ tương tác để cá nhân hóa gợi ý."
+                  : "Chưa có gợi ý phù hợp lúc này."
               }
             />
           </section>

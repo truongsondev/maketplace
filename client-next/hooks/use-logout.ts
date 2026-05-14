@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { authService } from "@/services/auth.service";
@@ -7,6 +7,7 @@ import type { ApiErrorResponse } from "@/types/api.types";
 
 export function useLogout() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { token, clearSession } = useAuthStore((s) => ({
     token: s.token,
     clearSession: s.clearSession,
@@ -21,6 +22,7 @@ export function useLogout() {
 
     onSuccess: () => {
       clearSession();
+      queryClient.removeQueries({ queryKey: ["recommendations"] });
       toast.success("Đăng xuất thành công!", {
         description: "",
       });
@@ -29,6 +31,7 @@ export function useLogout() {
 
     onError: (err: ApiErrorResponse) => {
       clearSession();
+      queryClient.removeQueries({ queryKey: ["recommendations"] });
       toast.success("Đăng xuất thành công!", {
         description: "",
       });

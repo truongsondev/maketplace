@@ -64,15 +64,16 @@ export function useToggleFavorite() {
       return productService.addToFavorites(productId);
     },
 
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: FAVORITE_PRODUCTS_QUERY_KEY });
       if (!variables.isFavorite) {
-        void trackingService.track({
+        await trackingService.track({
           eventType: "FAVORITE_PRODUCT",
           productId: variables.productId,
           source: "web",
           placement: "favorite_toggle",
         });
+        queryClient.invalidateQueries({ queryKey: ["recommendations"] });
       }
 
       if (variables.isFavorite) {

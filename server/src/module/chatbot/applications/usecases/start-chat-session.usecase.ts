@@ -12,6 +12,7 @@ export class StartChatSessionUseCase implements IStartChatSessionUseCase {
 
   async execute(command: StartChatSessionCommand): Promise<ChatSessionResult> {
     const session = await this.sessionRepository.create({
+      userId: command.userId ?? null,
       guestToken: command.guestToken,
     });
 

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@/types/registration.types";
 import { apiClient } from "@/lib/api-client";
+import { resetSessionId } from "@/lib/session-id";
 import type { UserProfile } from "@/types/auth.types";
 
 interface AuthState {
@@ -40,6 +41,7 @@ export const useAuthStore = create<AuthState>()(
             });
           },
           onSessionCleared: () => {
+            resetSessionId();
             set({
               user: null,
               profile: null,
@@ -54,39 +56,41 @@ export const useAuthStore = create<AuthState>()(
       }
 
       return {
-      user: null,
-      profile: null,
-      token: {
-        accessToken: null,
-        refreshToken: null,
-      },
-      isAuthenticated: false,
+        user: null,
+        profile: null,
+        token: {
+          accessToken: null,
+          refreshToken: null,
+        },
+        isAuthenticated: false,
 
-      setSession: ({ user, token, profile = null }) => {
-        apiClient.setAuthToken(token.accessToken, token.refreshToken);
-        set({
-          user,
-          profile,
-          token: {
-            accessToken: token.accessToken,
-            refreshToken: token.refreshToken,
-          },
-          isAuthenticated: true,
-        });
-      },
+        setSession: ({ user, token, profile = null }) => {
+          resetSessionId();
+          apiClient.setAuthToken(token.accessToken, token.refreshToken);
+          set({
+            user,
+            profile,
+            token: {
+              accessToken: token.accessToken,
+              refreshToken: token.refreshToken,
+            },
+            isAuthenticated: true,
+          });
+        },
 
-      clearSession: () => {
-        apiClient.clearAuthToken();
-        set({
-          user: null,
-          profile: null,
-          token: {
-            accessToken: null,
-            refreshToken: null,
-          },
-          isAuthenticated: false,
-        });
-      },
+        clearSession: () => {
+          apiClient.clearAuthToken();
+          resetSessionId();
+          set({
+            user: null,
+            profile: null,
+            token: {
+              accessToken: null,
+              refreshToken: null,
+            },
+            isAuthenticated: false,
+          });
+        },
       };
     },
     {

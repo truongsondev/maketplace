@@ -13,10 +13,10 @@ export function useAddToCart() {
   return useMutation({
     mutationFn: (payload: AddToCartRequest) => cartService.addToCart(payload),
 
-    onSuccess: (_, variables) => {
+    onSuccess: async (_, variables) => {
       queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
       if (variables.productId) {
-        void trackingService.track({
+        await trackingService.track({
           eventType: "ADD_TO_CART",
           productId: variables.productId,
           source: variables.source ?? "web",
@@ -26,6 +26,7 @@ export function useAddToCart() {
             quantity: variables.quantity,
           },
         });
+        queryClient.invalidateQueries({ queryKey: ["recommendations"] });
       }
       toast.success("Đã thêm vào giỏ hàng", {
         description: `Số lượng: ${variables.quantity}`,

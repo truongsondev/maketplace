@@ -74,3 +74,17 @@
   2. enrich product metadata bằng benefit/style/body-fit
   3. tách assistant engine thành tool-calling LLM adapter có fallback hiện tại
   4. sau cùng mới nối chatbot vào add-to-cart / checkout flow có kiểm soát
+
+# Recommendation Correctness Context
+
+- Personalized recommendation phải dựa trên `user_id` hiện tại và session hiện tại, không dùng cache global để thay thế khi user đã có interaction.
+- `POST /api/track` là public nhưng nếu có bearer token thì auth middleware phải attach `req.userId` để event không bị lưu `user_id = NULL`.
+- Tracking event quan trọng như favorite/add cart/search cần persist gần realtime trước khi UI reload/refetch.
+- Redis key chính:
+  - `recommendations:personalized:v2:{userId}:{sessionId}:{limit}`
+  - `recommendations:home:{sessionId}:{limit}`
+  - `recommendations:cart:{userId}:{limit}`
+  - `recommendations:product:{productId}:{limit}`
+- Personalized cold-start mới được dùng trending fallback; khi đã có interaction thì không append global/home feed vào personalized.
+- Khi query personalized, session events chỉ được lấy nếu `user_id IS NULL`; tránh user A logout rồi user B login cùng browser bị ăn lịch sử của user A.
+- Frontend React Query key phải chứa `userId` và/hoặc `sessionId` tương ứng endpoint để không reuse cache sai phiên/tài khoản.

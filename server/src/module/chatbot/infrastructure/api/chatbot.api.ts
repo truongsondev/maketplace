@@ -20,7 +20,10 @@ export class ChatbotAPI {
   private async startSession(req: Request, res: Response): Promise<void> {
     const guestToken =
       typeof req.body?.guestToken === 'string' ? req.body.guestToken.trim() : undefined;
-    const result = await this.chatbotController.startSession({ guestToken });
+    const result = await this.chatbotController.startSession({
+      userId: req.userId ?? null,
+      guestToken,
+    });
     res.status(201).json(ResponseFormatter.success(result, 'Chat session created'));
   }
 

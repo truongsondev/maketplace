@@ -7,6 +7,7 @@ import {
 } from '../../applications/ports/output/product.repository';
 import { ProductListAggregations } from '../../applications/dto/result/product-list.result';
 import { Product } from '../../entities/product/product.entity';
+import { createLogger } from '../../../../shared/util/logger';
 
 function normalizeOptionValue(raw: unknown): string | null {
   if (raw === null || raw === undefined) return null;
@@ -46,6 +47,9 @@ function slugFromName(raw: unknown): string {
 }
 
 export class PrismaProductRepository implements IProductRepository {
+  private readonly logger = createLogger('PrismaProductRepository');
+  private readonly aggregationTimeoutMs = 1500;
+
   constructor(private readonly prisma: PrismaClient) {}
 
   private mapProductAttributesFromAttributeValues(attributeValues: any[]): Array<{
@@ -574,7 +578,7 @@ export class PrismaProductRepository implements IProductRepository {
 
     const skip = (pagination.page - 1) * pagination.limit;
 
-    const [rows, total, aggregations] = await Promise.all([
+    const [rows, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
         skip,
@@ -595,8 +599,9 @@ export class PrismaProductRepository implements IProductRepository {
         },
       }),
       this.prisma.product.count({ where }),
-      this.getAggregations(filters, productWhere),
     ]);
+
+    const aggregations = await this.getAggregationsSafely(filters, productWhere);
 
     return {
       products: rows.map((row) => this.toDomain(row)),
@@ -1050,11 +1055,34 @@ export class PrismaProductRepository implements IProductRepository {
       name: row.name,
       slug: row.slug ?? slugFromName(row.name),
       imageUrl,
-      minPrice,
+      minPrice: Number(minPrice),
       originalPrice: undefined,
       discountPercent: undefined,
       isNew: row.isNew ?? false,
       isSale: row.isSale ?? false,
     });
+  }
+
+  private async getAggregationsSafely(
+    filters: ProductFilters,
+    productWhere: any,
+  ): Promise<ProductListAggregations> {
+    let timeout: NodeJS.Timeout | undefined;
+
+    try {
+      return await Promise.race([
+        this.getAggregations(filters, productWhere),
+        new Promise<ProductListAggregations>((resolve) => {
+          timeout = setTimeout(() => resolve({ sizes: [], colors: [] }), this.aggregationTimeoutMs);
+        }),
+      ]);
+    } catch (error) {
+      this.logger.warn('Failed to compute product aggregations', { error });
+      return { sizes: [], colors: [] };
+    } finally {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    }
   }
 }
