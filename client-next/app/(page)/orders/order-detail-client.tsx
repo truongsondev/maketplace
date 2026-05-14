@@ -236,10 +236,7 @@ export function OrderDetailClient({
       ? "w-full px-4 py-6 sm:px-6"
       : "mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8";
 
-  const shellClassName =
-    mode === "modal"
-      ? ""
-      : "rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-black";
+  const shellClassName = mode === "modal" ? "" : "luxury-page";
 
   const deliveryLines = useMemo(() => {
     type MaybeAddress = {
@@ -300,15 +297,14 @@ export function OrderDetailClient({
   return (
     <main className={containerClassName}>
       <div className={shellClassName}>
-        <div className="flex flex-col gap-4 border-b border-neutral-200 px-4 py-4 dark:border-neutral-800 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+        <div className="flex flex-col gap-4 border-b border-black/10 px-4 py-4 dark:border-white/10 sm:flex-row sm:items-start sm:justify-between sm:px-6">
           <div className="min-w-0">
-            <p className="text-2xl font-bold text-neutral-900 dark:text-white">
-              Order ID: {order ? `#${order.orderCode ?? order.id}` : "—"}
+            <p className="luxury-eyebrow">Order detail</p>
+            <p className="mt-3 text-3xl font-semibold uppercase leading-none tracking-[-0.04em] text-neutral-900 dark:text-white md:text-5xl">
+              {order ? `#${order.orderCode ?? order.id}` : "—"}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-400">
-              <span>
-                Order date: {order ? formatDate(order.createdAt) : "—"}
-              </span>
+              <span>Ngày đặt: {order ? formatDate(order.createdAt) : "—"}</span>
               <span className="hidden h-4 w-px bg-neutral-200 dark:bg-neutral-800 sm:inline-block" />
               <span className="font-semibold text-neutral-900 dark:text-white">
                 {order ? statusText(order.status) : ""}
@@ -326,7 +322,7 @@ export function OrderDetailClient({
             {mode === "page" ? (
               <Link
                 href="/orders"
-                className="inline-flex h-10 items-center rounded-sm border border-neutral-200 bg-white px-5 text-sm font-semibold text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900"
+                className="luxury-button-ghost h-10 px-5 py-0"
               >
                 Quay lại
               </Link>
@@ -339,7 +335,7 @@ export function OrderDetailClient({
                 disabled={
                   confirmReceivedMutation.isPending || detailQuery.isLoading
                 }
-                className="inline-flex h-10 items-center rounded-sm bg-black px-5 text-sm font-semibold text-white transition-colors hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+                className="luxury-button h-10 px-5 py-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Xác nhận đã nhận hàng
               </button>
@@ -352,7 +348,7 @@ export function OrderDetailClient({
                 disabled={
                   requestReturnMutation.isPending || detailQuery.isLoading
                 }
-                className="inline-flex h-10 items-center rounded-sm border border-neutral-900 bg-white px-5 text-sm font-semibold text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-100 dark:bg-black dark:text-neutral-100 dark:hover:bg-white dark:hover:text-black"
+                className="luxury-button-ghost h-10 px-5 py-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Trả hàng/Hoàn tiền
               </button>
@@ -369,7 +365,7 @@ export function OrderDetailClient({
                 type="button"
                 onClick={() => cancelMutation.mutate(order.id)}
                 disabled={cancelMutation.isPending}
-                className="inline-flex h-10 items-center rounded-sm border border-black bg-white px-5 text-sm font-semibold text-black transition-colors hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-white dark:bg-black dark:text-white dark:hover:bg-white dark:hover:text-black"
+                className="luxury-button-ghost h-10 px-5 py-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Hủy đơn
               </button>
@@ -380,7 +376,7 @@ export function OrderDetailClient({
                 type="button"
                 onClick={() => setOpenPaidCancelModal(true)}
                 disabled={requestPaidCancelMutation.isPending}
-                className="inline-flex h-10 items-center rounded-sm border border-neutral-900 bg-white px-5 text-sm font-semibold text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-100 dark:bg-black dark:text-neutral-100 dark:hover:bg-white dark:hover:text-black"
+                className="luxury-button-ghost h-10 px-5 py-0 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Yêu cầu hủy
               </button>
@@ -390,20 +386,20 @@ export function OrderDetailClient({
 
         <div className="px-4 pb-6 pt-4 sm:px-6">
           {detailQuery.isLoading ? (
-            <div className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+            <div className="border-y border-black/10 p-6 text-sm text-neutral-600 dark:border-white/10 dark:text-neutral-300">
               Đang tải đơn hàng...
             </div>
           ) : detailQuery.isError || !order ? (
-            <div className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-black dark:text-neutral-200">
+            <div className="border-y border-black/10 p-6 text-sm text-neutral-700 dark:border-white/10 dark:text-neutral-200">
               Không thể tải chi tiết đơn hàng.
             </div>
           ) : (
             <>
-              <section className="rounded-sm border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black">
-                <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
+              <section className="border-y border-black/10 dark:border-white/10">
+                <div className="divide-y divide-black/10 dark:divide-white/10">
                   {order.items.map((item) => (
                     <div key={item.id} className="flex gap-4 p-4">
-                      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-neutral-50 ring-1 ring-neutral-200 dark:bg-neutral-900 dark:ring-neutral-800">
+                      <div className="flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden bg-neutral-50 ring-1 ring-black/10 dark:bg-neutral-900 dark:ring-white/10">
                         {item.imageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -420,7 +416,7 @@ export function OrderDetailClient({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                        <p className="text-sm font-semibold uppercase tracking-[0.04em] text-neutral-900 dark:text-white">
                           {item.name}
                         </p>
                         {item.attributesText ? (
@@ -450,7 +446,7 @@ export function OrderDetailClient({
                                   });
                                 }}
                                 disabled={isSubmittingReview}
-                                className="inline-flex h-9 items-center rounded-sm border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-900 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900"
+                                className="luxury-button-ghost h-9 px-4 py-0 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 Đánh giá
                               </button>
@@ -472,11 +468,9 @@ export function OrderDetailClient({
                 </div>
               </section>
 
-              <section className="mt-6 grid gap-6 sm:grid-cols-2">
-                <div>
-                  <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
-                    Payment
-                  </h3>
+              <section className="mt-6 grid gap-px bg-black/10 dark:bg-white/10 sm:grid-cols-2">
+                <div className="bg-[#f7f3ec] p-5 dark:bg-neutral-950">
+                  <h3 className="luxury-eyebrow">Payment</h3>
                   <div className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                     <p className="text-neutral-900 dark:text-white">
                       {order.payment.method ?? "—"}
@@ -503,10 +497,8 @@ export function OrderDetailClient({
                 </div>
 
                 {deliveryLines.length > 0 ? (
-                  <div>
-                    <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
-                      Delivery
-                    </h3>
+                  <div className="bg-[#f7f3ec] p-5 dark:bg-neutral-950">
+                    <h3 className="luxury-eyebrow">Delivery</h3>
                     <div className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                       {deliveryLines.map((line) => (
                         <p key={line}>{line}</p>
@@ -715,7 +707,10 @@ export function OrderDetailClient({
           uploadImageMutation.isPending
         }
         onClose={() => {
-          if (requestReturnMutation.isPending || uploadImageMutation.isPending) {
+          if (
+            requestReturnMutation.isPending ||
+            uploadImageMutation.isPending
+          ) {
             return;
           }
           setOpenReturnModal(false);

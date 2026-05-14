@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="w-full max-w-120 bg-white rounded-sm shadow-sm border border-neutral-200 overflow-hidden relative z-10 dark:bg-neutral-900 dark:border-neutral-800">
+    <div className="luxury-panel relative z-10 w-full max-w-125 overflow-hidden">
       <Suspense
         fallback={
           <div className="px-8 py-10 text-sm text-neutral-600 dark:text-neutral-300">

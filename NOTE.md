@@ -75,6 +75,109 @@
   3. tách assistant engine thành tool-calling LLM adapter có fallback hiện tại
   4. sau cùng mới nối chatbot vào add-to-cart / checkout flow có kiểm soát
 
+# Luxury Fashion UI/UX Redesign Context
+
+- Mục tiêu visual mới cho `client-next`: website phải giống một fashion brand cao cấp, không giống marketplace/Shopee/Lazada/admin dashboard.
+- Direction tham khảo: Apple, Zara, Farfetch, Gucci, Dior, COS, Saint Laurent, Aesop, Gentle Monster.
+- Cảm giác cần giữ xuyên suốt:
+  - luxury
+  - premium
+  - modern
+  - cinematic
+  - editorial fashion magazine
+  - nhiều whitespace
+  - image-focused
+  - typography lớn, hierarchy rõ
+  - motion mượt nhưng tinh tế
+- Palette ưu tiên:
+  - black
+  - white
+  - cream / ivory
+  - beige
+  - neutral gray
+  - gold accent rất nhẹ
+- Tránh:
+  - màu neon / màu quá chói
+  - gradient rẻ tiền
+  - border/shadow dày đặc
+  - card UI cứng kiểu dashboard
+  - animation bounce/gaming/trẻ con
+  - bố cục marketplace nhiều block lặp
+- Frontend tech:
+  - Next.js App Router
+  - TypeScript
+  - TailwindCSS
+  - Framer Motion
+  - reusable component architecture
+  - không dùng mock data
+- Các bề mặt đã redesign:
+  - `client-next/app/page.tsx`
+    - full-screen cinematic hero
+    - editorial category grid bất đối xứng
+    - new arrivals dùng `ProductCard`
+    - category showcases dùng layout collection-led, image lớn
+    - brand value section tối giản/dark premium
+  - `client-next/components/page/header.tsx`
+    - navbar transparent ở top, blur/cream background khi scroll
+    - navigation uppercase tracking rộng
+    - search overlay lớn, editorial hơn
+  - `client-next/components/page/product-card.tsx`
+    - Farfetch/COS-like quiet card
+    - Next Image optimization
+    - hover image zoom cinematic
+    - wishlist/action floating buttons tinh tế
+  - `client-next/components/page/recommendation-shelf.tsx`
+    - “Gợi ý cho bạn” thành horizontal luxury carousel
+    - personalized feeling với label/strategy
+    - skeleton loading dạng strip
+  - `client-next/components/page/footer.tsx`
+    - dark editorial footer, ít marketplace text block hơn
+- Animation strategy:
+  - dùng `framer-motion` cho reveal/stagger/viewport animation ở component ít tần suất
+  - dùng CSS transition cho hover zoom/action để nhẹ FPS
+  - không scale font theo viewport width
+  - tránh motion quá flashy
+- Performance guardrails:
+  - ưu tiên `next/image`
+  - animation chỉ chạy khi vào viewport
+  - không tạo layout shift cho card/grid/carousel
+  - sau thay đổi phải chạy `npx eslint ...` và `npm run build`
+- Dev server redesign gần nhất đã chạy ở `http://localhost:3002`.
+
+## Full Website UI/UX Refinement Context
+
+- Yêu cầu tiếp theo: đồng bộ luxury design language trên toàn bộ customer journey, không chỉ homepage.
+- Các page/surface đang được đưa về cùng hệ thống:
+  - collection/category listing
+  - product detail
+  - cart/shopping bag
+  - checkout confirm
+  - favorites/wishlist
+  - profile/account
+  - auth layout/login/register
+- Global utility mới trong `client-next/app/globals.css`:
+  - `luxury-page`
+  - `luxury-container`
+  - `luxury-eyebrow`
+  - `luxury-title`
+  - `luxury-copy`
+  - `luxury-panel`
+  - `luxury-button`
+  - `luxury-button-ghost`
+  - `luxury-field`
+  - `luxury-skeleton`
+- Design consistency target:
+  - nền ivory/cream, text black/neutral, dark mode giữ contrast sạch
+  - border mảnh `black/10`, shadow rất nhẹ
+  - section/panel vuông vức hơn, tránh rounded/card marketplace quá nhiều
+  - uppercase eyebrow tracking rộng cho editorial feeling
+  - CTA đen/trắng tối giản, hover tinh tế
+- Motion/performance:
+  - dùng Framer Motion cho reveal/stagger ở hero/listing/recommendation
+  - dùng CSS transition cho hover/zoom/action states để nhẹ
+  - tránh animation flashy/bounce
+  - sau khi chỉnh page diện rộng phải chạy prettier, eslint và build.
+
 # Recommendation Correctness Context
 
 - Personalized recommendation phải dựa trên `user_id` hiện tại và session hiện tại, không dùng cache global để thay thế khi user đã có interaction.

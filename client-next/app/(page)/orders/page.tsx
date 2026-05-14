@@ -5,7 +5,9 @@ export default function OrdersPage() {
   return (
     <Suspense
       fallback={
-        <div className="px-4 py-10 text-sm text-text-muted">Đang tải...</div>
+        <div className="luxury-page px-4 py-16 text-sm text-neutral-500">
+          Đang tải...
+        </div>
       }
     >
       <OrdersListClient />

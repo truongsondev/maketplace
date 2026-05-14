@@ -34,13 +34,10 @@ export default function FavoriteProductsPage() {
   const [page, setPage] = useState(1);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  const {
-    data,
-    isLoading,
-    isFetching,
-    isError,
-    refetch,
-  } = useFavoriteProducts(page, PAGE_LIMIT);
+  const { data, isLoading, isFetching, isError, refetch } = useFavoriteProducts(
+    page,
+    PAGE_LIMIT,
+  );
 
   const { data: cartSummary } = useQuery({
     queryKey: ["cart", "summary"],
@@ -73,22 +70,17 @@ export default function FavoriteProductsPage() {
 
   const totalPages = data?.pagination.totalPages ?? 1;
   const totalItems = data?.pagination.total ?? 0;
-
-  useEffect(() => {
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [page, totalPages]);
+  const displayPage = Math.min(page, totalPages);
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-50 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
+    <div className="luxury-page flex min-h-screen flex-col overflow-x-hidden transition-colors duration-200">
       <Header
         isDark={isDark}
         onToggleDarkMode={() => setIsDark((prev) => !prev)}
         cartCount={cartCount}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="luxury-container flex-1 pb-20 pt-34">
         <nav aria-label="Breadcrumb" className="mb-5">
           <ol className="inline-flex items-center gap-1 text-sm md:gap-2">
             <li>
@@ -108,26 +100,25 @@ export default function FavoriteProductsPage() {
           </ol>
         </nav>
 
-        <section className="mb-8 rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900 sm:p-7">
+        <section className="mb-12 border-y border-black/10 py-8 dark:border-white/10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 dark:bg-red-950/30 dark:text-red-300">
+              <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
                 <Heart className="size-3.5" />
-                Danh sách yêu thích
+                Saved collection
               </div>
-              <h1 className="mt-3 text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
-                Sản phẩm bạn đã lưu
-              </h1>
-              <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                Theo dõi nhanh các sản phẩm bạn quan tâm để quay lại mua bất kỳ lúc nào.
+              <h1 className="luxury-title mt-4">Moodboard của bạn</h1>
+              <p className="luxury-copy mt-4 max-w-2xl">
+                Những item bạn giữ lại sẽ trở thành tín hiệu để AURA hiểu gu mặc
+                và gợi ý bộ phối riêng hơn.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800">
-              <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="border border-black/10 bg-white/55 px-5 py-4 dark:border-white/10 dark:bg-white/5">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
                 Tổng sản phẩm yêu thích
               </p>
-              <p className="mt-1 text-2xl font-extrabold text-slate-900 dark:text-white">
+              <p className="mt-1 text-3xl font-semibold text-neutral-950 dark:text-white">
                 {totalItems}
               </p>
             </div>
@@ -135,82 +126,86 @@ export default function FavoriteProductsPage() {
         </section>
 
         {!isAuthenticated ? (
-          <section className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-950/30">
+          <section className="border-y border-black/10 py-12 text-center dark:border-white/10">
             <p className="text-lg font-semibold text-amber-900 dark:text-amber-200">
               Bạn cần đăng nhập để xem danh sách yêu thích.
             </p>
             <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">
-              Sau khi đăng nhập, hệ thống sẽ đồng bộ đầy đủ sản phẩm đã lưu của bạn.
+              Sau khi đăng nhập, hệ thống sẽ đồng bộ đầy đủ sản phẩm đã lưu của
+              bạn.
             </p>
-            <Link
-              href="/login"
-              className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-            >
+            <Link href="/login" className="luxury-button mt-6">
               Đi đến đăng nhập
             </Link>
           </section>
         ) : isError ? (
-          <section className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-900 dark:bg-red-950/30">
+          <section className="luxury-panel p-10 text-center">
             <p className="text-base font-semibold text-red-600 dark:text-red-300">
               Không thể tải danh sách yêu thích.
             </p>
-            <button
-              onClick={() => refetch()}
-              className="mt-4 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
-            >
+            <button onClick={() => refetch()} className="luxury-button mt-5">
               Thử lại
             </button>
           </section>
         ) : isLoading ? (
           <FavoriteSkeleton />
         ) : mappedProducts.length === 0 ? (
-          <section className="rounded-3xl border border-neutral-200 bg-white p-8 text-center dark:border-neutral-700 dark:bg-neutral-900">
+          <section className="luxury-panel p-10 text-center">
             <p className="text-lg font-semibold text-slate-900 dark:text-white">
-              Bạn chưa có sản phẩm yêu thích nào.
+              Moodboard của bạn đang chờ item đầu tiên.
             </p>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Khám phá cửa hàng và bấm biểu tượng tim để lưu lại sản phẩm bạn thích.
+              Khi một thiết kế chạm đúng gu, hãy giữ lại. Từ đó AURA có thể tạo
+              những gợi ý cá nhân hơn.
             </p>
-            <Link
-              href="/"
-              className="mt-5 inline-flex h-11 items-center justify-center rounded-lg border border-neutral-300 px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            >
+            <Link href="/" className="luxury-button-ghost mt-6">
               Khám phá sản phẩm
             </Link>
           </section>
         ) : (
           <>
-            <section className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
-              {mappedProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+            <section className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 lg:grid-cols-12">
+              {mappedProducts.map((product, index) => (
+                <div
+                  key={product.id}
+                  className={
+                    index % 5 === 0 ? "lg:col-span-6" : "lg:col-span-3"
+                  }
+                >
+                  <ProductCard product={product} />
+                </div>
               ))}
             </section>
 
-            <section className="mt-8 flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900 sm:px-5">
+            <section className="luxury-panel mt-10 flex items-center justify-between px-4 py-3 sm:px-5">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Trang {page} / {totalPages}
+                Trang {displayPage} / {totalPages}
               </p>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={page <= 1 || isFetching}
-                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  disabled={displayPage <= 1 || isFetching}
+                  className="luxury-button-ghost h-9 px-3 py-0"
                 >
                   <ChevronLeft className="size-4" />
                   Trước
                 </button>
 
                 <button
-                  onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={page >= totalPages || isFetching}
-                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  onClick={() =>
+                    setPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={displayPage >= totalPages || isFetching}
+                  className="luxury-button-ghost h-9 px-3 py-0"
                 >
                   Sau
                   <ChevronRight className="size-4" />
                 </button>
 
-                {isFetching && <Loader2 className="size-4 animate-spin text-primary" />}
+                {isFetching && (
+                  <Loader2 className="size-4 animate-spin text-primary" />
+                )}
               </div>
             </section>
           </>

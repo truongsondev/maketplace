@@ -4,12 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowRight,
   Bell,
   ChevronDown,
   Heart,
-  Loader2,
   Menu,
   Moon,
   ReceiptText,
@@ -68,6 +68,14 @@ interface HeaderProps {
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80";
 
+const TRENDING_SEARCHES = [
+  "áo sơ mi",
+  "quần jeans",
+  "đi làm",
+  "minimal",
+  "layering",
+];
+
 function normalizeProductImageUrl(rawUrl: string | null) {
   if (!rawUrl) return FALLBACK_IMAGE;
 
@@ -113,11 +121,51 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
   const [activeRootCategoryId, setActiveRootCategoryId] = useState<
     string | null
   >(null);
-  const [storedUserLabel, setStoredUserLabel] = useState("");
+  const [storedUserLabel] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    try {
+      const raw = window.localStorage.getItem("auth-session");
+
+      if (!raw) {
+        return "";
+      }
+
+      const parsed = JSON.parse(raw) as {
+        state?: {
+          user?: unknown;
+          profile?: { fullName?: string | null } | null;
+        };
+      };
+
+      const localName = parsed.state?.profile?.fullName?.trim();
+      const localEmail = getEmailFromAuthUser(parsed.state?.user);
+
+      return localName || localEmail || "";
+    } catch {
+      return "";
+    }
+  });
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState("");
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("aura:recent-searches");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isScrolled, setIsScrolled] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const notificationMenuRef = useRef<HTMLDivElement | null>(null);
   const searchPanelRef = useRef<HTMLDivElement | null>(null);
@@ -201,6 +249,38 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
     setSearchKeyword("");
     setDebouncedSearchKeyword("");
   };
+
+  const rememberSearch = (keyword: string) => {
+    const trimmed = keyword.trim();
+    if (!trimmed || typeof window === "undefined") return;
+
+    setRecentSearches((prev) => {
+      const next = [
+        trimmed,
+        ...prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase()),
+      ].slice(0, 5);
+      window.localStorage.setItem("aura:recent-searches", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const submitSearch = (keyword: string) => {
+    const q = keyword.trim();
+    if (!q) return;
+    rememberSearch(q);
+    closeSearch();
+    router.push(`/?q=${encodeURIComponent(q)}#product-search`);
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 16);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     if (!isSearchOpen) return;
@@ -308,34 +388,6 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    try {
-      const raw = window.localStorage.getItem("auth-session");
-
-      if (!raw) {
-        return;
-      }
-
-      const parsed = JSON.parse(raw) as {
-        state?: {
-          user?: unknown;
-          profile?: { fullName?: string | null } | null;
-        };
-      };
-
-      const localName = parsed.state?.profile?.fullName?.trim();
-      const localEmail = getEmailFromAuthUser(parsed.state?.user);
-
-      setStoredUserLabel(localName || localEmail || "");
-    } catch {
-      setStoredUserLabel("");
-    }
-  }, []);
-
-  useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsMenuOpen(false);
@@ -428,11 +480,17 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
   };
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 flex items-center justify-between border-b border-neutral-200 bg-white/90 px-6 py-4 backdrop-blur-md transition-colors duration-200 dark:border-neutral-700 dark:bg-neutral-900/90 lg:px-10">
+      <header
+        className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-4 transition-all duration-500 lg:px-10 ${
+          isScrolled || isSearchOpen || isMenuOpen
+            ? "border-b border-black/10 bg-[#f8f4ed]/88 text-neutral-950 shadow-[0_16px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/88 dark:text-white"
+            : "border-b border-white/0 bg-transparent text-white"
+        }`}
+      >
         <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="text-2xl font-black leading-tight tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900 rounded"
+            className="rounded text-2xl font-semibold leading-tight tracking-[0.28em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900"
           >
             AURA
           </Link>
@@ -446,13 +504,13 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
             <div className="flex justify-center gap-8">
               <Link
                 href="/"
-                className="text-sm font-semibold text-neutral-800 dark:text-neutral-50 hover:text-primary dark:hover:text-primary transition-colors"
+                className="text-xs font-semibold uppercase tracking-[0.18em] opacity-90 transition-opacity hover:opacity-55"
               >
                 Trang chủ
               </Link>
               <Link
                 href="/#new-arrivals"
-                className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+                className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-55"
               >
                 Mới nhất
               </Link>
@@ -471,7 +529,7 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
                         setActiveRootCategoryId(null);
                       }
                     }}
-                    className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+                    className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-55"
                   >
                     <span className="inline-flex items-center gap-1">
                       {category.name}
@@ -488,14 +546,14 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
               <Link
                 href={storeIntroPath}
                 onMouseEnter={() => setActiveRootCategoryId(null)}
-                className="text-sm font-semibold text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
+                className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-55"
               >
                 Store
               </Link>
             </div>
 
             {activeRoot && activeGroups.length > 0 ? (
-              <div className="absolute left-1/2 top-full z-50 w-screen -translate-x-1/2 border-b border-neutral-200 bg-white/95 pt-4 backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95">
+              <div className="absolute left-1/2 top-full z-50 w-screen -translate-x-1/2 border-y border-black/10 bg-[#f8f4ed]/95 pt-4 text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 dark:text-white">
                 <div className="mx-auto w-full max-w-330 px-6 py-6 lg:px-10">
                   <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
                     {activeGroups.map((group) => {
@@ -774,176 +832,276 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
 
       <div aria-hidden className="h-18.25" />
 
-      {isSearchOpen ? (
-        <div className="fixed inset-x-0 bottom-0 top-18.25 z-50">
-          <button
-            type="button"
-            aria-label="Đóng tìm kiếm"
-            onClick={closeSearch}
-            className="absolute inset-0 bg-black/20"
-          />
+      <AnimatePresence>
+        {isSearchOpen ? (
+          <motion.div
+            className="fixed inset-x-0 bottom-0 top-18.25 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <button
+              type="button"
+              aria-label="Đóng tìm kiếm"
+              onClick={closeSearch}
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            />
 
-          <div className="relative px-4 pt-4 md:px-6 lg:px-10">
-            <div
-              id="header-search-panel"
-              ref={searchPanelRef}
-              className="mx-auto w-full max-w-330 overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
-              role="dialog"
-              aria-modal="true"
-            >
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const trimmed = searchKeyword.trim();
-                  setDebouncedSearchKeyword(trimmed);
-                }}
-                className="border-b border-neutral-200 dark:border-neutral-700"
+            <div className="relative px-4 pt-5 md:px-6 lg:px-10">
+              <motion.div
+                id="header-search-panel"
+                ref={searchPanelRef}
+                className="mx-auto w-full max-w-330 overflow-hidden border border-black/10 bg-[#f8f4ed] shadow-[0_30px_90px_rgba(0,0,0,0.22)] dark:border-white/10 dark:bg-neutral-950"
+                role="dialog"
+                aria-modal="true"
+                initial={{ y: -18, opacity: 0.9 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -12, opacity: 0 }}
+                transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
               >
-                <div className="relative">
-                  <input
-                    ref={searchInputRef}
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    placeholder="Tìm kiếm"
-                    className="h-12 w-full bg-white px-4 pr-24 text-sm text-neutral-900 outline-none dark:bg-neutral-900 dark:text-white"
-                  />
-
-                  <div className="absolute right-0 top-0 flex h-full items-center">
-                    <button
-                      type="button"
-                      onClick={closeSearch}
-                      className="h-full px-3 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
-                      aria-label="Tắt tìm kiếm"
-                    >
-                      <X className="size-5" />
-                    </button>
-                    <div className="h-6 w-px bg-neutral-200 dark:bg-neutral-700" />
-                    <button
-                      type="submit"
-                      className="h-full px-3 text-neutral-700 hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-white"
-                      aria-label="Tìm kiếm"
-                    >
-                      <Search className="size-5" />
-                    </button>
-                  </div>
-                </div>
-              </form>
-
-              <div className="grid gap-0 md:grid-cols-12">
-                <div className="border-b border-neutral-200 p-5 dark:border-neutral-700 md:col-span-4 md:border-b-0 md:border-r">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    Gợi ý
-                  </p>
-
-                  <div className="mt-3 space-y-2">
-                    {headerSuggestions.length > 0 ? (
-                      headerSuggestions.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          onClick={() => {
-                            const matchedCategory =
-                              findCategoryForSuggestion(item);
-                            if (matchedCategory) {
-                              closeSearch();
-                              router.push(
-                                `/collection/${matchedCategory.slug}`,
-                              );
-                              return;
-                            }
-
-                            setSearchKeyword(item);
-                            setDebouncedSearchKeyword(item.trim());
-                            searchInputRef.current?.focus();
-                          }}
-                          className="block w-full text-left text-sm text-neutral-800 hover:text-primary dark:text-neutral-100"
-                        >
-                          {item}
-                        </button>
-                      ))
-                    ) : (
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        Nhập từ khóa để tìm sản phẩm.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-5 md:col-span-8">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                    Sản phẩm
-                  </p>
-
-                  <div className="mt-3">
-                    {debouncedSearchKeyword.trim().length < 2 ? (
-                      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        Nhập ít nhất 2 ký tự để xem kết quả.
-                      </p>
-                    ) : isHeaderSearching ? (
-                      <p className="inline-flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        <Loader2 className="size-4 animate-spin" />
-                        Đang tìm kiếm...
-                      </p>
-                    ) : isHeaderSearchError ? (
-                      <p className="text-sm text-red-600 dark:text-red-300">
-                        Không thể tìm kiếm lúc này. Vui lòng thử lại.
-                      </p>
-                    ) : headerSearchProducts.length === 0 ? (
-                      <p className="text-sm text-neutral-700 dark:text-neutral-200">
-                        Không tìm thấy sản phẩm phù hợp.
-                      </p>
-                    ) : (
-                      <div className="space-y-4">
-                        {headerSearchProducts.slice(0, 4).map((product) => (
-                          <button
-                            key={product.id}
-                            type="button"
-                            onClick={() => {
-                              closeSearch();
-                              router.push(`/product/${product.id}`);
-                            }}
-                            className="flex w-full items-start gap-3 text-left"
-                          >
-                            <div className="relative h-16 w-12 overflow-hidden rounded-sm bg-neutral-100 dark:bg-neutral-800">
-                              <Image
-                                src={normalizeProductImageUrl(product.imageUrl)}
-                                alt={product.name}
-                                fill
-                                sizes="48px"
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="line-clamp-2 text-sm font-medium text-neutral-900 dark:text-white">
-                                {product.name}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {searchKeyword.trim().length >= 2 ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const q = searchKeyword.trim();
-                    closeSearch();
-                    router.push(`/?q=${encodeURIComponent(q)}#product-search`);
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const trimmed = searchKeyword.trim();
+                    setDebouncedSearchKeyword(trimmed);
+                    if (trimmed.length >= 2) rememberSearch(trimmed);
                   }}
-                  className="flex w-full items-center justify-between border-t border-neutral-200 px-5 py-4 text-sm font-semibold text-neutral-900 hover:bg-neutral-50 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-800"
+                  className="border-b border-black/10 dark:border-white/10"
                 >
-                  <span>Tìm kiếm “{searchKeyword.trim()}”</span>
-                  <ArrowRight className="size-4" />
-                </button>
-              ) : null}
+                  <div className="relative">
+                    <input
+                      ref={searchInputRef}
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      placeholder="Tìm silhouette, chất liệu, dịp mặc..."
+                      className="h-18 w-full bg-transparent px-5 pr-28 text-xl font-light text-neutral-950 outline-none placeholder:text-neutral-400 dark:text-white md:text-3xl"
+                    />
+
+                    <div className="absolute right-0 top-0 flex h-full items-center">
+                      <button
+                        type="button"
+                        onClick={closeSearch}
+                        className="h-full px-3 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+                        aria-label="Tắt tìm kiếm"
+                      >
+                        <X className="size-5" />
+                      </button>
+                      <div className="h-6 w-px bg-neutral-200 dark:bg-neutral-700" />
+                      <button
+                        type="submit"
+                        className="h-full px-3 text-neutral-700 hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-white"
+                        aria-label="Tìm kiếm"
+                      >
+                        <Search className="size-5" />
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="grid gap-0 md:grid-cols-12">
+                  <div className="border-b border-black/10 p-5 dark:border-white/10 md:col-span-4 md:border-b-0 md:border-r">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                      Discovery cues
+                    </p>
+
+                    <div className="mt-4 space-y-5">
+                      <div>
+                        <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                          Gợi ý nhanh
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {(headerSuggestions.length > 0
+                            ? headerSuggestions
+                            : TRENDING_SEARCHES
+                          ).map((item) => (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => {
+                                const matchedCategory =
+                                  findCategoryForSuggestion(item);
+                                if (matchedCategory) {
+                                  closeSearch();
+                                  router.push(
+                                    `/collection/${matchedCategory.slug}`,
+                                  );
+                                  return;
+                                }
+
+                                setSearchKeyword(item);
+                                setDebouncedSearchKeyword(item.trim());
+                                rememberSearch(item);
+                                searchInputRef.current?.focus();
+                              }}
+                              className="luxury-chip"
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {recentSearches.length > 0 ? (
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                            Đã tìm gần đây
+                          </p>
+                          <div className="space-y-2">
+                            {recentSearches.map((item) => (
+                              <button
+                                key={item}
+                                type="button"
+                                onClick={() => {
+                                  setSearchKeyword(item);
+                                  setDebouncedSearchKeyword(item.trim());
+                                  searchInputRef.current?.focus();
+                                }}
+                                className="block w-full text-left text-sm uppercase tracking-[0.08em] text-neutral-800 transition-opacity hover:opacity-55 dark:text-neutral-100"
+                              >
+                                {item}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {rootCategories.length > 0 ? (
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                            Lối vào bộ sưu tập
+                          </p>
+                          <div className="space-y-2">
+                            {rootCategories.slice(0, 4).map((category) => (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() => {
+                                  closeSearch();
+                                  router.push(`/collection/${category.slug}`);
+                                }}
+                                className="flex w-full items-center justify-between text-left text-sm uppercase tracking-[0.08em] text-neutral-800 transition-opacity hover:opacity-55 dark:text-neutral-100"
+                              >
+                                <span>{category.name}</span>
+                                <ArrowRight className="size-3.5" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="p-5 md:col-span-8">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                      Product edit
+                    </p>
+
+                    <div className="mt-3">
+                      {debouncedSearchKeyword.trim().length < 2 ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {rootCategories.slice(0, 2).map((category) => (
+                            <button
+                              key={category.id}
+                              type="button"
+                              onClick={() => {
+                                closeSearch();
+                                router.push(`/collection/${category.slug}`);
+                              }}
+                              className="group border-y border-black/10 py-4 text-left transition-opacity hover:opacity-70 dark:border-white/10"
+                            >
+                              <p className="text-xs uppercase tracking-[0.24em] text-neutral-500">
+                                Curated category
+                              </p>
+                              <p className="mt-2 text-2xl font-semibold uppercase tracking-[-0.04em] text-neutral-950 dark:text-white">
+                                {category.name}
+                              </p>
+                              <p className="mt-2 text-sm text-neutral-500">
+                                Khám phá lựa chọn được biên tập theo mood.
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : isHeaderSearching ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {Array.from({ length: 4 }).map((_, idx) => (
+                            <div key={idx} className="flex gap-4">
+                              <div className="h-24 w-18 luxury-skeleton" />
+                              <div className="flex-1 space-y-2 pt-2">
+                                <div className="h-3 w-3/4 luxury-skeleton" />
+                                <div className="h-3 w-1/2 luxury-skeleton" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : isHeaderSearchError ? (
+                        <p className="text-sm text-red-600 dark:text-red-300">
+                          Không thể mở tủ đồ gợi ý lúc này. Vui lòng thử lại.
+                        </p>
+                      ) : headerSearchProducts.length === 0 ? (
+                        <div className="border-y border-black/10 py-8 dark:border-white/10">
+                          <p className="text-2xl font-semibold uppercase tracking-[-0.04em] text-neutral-950 dark:text-white">
+                            Chưa có item đúng với mood này.
+                          </p>
+                          <p className="mt-2 max-w-md text-sm text-neutral-600 dark:text-neutral-300">
+                            Thử một chất liệu, dịp mặc hoặc bộ sưu tập khác để
+                            mở thêm lựa chọn được tuyển chọn.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {headerSearchProducts.slice(0, 4).map((product) => (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => {
+                                closeSearch();
+                                router.push(`/product/${product.id}`);
+                              }}
+                              className="group flex w-full items-start gap-4 border-y border-black/10 py-3 text-left transition-opacity hover:opacity-75 dark:border-white/10"
+                            >
+                              <div className="relative h-28 w-20 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                                <Image
+                                  src={normalizeProductImageUrl(
+                                    product.imageUrl,
+                                  )}
+                                  alt={product.name}
+                                  fill
+                                  sizes="80px"
+                                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1 pt-1">
+                                <p className="line-clamp-2 text-sm font-medium uppercase tracking-[0.08em] text-neutral-900 dark:text-white">
+                                  {product.name}
+                                </p>
+                                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                  Xem thiết kế
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {searchKeyword.trim().length >= 2 ? (
+                  <button
+                    type="button"
+                    onClick={() => submitSearch(searchKeyword)}
+                    className="flex w-full items-center justify-between border-t border-neutral-200 px-5 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-900 transition-colors hover:bg-white/65 dark:border-neutral-700 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <span>Khám phá “{searchKeyword.trim()}”</span>
+                    <ArrowRight className="size-4" />
+                  </button>
+                ) : null}
+              </motion.div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       {isMenuOpen && (
         <div

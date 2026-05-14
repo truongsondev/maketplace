@@ -194,18 +194,18 @@ export function ThankYouClient() {
   }, [payload]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-neutral-900 transition-colors duration-200 dark:bg-black dark:text-white flex flex-col">
+    <div className="luxury-page flex min-h-screen flex-col overflow-x-hidden transition-colors duration-200">
       <Header
         isDark={isDark}
         onToggleDarkMode={() => setIsDark((prev) => !prev)}
         cartCount={cartCount}
       />
 
-      <main className="flex-1 px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+      <main className="luxury-container flex-1 pb-20 pt-34">
         <div className="mx-auto w-full max-w-6xl">
           {!isPayloadResolved ? (
-            <section className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+            <section className="luxury-panel p-6 sm:p-8">
+              <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
                 Đang tải thông tin đơn hàng...
               </h1>
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
@@ -213,8 +213,8 @@ export function ThankYouClient() {
               </p>
             </section>
           ) : !payload ? (
-            <section className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
-              <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">
+            <section className="luxury-panel p-6 sm:p-8">
+              <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">
                 Cảm ơn bạn!
               </h1>
               <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
@@ -224,13 +224,13 @@ export function ThankYouClient() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href="/cart"
-                  className="inline-flex h-11 items-center justify-center rounded-sm bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary-dark"
+                  className="luxury-button inline-flex h-11 items-center justify-center px-6"
                 >
                   Về giỏ hàng
                 </Link>
                 <Link
                   href="/"
-                  className="inline-flex h-11 items-center justify-center rounded-sm border border-neutral-200 bg-white px-6 text-sm font-bold text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900"
+                  className="luxury-button-ghost inline-flex h-11 items-center justify-center px-6"
                 >
                   Tiếp tục mua sắm
                 </Link>
@@ -238,7 +238,7 @@ export function ThankYouClient() {
             </section>
           ) : (
             <>
-              <header className="rounded-sm border border-emerald-200 bg-emerald-50 p-6 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20 sm:p-8">
+              <header className="border border-emerald-200 bg-emerald-50/80 p-6 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20 sm:p-8">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 size-6 text-emerald-600 dark:text-emerald-400" />
                   <div>
@@ -256,8 +256,8 @@ export function ThankYouClient() {
               </header>
 
               <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <article className="lg:col-span-2 rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
-                  <h2 className="text-lg font-bold">Sản phẩm</h2>
+                <article className="luxury-panel p-6 sm:p-8 lg:col-span-2">
+                  <h2 className="text-lg font-semibold">Sản phẩm</h2>
 
                   <div className="mt-5 space-y-3">
                     {payload.items.map((item, index) => {
@@ -354,8 +354,10 @@ export function ThankYouClient() {
                 </article>
 
                 <aside className="space-y-4">
-                  <article className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
-                    <h2 className="text-lg font-bold">Thông tin đơn hàng</h2>
+                  <article className="luxury-panel p-6 sm:p-8">
+                    <h2 className="text-lg font-semibold">
+                      Thông tin đơn hàng
+                    </h2>
 
                     <div className="mt-5 space-y-2 text-sm text-neutral-700 dark:text-neutral-200">
                       <p>
@@ -397,8 +399,8 @@ export function ThankYouClient() {
                     </div>
                   </article>
 
-                  <article className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
-                    <h2 className="text-lg font-bold">Giao hàng</h2>
+                  <article className="luxury-panel p-6 sm:p-8">
+                    <h2 className="text-lg font-semibold">Giao hàng</h2>
 
                     <div className="mt-5 space-y-2 text-sm text-neutral-700 dark:text-neutral-200">
                       <p>
@@ -419,13 +421,13 @@ export function ThankYouClient() {
                   <div className="flex flex-wrap gap-3">
                     <Link
                       href="/"
-                      className="inline-flex h-11 items-center justify-center rounded-sm bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary-dark"
+                      className="luxury-button inline-flex h-11 items-center justify-center px-6"
                     >
                       Tiếp tục mua sắm
                     </Link>
                     <Link
                       href="/cart"
-                      className="inline-flex h-11 items-center justify-center rounded-sm border border-neutral-200 bg-white px-6 text-sm font-bold text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900"
+                      className="luxury-button-ghost inline-flex h-11 items-center justify-center px-6"
                     >
                       Về giỏ hàng
                     </Link>

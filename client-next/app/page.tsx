@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -12,6 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   CreditCard,
@@ -30,6 +32,7 @@ import { TeamSection } from "@/components/page/team-section";
 import { RecommendationShelf } from "@/components/page/recommendation-shelf";
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
+import { ProductCard } from "@/components/page/product-card";
 import { useCategories } from "@/hooks/use-categories";
 import { useProducts } from "@/hooks/use-products";
 import { cartService } from "@/services/cart.service";
@@ -371,6 +374,16 @@ export default function Home() {
     }));
   }, [categories]);
 
+  const campaignStoryImages = useMemo(() => {
+    const images = [
+      topBannerSlides[0]?.imageUrl,
+      newArrivals[0]?.imageUrl,
+      categoryItems[0]?.image,
+    ].filter(Boolean) as string[];
+
+    return images.length > 0 ? images : [FALLBACK_IMAGE];
+  }, [categoryItems, newArrivals, topBannerSlides]);
+
   useEffect(() => {
     const trimmed = searchKeyword.trim();
     const handle = window.setTimeout(() => {
@@ -485,7 +498,7 @@ export default function Home() {
   }, [promoApi, promoSlides.length]);
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-50 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
+    <div className="flex min-h-screen flex-col overflow-x-hidden bg-[#f7f3ec] text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-50">
       <Header
         isDark={isDark}
         onToggleDarkMode={() => setIsDark(!isDark)}
@@ -496,11 +509,11 @@ export default function Home() {
         <SearchParamsSync onQuery={syncSearchFromUrl} />
       </Suspense>
 
-      <main className="flex-1 bg-[#f5f5f5] text-[#222222] dark:bg-neutral-950 dark:text-neutral-100">
+      <main className="-mt-18.25 flex-1 bg-[#f7f3ec] text-[#171412] dark:bg-neutral-950 dark:text-neutral-100">
         {topBannerSlides.length > 0 ? (
           <section
             id="homepage-banner"
-            className="relative min-h-125 overflow-hidden bg-black text-white"
+            className="relative min-h-screen overflow-hidden bg-black text-white"
           >
             <Carousel
               setApi={setTopBannerApi}
@@ -510,30 +523,48 @@ export default function Home() {
               <CarouselContent className="ml-0">
                 {topBannerSlides.map((slide) => (
                   <CarouselItem key={slide.id} className="pl-0">
-                    <div className="relative min-h-125 overflow-hidden md:min-h-160">
+                    <div className="relative min-h-screen overflow-hidden">
                       <Image
                         src={slide.imageUrl}
                         alt={slide.title}
                         fill
-                        className="object-cover object-center opacity-80"
+                        priority
+                        className="object-cover object-center opacity-88"
                         sizes="100vw"
                       />
-                      <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/35 to-black/15" />
+                      <div className="absolute inset-0 bg-linear-to-r from-black/78 via-black/34 to-black/10" />
+                      <div className="absolute inset-x-0 bottom-0 h-52 bg-linear-to-t from-[#f7f3ec] via-[#f7f3ec]/35 to-transparent dark:from-neutral-950" />
 
-                      <div className="relative mx-auto flex min-h-125 w-full max-w-330 flex-col justify-center gap-4 px-4 py-8 md:min-h-160 md:px-6 lg:px-8">
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-                          {slide.sectionLabel}
+                      <motion.div
+                        initial={{ opacity: 0, y: 28 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                        className="relative mx-auto flex min-h-screen w-full max-w-330 flex-col justify-center gap-6 px-4 pb-24 pt-28 md:px-6 lg:px-8"
+                      >
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.36em] text-white/72">
+                          {slide.sectionLabel} / {slide.eyebrow}
                         </p>
-                        <h2 className="max-w-4xl text-3xl font-black uppercase leading-tight md:text-5xl">
+                        <h1 className="max-w-5xl text-5xl font-semibold uppercase leading-[0.9] tracking-[-0.05em] md:text-8xl lg:text-9xl">
                           {slide.title}
-                        </h2>
-                        <p className="max-w-2xl text-sm text-white/90 md:text-base">
+                        </h1>
+                        <p className="max-w-2xl text-base font-light leading-7 text-white/82 md:text-lg">
                           {slide.description}
                         </p>
-                        <span className="inline-flex w-fit rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold tracking-wider text-white">
-                          {slide.eyebrow}
-                        </span>
-                      </div>
+                        <div className="flex flex-wrap items-center gap-3 pt-3">
+                          <a
+                            href="#new-arrivals"
+                            className="inline-flex h-12 items-center justify-center border border-white bg-white px-7 text-xs font-semibold uppercase tracking-[0.2em] text-black transition-all hover:bg-transparent hover:text-white"
+                          >
+                            Khám phá
+                          </a>
+                          <a
+                            href="#categories"
+                            className="inline-flex h-12 items-center justify-center border border-white/35 px-7 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-all hover:border-white hover:bg-white/10"
+                          >
+                            Bộ sưu tập
+                          </a>
+                        </div>
+                      </motion.div>
                     </div>
                   </CarouselItem>
                 ))}
@@ -550,15 +581,15 @@ export default function Home() {
         <RevealSection>
           <section
             id="categories"
-            className="mx-auto w-full max-w-330 px-4 py-16 md:px-6 lg:px-8"
+            className="mx-auto w-full max-w-330 px-4 py-20 md:px-6 lg:px-8"
           >
-            <div className="mb-8 flex items-end justify-between gap-4">
+            <div className="mb-10 flex items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
-                  Danh mục nổi bật
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  Editorial categories
                 </p>
-                <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
-                  Danh mục nổi bật
+                <h2 className="mt-3 max-w-3xl text-4xl font-semibold uppercase leading-none tracking-[-0.04em] md:text-6xl">
+                  Chọn mood cho tủ đồ hôm nay
                 </h2>
               </div>
             </div>
@@ -573,55 +604,125 @@ export default function Home() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 lg:gap-5">
                 {categoryItems.map((item, idx) => (
-                  <a
+                  <motion.a
                     key={item.id}
                     href={`/collection/${item.slug}`}
-                    className="group relative block overflow-hidden rounded-sm bg-white shadow-sm transition-transform hover:-translate-y-1"
-                    style={{
-                      animation: `fadeInUp 480ms ease ${Math.min(idx * 80, 280)}ms both`,
+                    className={`group relative block overflow-hidden bg-black shadow-sm ${
+                      idx === 0 || idx === 3 ? "lg:col-span-5" : "lg:col-span-7"
+                    }`}
+                    initial={{ opacity: 0, y: 22 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "80px" }}
+                    transition={{
+                      duration: 0.65,
+                      delay: Math.min(idx * 0.08, 0.24),
+                      ease: [0.22, 1, 0.36, 1],
                     }}
                   >
-                    <div className="relative aspect-4/5">
+                    <div className="relative aspect-[4/5] lg:aspect-[16/10]">
                       <Image
                         src={item.image}
                         alt={item.title}
                         fill
                         sizes="(max-width: 1024px) 50vw, 25vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="object-cover opacity-90 transition-transform duration-700 ease-out group-hover:scale-105"
                       />
-                      <div className="absolute inset-0 bg-black/15 transition-colors group-hover:bg-black/30" />
-                      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-                        <h3 className="text-xl font-extrabold uppercase">
-                          {item.title}
-                        </h3>
-                        <p className="text-sm text-white/90">
+                      <div className="absolute inset-0 bg-linear-to-t from-black/75 via-black/10 to-transparent transition-colors group-hover:from-black/85" />
+                      <div className="absolute inset-x-0 bottom-0 p-5 text-white md:p-7">
+                        <p className="mb-2 text-[11px] uppercase tracking-[0.28em] text-white/65">
                           {item.count} sản phẩm
                         </p>
+                        <h3 className="text-3xl font-semibold uppercase tracking-[-0.04em] md:text-5xl">
+                          {item.title}
+                        </h3>
                       </div>
                     </div>
-                  </a>
+                  </motion.a>
                 ))}
               </div>
             )}
           </section>
         </RevealSection>
 
+        <RevealSection delay={50}>
+          <section className="luxury-section overflow-hidden">
+            <div className="grid min-h-[620px] grid-cols-1 bg-neutral-950 text-white lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="relative min-h-[520px] overflow-hidden">
+                <Image
+                  src={campaignStoryImages[0]}
+                  alt="AURA seasonal campaign"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 58vw"
+                  className="object-cover opacity-88"
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-transparent" />
+              </div>
+
+              <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:px-14">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
+                  Seasonal edit / Form, fabric, occasion
+                </p>
+                <h2 className="mt-5 max-w-2xl text-5xl font-semibold uppercase leading-[0.92] tracking-[-0.05em] md:text-7xl">
+                  Một tủ đồ có nhịp thở riêng
+                </h2>
+                <p className="mt-6 max-w-xl text-sm leading-7 text-white/72 md:text-base">
+                  AURA chọn sản phẩm theo cách bạn thật sự mặc: chất liệu chạm
+                  da, phom dáng theo lịch trình, và những lớp phối đủ tinh tế để
+                  đi qua cả ngày.
+                </p>
+
+                <div className="mt-8 grid gap-px bg-white/16 sm:grid-cols-3">
+                  {[
+                    ["01", "Chất liệu", "Ưu tiên cảm giác mặc lâu."],
+                    ["02", "Silhouette", "Dáng gọn, dễ phối, không ồn ào."],
+                    ["03", "Occasion", "Từ văn phòng đến cuối tuần."],
+                  ].map(([index, title, copy]) => (
+                    <div key={index} className="bg-neutral-950 p-4">
+                      <p className="text-xs text-white/42">{index}</p>
+                      <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em]">
+                        {title}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-white/55">
+                        {copy}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  href="#new-arrivals"
+                  className="mt-8 inline-flex w-fit items-center gap-3 border-b border-white pb-1 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-60"
+                >
+                  Xem bản tuyển chọn
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
+            </div>
+          </section>
+        </RevealSection>
+
         <RevealSection delay={60}>
           <section
             id="new-arrivals"
-            className="mx-auto w-full max-w-330 px-4 py-16 md:px-6 lg:px-8"
+            className="mx-auto w-full max-w-330 px-4 py-20 md:px-6 lg:px-8"
           >
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
-                  Mới ra mắt
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  New arrivals
                 </p>
-                <h2 className="mt-2 text-3xl font-black uppercase md:text-4xl">
+                <h2 className="mt-3 text-4xl font-semibold uppercase leading-none tracking-[-0.04em] md:text-6xl">
                   Sản phẩm mới nhất
                 </h2>
               </div>
+              <Link
+                href="/collection/cua-hang"
+                className="hidden border-b border-black pb-1 text-xs font-semibold uppercase tracking-[0.2em] text-black transition-opacity hover:opacity-60 dark:border-white dark:text-white md:inline-flex"
+              >
+                Xem tất cả
+              </Link>
             </div>
 
             <Carousel
@@ -635,39 +736,24 @@ export default function Home() {
                     key={item.id}
                     className="basis-[78%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
                   >
-                    <article
-                      className="group h-full overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+                    <div
                       style={{
                         animation: `fadeInUp 520ms ease ${Math.min(idx * 70, 280)}ms both`,
                       }}
                     >
-                      <a
-                        href={`/product/${item.id}`}
-                        className="relative block aspect-4/5 overflow-hidden"
-                      >
-                        <Image
-                          src={item.imageUrl || FALLBACK_IMAGE}
-                          alt={item.name}
-                          fill
-                          sizes="(max-width: 640px) 80vw, (max-width: 1024px) 50vw, 25vw"
-                          className="object-cover transition-transform duration-500 group-hover:scale-105"
-                        />
-                        <span className="absolute left-3 top-3 rounded-sm bg-black px-2 py-1 text-[11px] font-bold uppercase text-white">
-                          {idx % 3 === 0 ? "Sale" : "New"}
-                        </span>
-                      </a>
-                      <div className="p-4">
-                        <a
-                          href={`/product/${item.id}`}
-                          className="line-clamp-2 text-sm font-semibold uppercase hover:text-neutral-500"
-                        >
-                          {item.name}
-                        </a>
-                        <p className="mt-2 text-lg font-black">
-                          {formatCurrency(item.minPrice)}
-                        </p>
-                      </div>
-                    </article>
+                      <ProductCard
+                        product={{
+                          id: item.id,
+                          name: item.name,
+                          imageUrl: item.imageUrl,
+                          minPrice: item.minPrice,
+                          isNew: idx % 3 !== 0,
+                          isSale: idx % 3 === 0,
+                        }}
+                        trackingPlacement="home_new_arrivals"
+                        trackingSource="new_arrival_card"
+                      />
+                    </div>
                   </CarouselItem>
                 ))}
               </CarouselContent>
@@ -676,7 +762,7 @@ export default function Home() {
         </RevealSection>
 
         <RevealSection delay={70}>
-          <section className="mx-auto w-full max-w-330 px-4 py-12 md:px-6 lg:px-8">
+          <section className="py-10">
             <RecommendationShelf
               kind={isAuthenticated ? "personalized" : "home"}
               placement={
@@ -810,22 +896,25 @@ export default function Home() {
           >
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-neutral-500">
-                  Tủ đò của bạn cần gì, Aura đã sẵn sàng.
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
+                  AURA edit {String(idx + 1).padStart(2, "0")}
                 </p>
+                <h2 className="mt-3 text-4xl font-semibold uppercase leading-none tracking-[-0.04em] md:text-6xl">
+                  {group.name}
+                </h2>
               </div>
               <a
                 href={`/collection/${group.slug}`}
-                className="inline-flex h-10 items-center rounded-sm border border-black/20 px-4 text-xs font-bold uppercase hover:border-black"
+                className="inline-flex h-11 items-center border border-black/20 px-5 text-xs font-semibold uppercase tracking-[0.18em] transition-colors hover:border-black hover:bg-black hover:text-white dark:border-white/25 dark:hover:bg-white dark:hover:text-black"
               >
                 Xem nhanh
               </a>
             </div>
 
-            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-12 lg:gap-5">
+            <div className="grid grid-cols-1 items-stretch gap-5 lg:grid-cols-12 lg:gap-6">
               <a
                 href={`/collection/${group.slug}`}
-                className="group relative block overflow-hidden rounded-sm lg:col-span-4 lg:h-full"
+                className="group relative block overflow-hidden bg-black lg:col-span-5 lg:h-full"
               >
                 <div className="relative aspect-4/5 min-h-80 w-full md:aspect-16/10 lg:h-full lg:min-h-152 lg:aspect-auto">
                   <Image
@@ -837,41 +926,33 @@ export default function Home() {
                     alt={group.name}
                     fill
                     sizes="(max-width: 1024px) 100vw, 34vw"
-                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="object-cover opacity-90 transition-transform duration-900 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-black/10" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/18 to-black/10" />
+                  <div className="absolute inset-x-0 bottom-0 p-6 text-white md:p-8">
+                    <p className="text-[11px] uppercase tracking-[0.3em] text-white/65">
+                      Collection focus
+                    </p>
+                    <h3 className="mt-3 text-4xl font-semibold uppercase tracking-[-0.04em] md:text-6xl">
+                      {group.name}
+                    </h3>
+                  </div>
                 </div>
               </a>
-              <div className="grid grid-cols-2 gap-4 lg:col-span-8 lg:h-full lg:grid-flow-col lg:grid-cols-3 lg:grid-rows-2">
+              <div className="grid grid-cols-2 gap-4 lg:col-span-7 lg:h-full lg:grid-cols-3">
                 {group.products.slice(0, 6).map((item) => (
-                  <article
-                    key={`${group.id}-${item.id}`}
-                    className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 lg:grid lg:h-full lg:grid-rows-[minmax(0,1fr)_auto]"
-                  >
-                    <a
-                      href={`/product/${item.id}`}
-                      className="relative block aspect-4/5 overflow-hidden lg:h-full lg:min-h-0 lg:aspect-auto"
-                    >
-                      <Image
-                        src={item.imageUrl || FALLBACK_IMAGE}
-                        alt={item.name}
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 24vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    </a>
-                    <div className="p-3 md:p-4">
-                      <a
-                        href={`/product/${item.id}`}
-                        className="line-clamp-2 text-sm font-semibold uppercase hover:text-neutral-500"
-                      >
-                        {item.name}
-                      </a>
-                      <p className="mt-2 text-lg font-black">
-                        {formatCurrency(item.minPrice)}
-                      </p>
-                    </div>
-                  </article>
+                  <div key={`${group.id}-${item.id}`} className="lg:h-full">
+                    <ProductCard
+                      product={{
+                        id: item.id,
+                        name: item.name,
+                        imageUrl: item.imageUrl,
+                        minPrice: item.minPrice,
+                      }}
+                      trackingPlacement={`home_category_${group.slug}`}
+                      trackingSource="category_showcase_card"
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -884,13 +965,18 @@ export default function Home() {
         <RevealSection delay={90}>
           <section
             id="brand-value"
-            className="bg-[#ececec] py-16 dark:bg-neutral-900"
+            className="bg-[#171412] py-18 text-white dark:bg-black"
           >
             <div className="mx-auto w-full max-w-330 px-4 md:px-6 lg:px-8">
-              <h2 className="text-center text-3xl font-black uppercase md:text-4xl">
-                Giá trị thương hiệu
-              </h2>
-              <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="mx-auto max-w-3xl text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-white/45">
+                  Service philosophy
+                </p>
+                <h2 className="mt-3 text-4xl font-semibold uppercase leading-none tracking-[-0.04em] md:text-6xl">
+                  Trải nghiệm mua sắm được chăm chút
+                </h2>
+              </div>
+              <div className="mt-12 grid grid-cols-1 gap-px bg-white/12 md:grid-cols-2 lg:grid-cols-4">
                 {[
                   {
                     title: "Giao hàng nhanh",
@@ -921,16 +1007,16 @@ export default function Home() {
                   return (
                     <article
                       key={item.title}
-                      className="rounded-sm bg-white p-5 shadow-sm dark:bg-neutral-800"
+                      className="bg-[#171412] p-6 transition-colors hover:bg-white hover:text-black"
                       style={{
                         animation: `fadeInUp 500ms ease ${Math.min(idx * 80, 260)}ms both`,
                       }}
                     >
-                      <Icon className="size-6 text-black dark:text-white" />
-                      <h3 className="mt-4 text-lg font-black uppercase">
+                      <Icon className="size-6" />
+                      <h3 className="mt-10 text-sm font-semibold uppercase tracking-[0.18em]">
                         {item.title}
                       </h3>
-                      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                      <p className="mt-3 text-sm leading-6 opacity-70">
                         {item.description}
                       </p>
                     </article>

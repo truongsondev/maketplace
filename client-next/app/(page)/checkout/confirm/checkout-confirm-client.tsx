@@ -430,15 +430,15 @@ export function CheckoutConfirmClient() {
 
   if (isCartLoading || isAddressesLoading) {
     return (
-      <div className="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-50 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
+      <div className="luxury-page flex min-h-screen flex-col overflow-x-hidden transition-colors duration-200">
         <Header
           isDark={isDark}
           onToggleDarkMode={() => setIsDark((prev) => !prev)}
           cartCount={cartCount}
         />
-        <main className="flex-1 bg-[#f5f5f5] text-[#222222] dark:bg-neutral-950 dark:text-neutral-100">
-          <div className="mx-auto w-full max-w-330 px-4 pb-16 pt-10 md:px-6 lg:px-8">
-            <div className="rounded-3xl border border-border-color bg-white p-10 text-center shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+        <main className="flex-1">
+          <div className="luxury-container pb-16 pt-10">
+            <div className="luxury-panel p-10 text-center">
               <Loader2 className="mx-auto size-8 animate-spin text-primary" />
               <p className="mt-4 text-sm text-text-muted">
                 Đang tải thông tin đơn hàng...
@@ -452,28 +452,48 @@ export function CheckoutConfirmClient() {
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark text-neutral-800 dark:text-neutral-50 min-h-screen flex flex-col transition-colors duration-200 overflow-x-hidden">
+    <div className="luxury-page flex min-h-screen flex-col overflow-x-hidden transition-colors duration-200">
       <Header
         isDark={isDark}
         onToggleDarkMode={() => setIsDark((prev) => !prev)}
         cartCount={cartCount}
       />
 
-      <main className="flex-1 bg-[#f5f5f5] text-[#222222] dark:bg-neutral-950 dark:text-neutral-100">
-        <div className="mx-auto w-full max-w-330 px-4 pb-16 pt-10 md:px-6 lg:px-8">
+      <main className="flex-1">
+        <div className="luxury-container pb-20 pt-34">
           <header className="mb-8">
-            <h1 className="text-2xl font-bold text-neutral-900 dark:text-white sm:text-3xl">
-              Thanh toán
-            </h1>
+            <p className="luxury-eyebrow">Secure checkout</p>
+            <h1 className="luxury-title mt-4">Quiet checkout</h1>
+            <p className="luxury-copy mt-4 max-w-2xl">
+              Hoàn tất đơn hàng trong một không gian yên tĩnh: địa chỉ rõ ràng,
+              thanh toán bảo mật và tóm tắt shopping bag luôn ở bên cạnh.
+            </p>
+            <div className="mt-7 grid gap-px bg-black/10 text-xs uppercase tracking-[0.18em] text-neutral-600 dark:bg-white/10 dark:text-neutral-300 sm:grid-cols-3">
+              {["Bag review", "Delivery edit", "Secure payment"].map(
+                (step, index) => (
+                  <div
+                    key={step}
+                    className="bg-[#f7f3ec] px-4 py-3 dark:bg-neutral-950"
+                  >
+                    <span className="mr-3 text-neutral-400">0{index + 1}</span>
+                    {step}
+                  </div>
+                ),
+              )}
+            </div>
           </header>
 
           <section className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <article className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
+              <article className="border-y border-black/10 py-6 dark:border-white/10 sm:py-8">
                 <section className="space-y-4">
-                  <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                    Thông tin thanh toán
+                  <h2 className="text-xl font-semibold uppercase tracking-[-0.02em] text-neutral-900 dark:text-white">
+                    Delivery details
                   </h2>
+                  <p className="text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                    Chọn địa chỉ quen thuộc hoặc nhập mới. Chúng tôi giữ phần
+                    checkout tối giản để bạn chỉ tập trung vào đơn hàng.
+                  </p>
 
                   {addresses && addresses.length > 0 ? (
                     <div>
@@ -483,7 +503,7 @@ export function CheckoutConfirmClient() {
                       <select
                         value={activeAddressId}
                         onChange={(e) => setSelectedAddressId(e.target.value)}
-                        className="mt-2 h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+                        className="luxury-field mt-2 h-12 w-full py-0"
                       >
                         {addresses.map((addr) => (
                           <option key={addr.id} value={addr.id}>
@@ -506,7 +526,7 @@ export function CheckoutConfirmClient() {
                           recipientName || selectedAddress?.recipient || ""
                         }
                         onChange={(e) => setRecipientName(e.target.value)}
-                        className="mt-2 h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+                        className="luxury-field mt-2 h-12 w-full py-0"
                         placeholder="Họ và tên"
                       />
                     </div>
@@ -517,7 +537,7 @@ export function CheckoutConfirmClient() {
                       <input
                         value={recipientPhone || selectedAddress?.phone || ""}
                         onChange={(e) => setRecipientPhone(e.target.value)}
-                        className="mt-2 h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+                        className="luxury-field mt-2 h-12 w-full py-0"
                         placeholder="Số điện thoại"
                       />
                     </div>
@@ -532,7 +552,7 @@ export function CheckoutConfirmClient() {
                         manualAddressLine || selectedAddress?.addressLine || ""
                       }
                       onChange={(e) => setManualAddressLine(e.target.value)}
-                      className="mt-2 h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+                      className="luxury-field mt-2 h-12 w-full py-0"
                       placeholder="Số nhà, tên đường..."
                     />
                   </div>
@@ -558,7 +578,7 @@ export function CheckoutConfirmClient() {
                         disabled={
                           provincesQuery.isLoading || provincesQuery.isError
                         }
-                        className="mt-2 h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+                        className="luxury-field mt-2 h-12 w-full py-0 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="">Chọn tỉnh/thành phố</option>
                         {(provincesQuery.data ?? []).map((p) => (
@@ -588,7 +608,7 @@ export function CheckoutConfirmClient() {
                           wardsQuery.isLoading ||
                           wardsQuery.isError
                         }
-                        className="mt-2 h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100"
+                        className="luxury-field mt-2 h-12 w-full py-0 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <option value="">Chọn phường/xã</option>
                         {(wardsQuery.data ?? []).map((w) => (
@@ -601,15 +621,19 @@ export function CheckoutConfirmClient() {
                   </div>
                 </section>
 
-                <div className="my-8 border-t border-neutral-200 dark:border-neutral-800" />
+                <div className="my-8 border-t border-black/10 dark:border-white/10" />
 
                 <section className="space-y-4">
-                  <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                    Phương thức thanh toán
+                  <h2 className="text-xl font-semibold uppercase tracking-[-0.02em] text-neutral-900 dark:text-white">
+                    Payment
                   </h2>
+                  <p className="text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                    Giao dịch được chuyển qua cổng thanh toán bảo mật. AURA
+                    không lưu thông tin ngân hàng của bạn.
+                  </p>
 
                   <div className="space-y-3">
-                    <label className="flex items-center justify-between gap-3 rounded-sm border border-neutral-200 px-4 py-3 text-sm dark:border-neutral-800">
+                    <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
                       <span className="flex items-center gap-3">
                         <input
                           type="radio"
@@ -626,7 +650,7 @@ export function CheckoutConfirmClient() {
                       </span>
                     </label>
 
-                    <label className="flex items-center justify-between gap-3 rounded-sm border border-neutral-200 px-4 py-3 text-sm dark:border-neutral-800">
+                    <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
                       <span className="flex items-center gap-3">
                         <input
                           type="radio"
@@ -648,15 +672,15 @@ export function CheckoutConfirmClient() {
             </div>
 
             <aside className="lg:sticky lg:top-24 lg:self-start">
-              <article className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-8">
-                <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-                  Tóm tắt đơn hàng
+              <article className="border-y border-black/10 py-6 dark:border-white/10 sm:py-8">
+                <h2 className="text-xl font-semibold uppercase tracking-[-0.02em] text-neutral-900 dark:text-white">
+                  Boutique receipt
                 </h2>
 
                 <div className="mt-5 space-y-4">
                   {itemsToPay.map((item) => (
                     <div key={item.itemId} className="flex items-start gap-4">
-                      <div className="relative size-12 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950">
+                      <div className="relative size-12 overflow-hidden border border-black/10 bg-neutral-50 dark:border-white/10 dark:bg-neutral-950">
                         {item.image?.url ? (
                           <Image
                             src={item.image.url}
@@ -695,7 +719,7 @@ export function CheckoutConfirmClient() {
                         setVoucherCode(e.target.value.toUpperCase())
                       }
                       placeholder="Nhập mã giảm giá"
-                      className="h-12 w-full rounded-sm border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none placeholder:text-neutral-400 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 sm:flex-1"
+                      className="luxury-field h-12 w-full py-0 sm:flex-1"
                     />
                     <button
                       onClick={handleApplyVoucher}
@@ -704,14 +728,14 @@ export function CheckoutConfirmClient() {
                         itemsToPay.length === 0 ||
                         voucherCode.trim().length === 0
                       }
-                      className="h-12 w-full rounded-sm bg-neutral-200 text-sm font-semibold text-neutral-700 transition-colors hover:bg-neutral-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 sm:w-28"
+                      className="luxury-button-ghost h-12 w-full px-4 py-0 disabled:cursor-not-allowed disabled:opacity-60 sm:w-28"
                     >
                       {isValidatingVoucher ? "..." : "Apply"}
                     </button>
                     {voucherResult ? (
                       <button
                         onClick={clearVoucher}
-                        className="h-12 w-full rounded-sm border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-950/30 sm:w-auto"
+                        className="h-12 w-full border border-red-200 px-4 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/40 dark:hover:bg-red-950/30 sm:w-auto"
                       >
                         Bỏ mã
                       </button>
@@ -750,7 +774,7 @@ export function CheckoutConfirmClient() {
                       Tổng thanh toán
                     </p>
                   </div>
-                  <div className="whitespace-nowrap text-right text-3xl font-black leading-none text-neutral-900 dark:text-white">
+                  <div className="whitespace-nowrap text-right text-3xl font-semibold leading-none text-neutral-900 dark:text-white">
                     {formatPrice(totalAmount)}
                   </div>
                 </div>
@@ -758,7 +782,7 @@ export function CheckoutConfirmClient() {
                 <button
                   onClick={handleSubmit}
                   disabled={!canSubmit || payosMutation.isPending}
-                  className="mt-5 inline-flex h-12 w-full items-center justify-center whitespace-nowrap rounded-sm bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-primary/25 transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-60"
+                  className="luxury-button mt-5 h-12 w-full whitespace-nowrap px-6 py-0 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {payosMutation.isPending ? (
                     <span className="inline-flex items-center gap-2">
@@ -766,13 +790,13 @@ export function CheckoutConfirmClient() {
                       Đang chuyển sang thanh toán...
                     </span>
                   ) : (
-                    `Thanh toán ${formatPrice(totalAmount)}`
+                    `Hoàn tất ${formatPrice(totalAmount)}`
                   )}
                 </button>
 
                 <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                   <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
-                  Thanh toán an toàn - Mã hóa SSL
+                  Thanh toán an toàn - mã hóa SSL - không lưu dữ liệu ngân hàng
                 </div>
 
                 <div className="mt-6 flex items-center justify-between text-sm">

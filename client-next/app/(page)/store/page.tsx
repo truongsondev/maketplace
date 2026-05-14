@@ -33,25 +33,21 @@ export default function StorePage() {
   }, [isDark]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-white text-neutral-900 transition-colors duration-200 dark:bg-black dark:text-white flex flex-col">
+    <div className="luxury-page flex min-h-screen flex-col overflow-x-hidden transition-colors duration-200">
       <Header
         isDark={isDark}
         onToggleDarkMode={() => setIsDark((prev) => !prev)}
         cartCount={cartCount}
       />
 
-      <main className="flex-1 px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+      <main className="luxury-container flex-1 pb-20 pt-34">
         <div className="mx-auto w-full max-w-6xl space-y-6">
-          <section className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8">
+          <section className="luxury-panel p-6 sm:p-8">
             <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                  AURA STORE
-                </p>
-                <h1 className="mt-2 text-3xl font-black uppercase tracking-tight sm:text-4xl lg:text-5xl">
-                  Store
-                </h1>
-                <p className="mt-4 max-w-xl text-sm text-neutral-600 dark:text-neutral-300 md:text-base">
+                <p className="luxury-eyebrow">AURA STORE</p>
+                <h1 className="luxury-title mt-4">Store</h1>
+                <p className="luxury-copy mt-4 max-w-xl">
                   Không gian mua sắm tối giản, hiện đại và tập trung vào trải
                   nghiệm: thử đồ nhanh, tư vấn phối đồ, và chọn chất liệu phù
                   hợp.
@@ -60,37 +56,37 @@ export default function StorePage() {
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Link
                     href="/"
-                    className="inline-flex h-12 items-center justify-center rounded-sm bg-primary px-6 text-sm font-bold text-white transition-colors hover:bg-primary-dark"
+                    className="luxury-button inline-flex h-12 items-center justify-center px-6"
                   >
                     Mua sắm ngay
                   </Link>
                   <a
                     href="#hinh-anh"
-                    className="inline-flex h-12 items-center justify-center rounded-sm border border-neutral-200 bg-white px-6 text-sm font-bold text-neutral-900 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900"
+                    className="luxury-button-ghost inline-flex h-12 items-center justify-center px-6"
                   >
                     Xem hình ảnh
                   </a>
                 </div>
 
                 <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                  <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-4 text-sm shadow-sm dark:border-neutral-800 dark:bg-black">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="border border-black/10 bg-white/55 p-4 text-sm dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
                       Dịch vụ
                     </p>
                     <p className="mt-2 font-semibold text-neutral-900 dark:text-white">
                       Tư vấn phối đồ
                     </p>
                   </div>
-                  <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-4 text-sm shadow-sm dark:border-neutral-800 dark:bg-black">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="border border-black/10 bg-white/55 p-4 text-sm dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
                       Cam kết
                     </p>
                     <p className="mt-2 font-semibold text-neutral-900 dark:text-white">
                       Đổi trả linh hoạt
                     </p>
                   </div>
-                  <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-4 text-sm shadow-sm dark:border-neutral-800 dark:bg-black">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                  <div className="border border-black/10 bg-white/55 p-4 text-sm dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-500 dark:text-neutral-400">
                       Chất lượng
                     </p>
                     <p className="mt-2 font-semibold text-neutral-900 dark:text-white">
@@ -101,7 +97,7 @@ export default function StorePage() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="relative aspect-4/3 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 shadow-sm dark:border-neutral-800 dark:bg-black">
+                <div className="relative aspect-4/3 overflow-hidden border border-black/10 bg-neutral-100 dark:border-white/10 dark:bg-neutral-950">
                   <Image
                     src="/my.avif"
                     alt="Không gian cửa hàng"
@@ -111,7 +107,7 @@ export default function StorePage() {
                     priority
                   />
                 </div>
-                <div className="relative aspect-4/3 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 shadow-sm dark:border-neutral-800 dark:bg-black">
+                <div className="relative aspect-4/3 overflow-hidden border border-black/10 bg-neutral-100 dark:border-white/10 dark:bg-neutral-950">
                   <Image
                     src="/myshoppp.jpg"
                     alt="Góc trưng bày sản phẩm"
@@ -120,7 +116,7 @@ export default function StorePage() {
                     className="object-cover"
                   />
                 </div>
-                <div className="relative aspect-video overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 shadow-sm dark:border-neutral-800 dark:bg-black sm:col-span-2">
+                <div className="relative aspect-video overflow-hidden border border-black/10 bg-neutral-100 dark:border-white/10 dark:bg-neutral-950 sm:col-span-2">
                   <Image
                     src="/my.avif"
                     alt="Khu vực thử đồ"
@@ -133,18 +129,18 @@ export default function StorePage() {
             </div>
           </section>
 
-          <section
-            id="hinh-anh"
-            className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black sm:p-8"
-          >
-            <h2 className="text-lg font-bold sm:text-xl">Hình ảnh cửa hàng</h2>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+          <section id="hinh-anh" className="luxury-panel p-6 sm:p-8">
+            <p className="luxury-eyebrow">Retail atmosphere</p>
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white sm:text-3xl">
+              Hình ảnh cửa hàng
+            </h2>
+            <p className="luxury-copy mt-3">
               Một vài góc nhìn để bạn hình dung không gian và cách trưng bày sản
               phẩm.
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <div className="relative aspect-4/3 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-black">
+              <div className="relative aspect-4/3 overflow-hidden border border-black/10 bg-neutral-100 dark:border-white/10 dark:bg-neutral-950">
                 <Image
                   src="/my.avif"
                   alt="Khu trưng bày 1"
@@ -153,7 +149,7 @@ export default function StorePage() {
                   className="object-cover"
                 />
               </div>
-              <div className="relative aspect-4/3 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-black">
+              <div className="relative aspect-4/3 overflow-hidden border border-black/10 bg-neutral-100 dark:border-white/10 dark:bg-neutral-950">
                 <Image
                   src="/myshoppp.jpg"
                   alt="Khu trưng bày 2"
@@ -162,7 +158,7 @@ export default function StorePage() {
                   className="object-cover"
                 />
               </div>
-              <div className="relative aspect-4/3 overflow-hidden rounded-sm border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-black">
+              <div className="relative aspect-4/3 overflow-hidden border border-black/10 bg-neutral-100 dark:border-white/10 dark:bg-neutral-950">
                 <Image
                   src="/my.avif"
                   alt="Khu trưng bày 3"
@@ -175,10 +171,8 @@ export default function StorePage() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                Địa chỉ
-              </p>
+            <div className="luxury-panel p-6">
+              <p className="luxury-eyebrow">Địa chỉ</p>
               <p className="mt-2 text-sm font-semibold text-neutral-900 dark:text-white">
                 Hệ thống cửa hàng AURA VN
               </p>
@@ -187,10 +181,8 @@ export default function StorePage() {
               </p>
             </div>
 
-            <div className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                Liên hệ
-              </p>
+            <div className="luxury-panel p-6">
+              <p className="luxury-eyebrow">Liên hệ</p>
               <p className="mt-2 text-sm text-neutral-900 dark:text-white">
                 Hotline: (028) 7000 1441
               </p>
@@ -199,10 +191,8 @@ export default function StorePage() {
               </p>
             </div>
 
-            <div className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-black">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                Giờ mở cửa
-              </p>
+            <div className="luxury-panel p-6">
+              <p className="luxury-eyebrow">Giờ mở cửa</p>
               <p className="mt-2 text-sm text-neutral-900 dark:text-white">
                 09:00 - 21:00 (hàng ngày)
               </p>

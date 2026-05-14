@@ -36,12 +36,6 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-function formatApiPrice(value: string | number) {
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return String(value);
-  return formatPrice(n);
-}
-
 function CartBreadcrumb() {
   return (
     <nav aria-label="Breadcrumb" className="mb-5">
@@ -67,12 +61,12 @@ function CartBreadcrumb() {
 
 function CartLoading() {
   return (
-    <main className="w-full max-w-330 mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main className="luxury-container py-12">
       <CartBreadcrumb />
       <div className="animate-pulse space-y-4">
-        <div className="h-8 w-48 bg-neutral-200 dark:bg-neutral-700 rounded-sm" />
-        <div className="h-32 bg-neutral-200 dark:bg-neutral-700 rounded-sm" />
-        <div className="h-32 bg-neutral-200 dark:bg-neutral-700 rounded-sm" />
+        <div className="luxury-skeleton h-8 w-48" />
+        <div className="luxury-skeleton h-32" />
+        <div className="luxury-skeleton h-32" />
       </div>
     </main>
   );
@@ -80,16 +74,13 @@ function CartLoading() {
 
 function CartError({ onRetry }: { onRetry: () => void }) {
   return (
-    <main className="w-full max-w-330 mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <main className="luxury-container py-12">
       <CartBreadcrumb />
-      <div className="rounded-sm border border-neutral-300 bg-white dark:bg-neutral-900 dark:border-neutral-700 p-8 text-center">
+      <div className="luxury-panel p-10 text-center">
         <p className="text-red-600 dark:text-red-400 font-semibold">
           Không tải được giỏ hàng
         </p>
-        <button
-          onClick={onRetry}
-          className="mt-4 h-10 px-5 rounded-sm bg-black text-white font-semibold hover:bg-neutral-800 transition-colors"
-        >
+        <button onClick={onRetry} className="luxury-button mt-5">
           Thử lại
         </button>
       </div>
@@ -99,24 +90,30 @@ function CartError({ onRetry }: { onRetry: () => void }) {
 
 function CartEmpty() {
   return (
-    <main className="w-full max-w-330 mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <main className="luxury-page px-4 py-12">
       <CartBreadcrumb />
-      <div className="rounded-sm border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 md:p-10 text-center shadow-sm">
-        <div className="mx-auto size-16 rounded-sm bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-          <ShoppingCart className="size-7 text-neutral-500" />
+      <div className="mx-auto grid max-w-6xl overflow-hidden bg-neutral-950 text-white md:grid-cols-[0.9fr_1.1fr]">
+        <div className="flex flex-col justify-center px-6 py-12 text-left md:px-10">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
+            Shopping bag
+          </p>
+          <h1 className="mt-5 text-5xl font-semibold uppercase leading-[0.92] tracking-[-0.05em] md:text-7xl">
+            Bộ sưu tập của bạn đang chờ được hoàn thiện
+          </h1>
+          <p className="mt-5 max-w-md text-sm leading-7 text-white/68">
+            Lưu lại những item đầu tiên để AURA có thể gợi ý cách phối sát gu
+            hơn cho lần mua tiếp theo.
+          </p>
+          <Link href="/" className="luxury-button mt-8 w-fit">
+            Khám phá bản tuyển chọn
+          </Link>
         </div>
-        <h1 className="mt-5 text-xl md:text-2xl font-black uppercase text-neutral-900 dark:text-white">
-          Giỏ hàng của bạn đang trống
-        </h1>
-        <p className="mt-2 text-neutral-500 dark:text-neutral-400">
-          Hãy thêm sản phẩm yêu thích để tiếp tục mua sắm.
-        </p>
-        <Link
-          href="/"
-          className="mt-6 inline-flex h-11 px-5 rounded-sm bg-black text-white font-semibold items-center justify-center hover:bg-neutral-800 transition-colors"
-        >
-          Quay lại mua sắm
-        </Link>
+        <div className="relative min-h-[360px] bg-[#f7f3ec]">
+          <div className="absolute inset-8 border border-white/30" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <ShoppingCart className="size-20 text-white/60" />
+          </div>
+        </div>
       </div>
     </main>
   );
@@ -344,40 +341,40 @@ export default function CartPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f5f5] dark:bg-neutral-950 pb-36 sm:pb-28 text-[#222222] dark:text-neutral-100">
-      <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-        <div className="mx-auto flex w-full max-w-330 items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
+    <main className="luxury-page pb-36 sm:pb-28">
+      <header className="border-b border-black/10 bg-[#f7f3ec] dark:border-white/10 dark:bg-neutral-950">
+        <div className="luxury-container flex items-center justify-between gap-4 py-6">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="text-3xl font-black tracking-tight text-black dark:text-white"
+              className="text-3xl font-semibold tracking-[0.28em] text-black dark:text-white"
             >
               AURA
             </Link>
             <span className="text-neutral-300">|</span>
-            <h1 className="text-2xl font-semibold text-neutral-700 dark:text-neutral-200">
+            <h1 className="text-xl font-semibold uppercase tracking-[0.18em] text-neutral-700 dark:text-neutral-200">
               Giỏ hàng
             </h1>
           </div>
 
-          <div className="hidden w-full max-w-xl md:flex items-center rounded-sm border border-neutral-300 bg-white dark:bg-neutral-900 dark:border-neutral-700">
+          <div className="hidden w-full max-w-xl items-center border border-black/10 bg-white/55 dark:border-white/10 dark:bg-white/5 md:flex">
             <input
               placeholder="Freeship 0đ (*)"
               className="h-11 flex-1 bg-transparent px-4 text-sm text-neutral-700 outline-none dark:text-neutral-100"
             />
-            <button className="flex h-11 w-14 items-center justify-center bg-black text-white hover:bg-neutral-800 transition-colors">
+            <button className="flex h-11 w-14 items-center justify-center bg-black text-white transition-colors hover:bg-neutral-800">
               <Search className="size-4" />
             </button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-330 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="luxury-container py-8">
         <div className="mb-4">
           <CartBreadcrumb />
         </div>
 
-        <div className="mb-3 hidden lg:grid grid-cols-[1.7fr_0.6fr_0.6fr_0.7fr_0.5fr] rounded-sm bg-white px-4 py-4 text-base text-neutral-600 shadow-sm dark:bg-neutral-900 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800">
+        <div className="mb-3 hidden grid-cols-[1.7fr_0.6fr_0.6fr_0.7fr_0.5fr] border-y border-black/10 px-4 py-4 text-sm uppercase tracking-[0.16em] text-neutral-500 dark:border-white/10 dark:text-neutral-400 lg:grid">
           <span>Sản phẩm</span>
           <span className="text-center">Đơn giá</span>
           <span className="text-center">Số lượng</span>
@@ -385,9 +382,9 @@ export default function CartPage() {
           <span className="text-center">Thao tác</span>
         </div>
 
-        <section className="overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex flex-col gap-2 border-b border-neutral-200 px-4 py-3 dark:border-neutral-700 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+        <section className="overflow-hidden border-y border-black/10 dark:border-white/10">
+          <div className="flex flex-col gap-2 border-b border-black/10 px-4 py-4 dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-neutral-700 dark:text-neutral-200">
               Sản phẩm trong giỏ ({cart.totalItems})
             </p>
             <div className="flex items-center justify-end gap-3 sm:justify-start">
@@ -426,38 +423,38 @@ export default function CartPage() {
             ))}
           </div>
 
-          <div className="border-t border-neutral-200 px-4 py-3 dark:border-neutral-700">
+          <div className="border-t border-black/10 px-4 py-4 dark:border-white/10">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
                 onClick={() => setOpenVoucherModal(true)}
-                className="flex items-center gap-2 text-sm font-semibold text-neutral-900 hover:underline dark:text-white"
+                className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-neutral-900 hover:underline dark:text-white"
               >
                 <Ticket className="size-4" />
-                Shop Voucher
+                Private offer
               </button>
 
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                 <input
                   value={voucherCode}
                   onChange={(e) => setVoucherCode(e.target.value)}
-                  placeholder="Nhập mã voucher"
-                  className="h-10 w-full rounded-sm border border-neutral-300 bg-white px-3 text-sm text-neutral-800 outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 sm:w-64"
+                  placeholder="Nhập mã ưu đãi"
+                  className="luxury-field h-10 w-full py-0 sm:w-64"
                 />
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => void applyVoucherCode(voucherCode)}
                     disabled={isApplyingVoucher}
-                    className="h-10 rounded-sm bg-black px-4 text-sm font-bold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="luxury-button h-10 px-4 py-0"
                   >
                     Áp dụng
                   </button>
                   {voucherResult ? (
                     <button
                       onClick={clearVoucher}
-                      className="h-10 rounded-sm border border-neutral-300 px-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors"
+                      className="luxury-button-ghost h-10 px-3 py-0"
                     >
-                      Bỏ
+                      Gỡ mã
                     </button>
                   ) : null}
                 </div>
@@ -478,7 +475,7 @@ export default function CartPage() {
             ) : null}
           </div>
 
-          <div className="border-t border-neutral-200 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+          <div className="border-t border-black/10 px-4 py-3 text-sm text-neutral-600 dark:border-white/10 dark:text-neutral-300">
             Giảm 500.000đ phí vận chuyển đơn tối thiểu 0đ
             <button className="ml-2 text-black dark:text-white hover:underline">
               Tìm hiểu thêm
@@ -491,16 +488,16 @@ export default function CartPage() {
             <RecommendationShelf
               kind="cart"
               placement="cart_recommendations"
-              title="Gợi ý phối cùng giỏ hàng"
+              title="Gợi ý phối cùng shopping bag"
               enabled={Boolean(isAuthenticated)}
-              emptyMessage="Thêm thêm vài tương tác nữa để AI gợi ý sát hơn."
+              emptyMessage="Thêm thêm vài tương tác nữa để AURA chọn phối đồ sát mood hơn."
             />
           </section>
         ) : null}
       </div>
 
-      <div className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-200 bg-white/95 backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
-        <div className="mx-auto w-full max-w-330 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-black/10 bg-[#f7f3ec]/92 backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/92">
+        <div className="luxury-container py-3">
           <div className="flex items-start gap-3 sm:items-center sm:gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-neutral-700 dark:text-neutral-200">
@@ -519,15 +516,15 @@ export default function CartPage() {
                   }
                   className="hover:text-red-600 disabled:opacity-40"
                 >
-                  Xóa
+                  Gỡ
                 </button>
-                <button className="hover:underline">Lưu đã thích</button>
+                <button className="hover:underline">Giữ lại wishlist</button>
               </div>
 
               <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
                 Tổng cộng ({hasSelection ? selectedCount : cart.totalItems} sản
                 phẩm):
-                <span className="ml-1 text-xl sm:text-2xl font-black text-black dark:text-white">
+                <span className="ml-1 text-xl font-semibold text-black dark:text-white sm:text-2xl">
                   {formatPrice(discountedTotal)}
                 </span>
               </p>
@@ -536,9 +533,9 @@ export default function CartPage() {
             <button
               onClick={handleCheckout}
               disabled={updateMutation.isPending || removeMutation.isPending}
-              className="h-11 shrink-0 rounded-sm bg-black px-4 sm:px-6 text-white font-bold hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="luxury-button h-11 shrink-0 px-4 py-0 sm:px-6"
             >
-              Thanh toán
+              Tiếp tục checkout
             </button>
           </div>
         </div>
@@ -552,25 +549,25 @@ export default function CartPage() {
           aria-label="Chọn Shop Voucher"
         >
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setOpenVoucherModal(false)}
           />
 
           <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-6">
-            <div className="relative w-full max-w-2xl overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-xl dark:border-neutral-800 dark:bg-black">
+            <div className="luxury-panel relative w-full max-w-2xl overflow-hidden bg-[#f7f3ec] dark:bg-neutral-950">
               <button
                 type="button"
                 onClick={() => setOpenVoucherModal(false)}
-                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-sm border border-neutral-200 bg-white text-neutral-900 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-neutral-800 dark:bg-black dark:text-white dark:hover:bg-neutral-900 dark:focus:ring-white/15"
+                className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center border border-black/10 bg-white/70 text-neutral-900 transition-colors hover:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 dark:focus:ring-white/15"
                 aria-label="Đóng"
               >
                 <X className="h-5 w-5" />
               </button>
 
-              <div className="border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+              <div className="border-b border-black/10 px-5 py-5 dark:border-white/10">
                 <div className="flex items-center gap-2">
                   <Ticket className="size-4 text-neutral-700 dark:text-neutral-200" />
-                  <h2 className="text-base font-black uppercase text-neutral-900 dark:text-white">
+                  <h2 className="text-base font-semibold uppercase tracking-[0.18em] text-neutral-900 dark:text-white">
                     Shop Voucher
                   </h2>
                 </div>
@@ -581,11 +578,11 @@ export default function CartPage() {
 
               <div className="max-h-[70vh] overflow-y-auto p-5">
                 {vouchersQuery.isLoading ? (
-                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+                  <div className="luxury-panel p-4 text-sm text-neutral-600 dark:text-neutral-300">
                     Đang tải voucher...
                   </div>
                 ) : vouchersQuery.isError ? (
-                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-black dark:text-neutral-200">
+                  <div className="luxury-panel p-4 text-sm text-neutral-700 dark:text-neutral-200">
                     Không thể tải voucher.
                     <button
                       type="button"
@@ -596,7 +593,7 @@ export default function CartPage() {
                     </button>
                   </div>
                 ) : eligibleVouchers.length === 0 ? (
-                  <div className="rounded-sm border border-neutral-200 bg-white p-4 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-black dark:text-neutral-300">
+                  <div className="luxury-panel p-4 text-sm text-neutral-600 dark:text-neutral-300">
                     Hiện chưa có voucher phù hợp.
                   </div>
                 ) : (
@@ -617,10 +614,7 @@ export default function CartPage() {
                           : "Áp dụng cho mọi đơn";
 
                       return (
-                        <div
-                          key={voucher.id}
-                          className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
-                        >
+                        <div key={voucher.id} className="luxury-panel p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-sm font-black uppercase text-neutral-900 dark:text-white">
@@ -644,7 +638,7 @@ export default function CartPage() {
                                   setOpenVoucherModal(false);
                                 }
                               }}
-                              className="h-10 shrink-0 rounded-sm bg-black px-4 text-sm font-bold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="luxury-button h-10 shrink-0 px-4 py-0"
                             >
                               Áp dụng
                             </button>

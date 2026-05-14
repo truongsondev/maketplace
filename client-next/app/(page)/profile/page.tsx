@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { User, Mail, ShieldCheck } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Heart, Mail, PackageCheck, ShieldCheck, User } from "lucide-react";
 import { useAuthStore } from "@/stores/auth.store";
 
 interface StoredAuthState {
@@ -21,19 +21,17 @@ export default function ProfilePage() {
   const user = useAuthStore((state) => state.user);
   const profile = useAuthStore((state) => state.profile);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const [storedState, setStoredState] = useState<StoredAuthState | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [storedState] = useState<StoredAuthState | null>(() => {
+    if (typeof window === "undefined") return null;
 
     try {
       const raw = window.localStorage.getItem("auth-session");
-      if (!raw) return;
-      setStoredState(JSON.parse(raw) as StoredAuthState);
+      if (!raw) return null;
+      return JSON.parse(raw) as StoredAuthState;
     } catch {
-      setStoredState(null);
+      return null;
     }
-  }, []);
+  });
 
   const fullName = useMemo(() => {
     return (
@@ -44,7 +42,9 @@ export default function ProfilePage() {
   }, [profile?.fullName, storedState?.state?.profile?.fullName]);
 
   const email = useMemo(() => {
-    return user?.email?.trim() || storedState?.state?.user?.email?.trim() || "-";
+    return (
+      user?.email?.trim() || storedState?.state?.user?.email?.trim() || "-"
+    );
   }, [storedState?.state?.user?.email, user?.email]);
 
   const status = useMemo(() => {
@@ -56,24 +56,25 @@ export default function ProfilePage() {
   }, [storedState?.state?.user?.role, user?.role]);
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">
-          Hồ sơ tài khoản
-        </h1>
-        <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-          Quản lý thông tin cá nhân và trạng thái tài khoản của bạn.
+    <main className="luxury-page min-h-screen px-4 py-16 sm:px-6 lg:px-8">
+      <header className="mx-auto mb-10 w-full max-w-5xl">
+        <p className="luxury-eyebrow">Private client space</p>
+        <h1 className="luxury-title mt-4">Không gian thành viên</h1>
+        <p className="luxury-copy mt-4 max-w-2xl">
+          Theo dõi hồ sơ, lịch sử mua sắm và những lựa chọn bạn đã lưu trong một
+          không gian yên tĩnh hơn.
         </p>
       </header>
 
       {!isAuthenticated && (
-        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          Bạn chưa đăng nhập. Dữ liệu hiện tại được đọc từ phiên lưu trong trình duyệt nếu có.
+        <div className="luxury-panel mx-auto mb-6 w-full max-w-5xl px-4 py-3 text-sm text-neutral-700 dark:text-neutral-200">
+          Bạn chưa đăng nhập. Dữ liệu hiện tại được đọc từ phiên lưu trong trình
+          duyệt nếu có.
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+      <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-px bg-black/10 dark:bg-white/10 md:grid-cols-2">
+        <article className="bg-[#f7f3ec] p-6 dark:bg-neutral-950">
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
             <User className="size-4" />
             <span className="text-xs uppercase tracking-wide">Họ tên</span>
@@ -83,7 +84,7 @@ export default function ProfilePage() {
           </p>
         </article>
 
-        <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <article className="bg-[#f7f3ec] p-6 dark:bg-neutral-950">
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
             <Mail className="size-4" />
             <span className="text-xs uppercase tracking-wide">Email</span>
@@ -93,7 +94,7 @@ export default function ProfilePage() {
           </p>
         </article>
 
-        <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <article className="bg-[#f7f3ec] p-6 dark:bg-neutral-950">
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
             <ShieldCheck className="size-4" />
             <span className="text-xs uppercase tracking-wide">Trạng thái</span>
@@ -103,7 +104,7 @@ export default function ProfilePage() {
           </p>
         </article>
 
-        <article className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <article className="bg-[#f7f3ec] p-6 dark:bg-neutral-950">
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
             <ShieldCheck className="size-4" />
             <span className="text-xs uppercase tracking-wide">Vai trò</span>
@@ -112,6 +113,48 @@ export default function ProfilePage() {
             {role}
           </p>
         </article>
+      </section>
+
+      <section className="mx-auto mt-10 grid w-full max-w-5xl gap-px bg-black/10 dark:bg-white/10 md:grid-cols-3">
+        {[
+          {
+            icon: PackageCheck,
+            title: "Order history",
+            copy: "Xem lại các đơn hàng và trạng thái xử lý.",
+            action: "Theo dõi đơn",
+          },
+          {
+            icon: Heart,
+            title: "Wishlist edit",
+            copy: "Quay lại những item đã lưu cho lần phối tiếp theo.",
+            action: "Mở wishlist",
+          },
+          {
+            icon: ShieldCheck,
+            title: "Personal styling",
+            copy: "Dữ liệu tương tác giúp gợi ý sản phẩm riêng cho bạn.",
+            action: "Cập nhật gu",
+          },
+        ].map((item) => {
+          const Icon = item.icon;
+          return (
+            <article
+              key={item.title}
+              className="bg-[#f7f3ec] p-6 dark:bg-neutral-950"
+            >
+              <Icon className="size-4 text-neutral-500" />
+              <h2 className="mt-5 text-lg font-semibold uppercase tracking-[-0.02em] text-neutral-950 dark:text-white">
+                {item.title}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                {item.copy}
+              </p>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-700 dark:text-neutral-300">
+                {item.action}
+              </p>
+            </article>
+          );
+        })}
       </section>
     </main>
   );

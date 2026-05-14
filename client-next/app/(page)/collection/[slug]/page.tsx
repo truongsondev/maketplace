@@ -10,6 +10,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import { ChevronDown, Loader2, X } from "lucide-react";
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
@@ -111,7 +112,7 @@ export default function CategoryCollectionPage() {
   ];
 
   const filterSelectClassName =
-    "rounded-sm border border-transparent bg-transparent px-2 py-1.5 text-sm text-neutral-700 transition-all duration-200 hover:border-neutral-300 hover:bg-white focus:border-neutral-400 focus:bg-white focus:outline-none";
+    "border border-transparent bg-transparent px-2 py-1.5 text-sm text-neutral-700 transition-all duration-200 hover:border-black/15 hover:bg-white/65 focus:border-black/35 focus:bg-white/85 focus:outline-none dark:text-neutral-100 dark:hover:bg-white/10";
 
   const updateSearchParams = (
     nextParams: Record<string, string | undefined>,
@@ -200,6 +201,12 @@ export default function CategoryCollectionPage() {
   ]);
 
   const cartCount = cartSummary?.totalItems ?? 0;
+  const editorialImageUrl = normalizeProductImageUrl(
+    productsData?.products?.[0]?.imageUrl ??
+      lookbookCards[0]?.imageUrl ??
+      selectedCategory?.imageUrl ??
+      null,
+  );
 
   useEffect(() => {
     if (isDark) {
@@ -210,30 +217,34 @@ export default function CategoryCollectionPage() {
   }, [isDark]);
 
   return (
-    <div className="bg-background-light text-neutral-800 dark:bg-background-dark dark:text-neutral-50 min-h-screen flex flex-col transition-colors duration-200">
+    <div className="luxury-page flex min-h-screen flex-col overflow-x-hidden transition-colors duration-200">
       <Header
         isDark={isDark}
         onToggleDarkMode={() => setIsDark(!isDark)}
         cartCount={cartCount}
       />
 
-      <main className="flex-1 bg-[#f5f5f5] px-4 pb-16 pt-10 md:px-8 lg:px-10">
-        <div className="mx-auto w-full max-w-330">
-          <h1 className="max-w-4xl text-3xl font-semibold leading-tight md:text-5xl">
-            {headingTitle}
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm text-neutral-600 md:text-base">
-            {headingDescription}
-          </p>
+      <main className="-mt-18.25 flex-1 pb-20 pt-34">
+        <div className="luxury-container">
+          <motion.header
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-5xl"
+          >
+            <p className="luxury-eyebrow">Collection edit</p>
+            <h1 className="luxury-title mt-4">{headingTitle}</h1>
+            <p className="luxury-copy mt-5 max-w-3xl">{headingDescription}</p>
+          </motion.header>
 
           {normalizedCampaignQuery ? (
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <p className="inline-flex rounded-full border border-neutral-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-700">
+              <p className="inline-flex border border-black/10 bg-white/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-700">
                 Gu gợi ý: {normalizedCampaignQuery}
               </p>
               <Link
                 href={`/collection/${slug}`}
-                className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-700 transition-colors hover:bg-neutral-100"
+                className="inline-flex items-center gap-1 border border-black/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-700 transition-colors hover:bg-white/70"
               >
                 <X className="size-3.5" />
                 Bỏ lọc gu
@@ -241,11 +252,15 @@ export default function CategoryCollectionPage() {
             </div>
           ) : null}
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:max-w-3xl">
+          <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:max-w-4xl">
             {lookbookCards.map((card) => (
-              <article
+              <motion.article
                 key={card.id}
-                className="group overflow-hidden rounded-sm bg-white shadow-sm"
+                className="group overflow-hidden bg-black"
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
               >
                 <div className="relative aspect-4/3">
                   <Image
@@ -253,22 +268,23 @@ export default function CategoryCollectionPage() {
                     alt={card.name}
                     fill
                     sizes="(max-width: 1024px) 100vw, 34vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="object-cover opacity-88 transition-transform duration-700 group-hover:scale-105"
                   />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/75 via-transparent to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                    <p className="text-[11px] uppercase tracking-[0.28em] text-white/65">
+                      Bộ sưu tập
+                    </p>
+                    <h2 className="mt-2 text-3xl font-semibold uppercase tracking-[-0.04em]">
+                      {card.name}
+                    </h2>
+                  </div>
                 </div>
-                <div className="px-4 py-3">
-                  <p className="text-xs uppercase tracking-[0.14em] text-neutral-500">
-                    Bộ sưu tập
-                  </p>
-                  <h2 className="mt-1 text-2xl font-black uppercase">
-                    {card.name}
-                  </h2>
-                </div>
-              </article>
+              </motion.article>
             ))}
           </div>
 
-          <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-4 border-y border-neutral-200 py-4 text-sm text-neutral-700">
+          <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-4 border-y border-black/10 py-5 text-sm text-neutral-700 dark:border-white/10 dark:text-neutral-200">
             <button
               onClick={() =>
                 updateSearchParams({
@@ -277,7 +293,7 @@ export default function CategoryCollectionPage() {
                   p: undefined,
                 })
               }
-              className="inline-flex items-center gap-1 rounded-sm border border-transparent px-2 py-1.5 font-medium transition-all duration-200 hover:border-neutral-300 hover:bg-white hover:text-black disabled:cursor-not-allowed disabled:text-neutral-400"
+              className="inline-flex items-center gap-1 border border-transparent px-2 py-1.5 font-medium transition-all duration-200 hover:border-black/15 hover:bg-white/65 hover:text-black disabled:cursor-not-allowed disabled:text-neutral-400"
               disabled={activeFiltersCount === 0}
             >
               Bộ lọc
@@ -285,8 +301,8 @@ export default function CategoryCollectionPage() {
               <X className="size-3.5" />
             </button>
 
-            <label className="inline-flex items-center gap-2 rounded-sm px-1 py-1 transition-colors duration-200 hover:bg-neutral-100/80">
-              <span>Kiểu sản phẩm</span>
+            <label className="inline-flex items-center gap-2 px-1 py-1 transition-colors duration-200 hover:bg-white/45">
+              <span>Mức giá</span>
               <select
                 value={selectedPriceRange}
                 onChange={(event) =>
@@ -305,7 +321,7 @@ export default function CategoryCollectionPage() {
               </select>
             </label>
 
-            <label className="inline-flex items-center gap-2 rounded-sm px-1 py-1 transition-colors duration-200 hover:bg-neutral-100/80">
+            <label className="inline-flex items-center gap-2 px-1 py-1 transition-colors duration-200 hover:bg-white/45">
               <span>Bộ sưu tập</span>
               <select
                 value={slug}
@@ -320,7 +336,7 @@ export default function CategoryCollectionPage() {
               </select>
             </label>
 
-            <label className="inline-flex items-center gap-2 rounded-sm px-1 py-1 transition-colors duration-200 hover:bg-neutral-100/80">
+            <label className="inline-flex items-center gap-2 px-1 py-1 transition-colors duration-200 hover:bg-white/45">
               <span>Màu sắc</span>
               <select
                 value={selectedColor}
@@ -339,7 +355,7 @@ export default function CategoryCollectionPage() {
             </label>
             <div className="ml-auto inline-flex items-center gap-3">
               <span className="text-neutral-500">Sắp xếp theo:</span>
-              <label className="inline-flex items-center gap-1 rounded-sm px-1 py-1 font-medium transition-colors duration-200 hover:bg-neutral-100/80">
+              <label className="inline-flex items-center gap-1 px-1 py-1 font-medium transition-colors duration-200 hover:bg-white/45">
                 <select
                   value={selectedSort}
                   onChange={(event) =>
@@ -361,31 +377,59 @@ export default function CategoryCollectionPage() {
           </div>
 
           {isLoading ? (
-            <div className="mt-10 flex items-center justify-center rounded-sm bg-white p-8 text-sm font-medium text-slate-700">
+            <div className="luxury-panel mt-10 flex items-center justify-center p-8 text-sm font-medium text-neutral-700">
               <Loader2 className="mr-2 size-4 animate-spin" />
               Đang tải sản phẩm theo danh mục...
             </div>
           ) : (
             <>
               {(productsData?.products ?? []).length === 0 ? (
-                <div className="mt-8 rounded-sm border border-neutral-200 bg-white p-8 text-center">
-                  <p className="text-base font-semibold text-neutral-800">
+                <div className="luxury-panel mt-8 p-10 text-center">
+                  <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
                     Chưa tìm thấy sản phẩm phù hợp với bộ lọc hiện tại.
                   </p>
                   <button
                     onClick={() =>
                       updateSearchParams({ cl: undefined, p: undefined })
                     }
-                    className="mt-4 inline-flex items-center rounded-sm border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-100"
+                    className="luxury-button-ghost mt-5"
                   >
                     Xóa bộ lọc và xem lại
                   </button>
                 </div>
               ) : (
-                <div className="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-                  {(productsData?.products ?? []).map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
+                <div className="mt-10">
+                  <section className="mb-12 grid overflow-hidden bg-neutral-950 text-white md:grid-cols-[0.85fr_1.15fr]">
+                    <div className="flex flex-col justify-center px-6 py-10 md:px-10">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
+                        Wardrobe direction
+                      </p>
+                      <h2 className="mt-4 text-4xl font-semibold uppercase leading-[0.95] tracking-[-0.05em] md:text-6xl">
+                        Chọn ít hơn, mặc lâu hơn
+                      </h2>
+                      <p className="mt-5 max-w-md text-sm leading-7 text-white/70">
+                        Bộ sưu tập được sắp theo form dáng, chất liệu và nhịp sử
+                        dụng để việc chọn đồ giống một buổi biên tập tủ đồ,
+                        không phải lướt danh sách sản phẩm.
+                      </p>
+                    </div>
+                    <div className="relative min-h-[340px]">
+                      <Image
+                        src={editorialImageUrl}
+                        alt="Collection editorial"
+                        fill
+                        sizes="(max-width: 768px) 100vw, 55vw"
+                        className="object-cover opacity-85"
+                      />
+                      <div className="absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-black/10" />
+                    </div>
+                  </section>
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-5">
+                    {(productsData?.products ?? []).map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
                 </div>
               )}
             </>

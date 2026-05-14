@@ -1,13 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Minus,
-  Plus,
-  Trash2,
-  Loader2,
-  Circle,
-  CheckCircle2,
-} from "lucide-react";
+import { Minus, Plus, Loader2, Circle, CheckCircle2 } from "lucide-react";
 import type { CartItem } from "@/services/cart.service";
 
 const FALLBACK_IMAGE =
@@ -46,13 +39,13 @@ export function CartItemCard({
 
   return (
     <article
-      className={`border-b border-neutral-200 px-4 py-4 transition-colors dark:border-neutral-700 ${
+      className={`border-b border-black/10 px-4 py-5 transition-colors dark:border-white/10 ${
         selected
-          ? "bg-neutral-100 dark:bg-neutral-800"
-          : "bg-white dark:bg-neutral-900"
+          ? "bg-white/62 dark:bg-white/8"
+          : "bg-transparent hover:bg-white/36 dark:hover:bg-white/5"
       }`}
     >
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.7fr_0.6fr_0.6fr_0.7fr_0.5fr] lg:items-center">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.8fr_0.55fr_0.65fr_0.7fr_0.55fr] lg:items-center">
         <button
           onClick={() => onToggleSelect(item)}
           className="hidden"
@@ -80,21 +73,21 @@ export function CartItemCard({
 
           <Link
             href={`/product/${item.productId}`}
-            className="relative size-20 rounded-sm overflow-hidden bg-neutral-100 dark:bg-neutral-800 shrink-0"
+            className="relative h-32 w-24 shrink-0 overflow-hidden bg-neutral-100 dark:bg-neutral-800"
           >
             <Image
               src={item.image?.url || FALLBACK_IMAGE}
               alt={item.image?.altText || item.productName}
               fill
-              sizes="80px"
-              className="object-cover"
+              sizes="96px"
+              className="object-cover transition-transform duration-700 hover:scale-105"
             />
           </Link>
 
-          <div className="min-w-0">
+          <div className="min-w-0 py-1">
             <Link
               href={`/product/${item.productId}`}
-              className="font-medium text-neutral-900 dark:text-white line-clamp-2 hover:text-black dark:hover:text-neutral-200 transition-colors"
+              className="line-clamp-2 text-base font-medium uppercase tracking-[-0.01em] text-neutral-900 transition-opacity hover:opacity-65 dark:text-white"
             >
               {item.productName}
             </Link>
@@ -103,10 +96,10 @@ export function CartItemCard({
               {formatPrice(item.subtotal)}
             </p>
 
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-neutral-500 dark:text-neutral-300">
+            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs uppercase tracking-[0.12em] text-neutral-500 dark:text-neutral-300">
               {Object.entries(item.variantAttributes).map(([key, value]) => (
                 <span key={key}>
-                  {key}: <strong>{value}</strong>
+                  {key}: <strong className="font-semibold">{value}</strong>
                 </span>
               ))}
             </div>
@@ -121,20 +114,20 @@ export function CartItemCard({
           <button
             onClick={() => onDecrease(item)}
             disabled={!canDecrease}
-            className="size-8 rounded-sm border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-100 hover:border-black hover:text-black dark:hover:border-white dark:hover:text-white transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex size-9 items-center justify-center border border-black/15 text-neutral-700 transition-colors hover:border-black hover:text-black disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-neutral-100 dark:hover:border-white dark:hover:text-white"
             aria-label="Giảm số lượng"
           >
             <Minus className="size-3.5" />
           </button>
 
-          <div className="w-10 border border-neutral-200 dark:border-neutral-700 rounded-sm h-8 flex items-center justify-center text-sm font-semibold text-neutral-900 dark:text-white">
+          <div className="flex h-9 w-11 items-center justify-center border-y border-black/15 text-sm font-semibold text-neutral-900 dark:border-white/15 dark:text-white">
             {item.quantity}
           </div>
 
           <button
             onClick={() => onIncrease(item)}
             disabled={!canIncrease}
-            className="size-8 rounded-sm border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-100 hover:border-black hover:text-black dark:hover:border-white dark:hover:text-white transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex size-9 items-center justify-center border border-black/15 text-neutral-700 transition-colors hover:border-black hover:text-black disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-neutral-100 dark:hover:border-white dark:hover:text-white"
             aria-label="Tăng số lượng"
           >
             <Plus className="size-3.5" />
@@ -149,24 +142,21 @@ export function CartItemCard({
           <button
             onClick={() => onRemove(item)}
             disabled={isRemoving || isUpdating}
-            className="text-sm text-neutral-600 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="Xóa sản phẩm"
+            className="luxury-muted-action disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Gỡ khỏi shopping bag"
           >
             {isRemoving ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="size-3.5 animate-spin" />
-                Đang xóa
+                Đang cập nhật
               </span>
             ) : (
-              "Xóa"
+              "Gỡ khỏi bag"
             )}
           </button>
 
-          <Link
-            href="/#products"
-            className="text-xs text-neutral-700 dark:text-neutral-300 hover:underline"
-          >
-            Tìm sản phẩm tương tự
+          <Link href="/#products" className="luxury-muted-action">
+            Khám phá mood tương tự
           </Link>
         </div>
       </div>
