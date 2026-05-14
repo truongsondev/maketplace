@@ -26,6 +26,17 @@ function getScopedStorageKey(baseKey: string, ownerKey: string): string {
   return `${baseKey}:${ownerKey}`;
 }
 
+function createGuestToken(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return `guest_${crypto.randomUUID()}`;
+  }
+
+  return `guest_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
 function ensureGuestToken(ownerKey: string): string {
   if (typeof window === "undefined") return "server";
 
@@ -33,7 +44,7 @@ function ensureGuestToken(ownerKey: string): string {
   const existing = window.localStorage.getItem(storageKey);
   if (existing) return existing;
 
-  const next = `guest_${crypto.randomUUID()}`;
+  const next = createGuestToken();
   window.localStorage.setItem(storageKey, next);
   return next;
 }
