@@ -14,6 +14,8 @@ export interface CartItemDetail {
   variantSku: string;
   variantAttributes: Record<string, any>;
   quantity: number;
+  availableStock: number;
+  maxAllowedQuantity: number;
   unitPrice: number;
   subtotal: number;
   image?: {

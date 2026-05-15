@@ -289,7 +289,15 @@ export default function CartPage() {
   };
 
   const handleIncrease = (item: CartItem) => {
-    if (item.quantity >= 10) return;
+    if (item.quantity >= item.maxAllowedQuantity) {
+      toast.warning("Đã đạt giới hạn tồn kho", {
+        description:
+          item.maxAllowedQuantity > 0
+            ? `Bạn chỉ có thể mua tối đa ${item.maxAllowedQuantity} sản phẩm của biến thể này.`
+            : "Biến thể này hiện đã hết hàng.",
+      });
+      return;
+    }
 
     updateMutation.mutate({
       itemId: item.itemId,

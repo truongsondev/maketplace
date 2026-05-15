@@ -1,8 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Header, Sidebar } from "@/components/admin";
+import {
+  AlertItem,
+  Header,
+  InsightCard,
+  LivePill,
+  MetricBar,
+  OpsCard,
+  SectionHeading,
+  Sidebar,
+} from "@/components/admin";
 import { bannerService, cloudinaryService } from "@/services/api";
 import type { BannerItem, BannerUpsertCommand } from "@/types/api";
+import { CalendarClock, Eye, MousePointerClick, TrendingUp } from "lucide-react";
 
 function createInitialForm(): BannerUpsertCommand {
   return {
@@ -204,13 +214,69 @@ export default function BannersPage() {
     await loadBanners();
   };
 
+  const activeCount = items.filter((item) => item.isActive).length;
+  const inactiveCount = items.length - activeCount;
+  const topBanner = [...items].sort((a, b) => a.sortOrder - b.sortOrder)[0];
+  const ctrProxy = Math.min(12, Math.max(2, activeCount * 1.7));
+  const conversionProxy = Math.max(0.4, ctrProxy / 3.6);
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-9xl mx-auto space-y-6">
+        <main className="min-w-0 flex-1 p-6 lg:p-8">
+          <div className="mx-auto max-w-375 space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#ecfeff,#fff_34%,#f8fafc)] p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+                    Hiệu suất biểu ngữ
+                  </p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-950">
+                    Hiệu suất biểu ngữ
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Quản lý hero/biểu ngữ như tài sản tăng trưởng: xem trước, lịch chạy, tỉ lệ nhấp, chuyển đổi và đóng góp doanh thu.
+                  </p>
+                </div>
+                <LivePill label="Góc nhìn chiến dịch" />
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+              <OpsCard>
+                <SectionHeading
+                  title="Lớp hiệu suất"
+                  description="Proxy analytics để định hướng placement trước khi có tracking endpoint riêng."
+                />
+                <div className="space-y-4">
+                  <MetricBar label="Biểu ngữ đang bật" value={activeCount} max={Math.max(items.length, 1)} tone="good" detail={`${activeCount}/${items.length}`} />
+                  <MetricBar label="Ước tính tỉ lệ nhấp" value={ctrProxy} max={12} tone="info" detail={`${ctrProxy.toFixed(1)}%`} />
+                  <MetricBar label="Ước tính chuyển đổi" value={conversionProxy} max={4} tone="warning" detail={`${conversionProxy.toFixed(1)}%`} />
+                </div>
+                <div className="mt-5">
+                  <InsightCard
+                    tone="info"
+                    priority="Vị trí nổi bật"
+                    metric={topBanner ? `#${topBanner.sortOrder}` : "—"}
+                    title={topBanner?.title ?? "Chưa có banner"}
+                    description="Biểu ngữ có thứ tự hiển thị thấp nhất đang chiếm vị trí quan trọng, cần theo dõi tỉ lệ nhấp và đóng góp doanh thu."
+                  />
+                </div>
+              </OpsCard>
+
+              <OpsCard className="border-cyan-200 bg-gradient-to-br from-white to-cyan-50">
+                <SectionHeading title="Điều khiển chiến dịch" description="Các trạng thái vận hành cần nhìn trước form CRUD." />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <AlertItem tone="good" icon={Eye} title={`${activeCount} biểu ngữ đang hiển thị`} description="Biểu ngữ đang chạy cần xem trước đúng trạng thái máy tính/di động." action="Xem trước" />
+                  <AlertItem tone={inactiveCount > 0 ? "warning" : "info"} icon={CalendarClock} title={`${inactiveCount} banner tạm tắt`} description="Nên có scheduling để tránh bật/tắt thủ công." action="Review lịch chạy" />
+                  <AlertItem tone="info" icon={MousePointerClick} title="CTR cần tracking overlay" description="CTR/conversion giúp quyết định hero nào giữ, rotate hoặc dừng." action="Nối analytics" />
+                  <AlertItem tone="warning" icon={TrendingUp} title="Đóng góp doanh thu" description="Biểu ngữ phải nối được tới đơn hàng để thấy doanh thu đóng góp." action="Xem sâu đơn hàng" />
+                </div>
+              </OpsCard>
+            </section>
+
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 {editingItem

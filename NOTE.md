@@ -1,5 +1,57 @@
 # Chatbot Sales Context
 
+# Admin Operational Intelligence Refactor Context
+
+- Current request: refactor `client-seller` admin from CRUD/table management into an “Operational Intelligence Dashboard” / ecommerce command center.
+- Primary goal: not only prettier UI, but stronger decision flow:
+  - surface what is urgent first
+  - expose anomalies, SLA risk, refund/cancel/payment issues
+  - connect data between modules
+  - reduce manual scanning and cognitive load
+  - make admin feel like enterprise-grade SaaS control center
+- Visual direction: Linear, Stripe Dashboard, Shopify Admin, Vercel Analytics, Notion Enterprise, Framer Dashboard.
+- Required feeling:
+  - luxury
+  - modern
+  - clean
+  - premium
+  - fast-feeling
+  - data-focused
+  - operational
+  - high-end SaaS
+- Priority hierarchy:
+  - Priority 1: alerts, bad KPIs, anomalies, SLA warnings, refund spikes, conversion drops.
+  - Priority 2: executive KPIs such as revenue, net revenue, orders, AOV, cancellation rate, refund rate, successful payment rate, repeat customer rate.
+  - Priority 3: CRUD/table details.
+- Dashboard must become Command Center with:
+  - executive KPI cards with current value, previous-period comparison, trend %, sparkline, status healthy/warning/danger
+  - operational alerts with severity, icon, quick action, drill-down feel
+  - smart insights cards with explanation and priority
+  - advanced analytics charts with comparison overlay, segmented metrics, anomaly highlights
+- Page repositioning:
+  - Orders -> Operations Queue with priority queue, SLA risk, suspicious/high-refund/failed-payment indicators, visible quick actions, richer detail timeline/payment/refund/customer risk summary.
+  - Products -> Inventory & Product Health with low/dead/fast-moving stock, reorder candidates, refund/conversion/margin intelligence, progress/heat/urgency visuals.
+  - Users -> Customer Intelligence with new/returning/VIP/dormant/churn risk segments, purchase frequency, last order, refunds, basket size, retention signal, linked histories.
+  - Refunds -> Service Quality Monitor with root cause analysis, SKU/category/payment trend, SLA tracking and failed-refund alerts.
+  - Vouchers -> Promotion Performance Dashboard with usage, generated revenue, discount cost, ROI estimate, profit impact, abuse/loss highlights.
+  - Banners -> Banner Performance with CTR, conversion, revenue contribution, preview states, scheduling and analytics overlay.
+  - Logs -> Operational Monitoring with info/warning/critical severity, grouping by payment/auth/inventory/API failures, sticky actionable critical events.
+- Global UX improvements:
+  - KPI/alert/chart drill-down navigation feel through links, filters or contextual CTAs.
+  - Better table UX: sticky headers, quick filters, saved-filter chips, inline actions, row highlights, expandable/context rows.
+  - Premium motion: subtle transitions, hover elevation, KPI animation feel, pulse only for live/critical states.
+  - Real-time feeling: live indicators, updating metrics, pulse alerts, realtime notification affordances.
+- New admin idea:
+  - Add action `Đánh giá tình hình` on major tabs like Dashboard, Orders, Products.
+  - Assessment must be derived from real metrics already loaded from DB/API, not mock text.
+  - First implementation can be deterministic rule-based synthesis on frontend from real backend analytics.
+  - Later extension can move this synthesis to backend/AI service for richer narrative and auditability.
+- Implementation reminder:
+  - Analyze current pages first, then refactor component structure.
+  - Prefer reusable analytics/admin widgets and shared design tokens in `client-seller`.
+  - Keep backend/API compatibility where possible; use derived/demo operational metrics from available data if endpoints do not expose all requested intelligence yet.
+  - If context is lost, reread this section before continuing.
+
 - Feature mới: chatbot bán hàng public cho website thời trang AURA.
 - Backend route public:
   - `POST /api/chatbot/sessions`

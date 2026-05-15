@@ -470,7 +470,7 @@ export function OrderDetailClient({
 
               <section className="mt-6 grid gap-px bg-black/10 dark:bg-white/10 sm:grid-cols-2">
                 <div className="bg-[#f7f3ec] p-5 dark:bg-neutral-950">
-                  <h3 className="luxury-eyebrow">Payment</h3>
+                  <h3 className="luxury-eyebrow">Thanh toán</h3>
                   <div className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                     <p className="text-neutral-900 dark:text-white">
                       {order.payment.method ?? "—"}

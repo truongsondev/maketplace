@@ -11,7 +11,7 @@ export function useCreatePayosPaymentLink() {
     mutationFn: (payload: CreatePayosPaymentLinkRequest) =>
       payosPaymentService.createPaymentLink(payload),
     onError: (err: ApiErrorResponse) => {
-      toast.error("Khong the khoi tao thanh toan PayOS", {
+      toast.error("Không thể khởi tạo thanh toán PayOS", {
         description: err?.error?.message ?? "Vui long thu lai sau.",
       });
     },

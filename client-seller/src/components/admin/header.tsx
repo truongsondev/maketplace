@@ -1,4 +1,4 @@
-import { Bell, LogOut, Search, X } from "lucide-react";
+import { Bell, Command, LogOut, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -98,16 +98,12 @@ export function Header() {
   const formatRelativeTime = (value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "Vừa xong";
-
-    const diff = Math.max(0, Date.now() - date.getTime());
-    const minute = 60_000;
-    const hour = minute * 60;
-    const day = hour * 24;
-
-    if (diff < minute) return "Vừa xong";
-    if (diff < hour) return `${Math.floor(diff / minute)} phút trước`;
-    if (diff < day) return `${Math.floor(diff / hour)} giờ trước`;
-    return `${Math.floor(diff / day)} ngày trước`;
+    return date.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const resolveNotificationTarget = (notification: AdminNotificationItem) => {
@@ -129,7 +125,7 @@ export function Header() {
     // Low-stock notification: route to products page, focus low stock list and prefill SKU search when present.
     if (/Canh bao ton kho thap/i.test(content)) {
       const params = new URLSearchParams({ stockStatus: "low" });
-      const skuMatch = content.match(/SKU:\s*([^\)\s]+)/i);
+      const skuMatch = content.match(/SKU:\s*([^\s)]+)/i);
       if (skuMatch?.[1]) {
         params.set("search", skuMatch[1]);
       }
@@ -143,7 +139,7 @@ export function Header() {
     content.replace(/^\[ORDER_RETURN\|([^\]]+)\]\s*/, "");
 
   return (
-    <header className="bg-white border-b border-gray-200 px-8 py-4">
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur-xl lg:px-8">
       <div className="flex items-center gap-6">
         <div className="flex-1 min-w-0">
           {isSearchOpen ? (
@@ -178,9 +174,15 @@ export function Header() {
               </button>
             </div>
           ) : (
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              {getPageTitle()}
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-slate-950">
+                {getPageTitle()}
+              </h2>
+              <span className="hidden rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700 sm:inline-flex">
+                <Command className="mr-1.5 size-3.5" />
+                Lớp thông tin vận hành
+              </span>
+            </div>
           )}
         </div>
 
@@ -190,7 +192,7 @@ export function Header() {
               type="button"
               onClick={() => setIsSearchOpen(true)}
               aria-label="Mở tìm kiếm"
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="rounded-xl p-2 text-slate-600 transition-colors hover:bg-slate-100"
               title="Tìm kiếm"
             >
               <Search className="w-6 h-6" />
@@ -200,19 +202,19 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setIsNotificationsOpen((prev) => !prev)}
-                className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="relative rounded-xl p-2 text-slate-600 transition-colors hover:bg-slate-100"
                 title="Thông báo"
               >
                 <Bell className="w-6 h-6" />
                 {unreadCount > 0 ? (
-                  <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 ) : null}
               </button>
 
               {isNotificationsOpen ? (
-                <div className="absolute right-0 mt-2 w-90 max-w-[90vw] bg-white border border-gray-200 rounded-lg shadow-lg z-30">
+                <div className="absolute right-0 z-30 mt-2 w-90 max-w-[90vw] rounded-2xl border border-slate-200 bg-white shadow-xl">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-900">
                       Thông báo
@@ -275,20 +277,20 @@ export function Header() {
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-semibold text-white">
                 {user ? getInitials(user.fullName) : "A"}
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">
+                <p className="text-sm font-semibold text-slate-950">
                   {user?.fullName || "Quản trị viên"}
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-slate-500">
                   {user?.roles?.join(", ") || "ADMIN"}
                 </p>
               </div>
               <button
                 onClick={handleLogout}
-                className="ml-2 p-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+                className="ml-2 rounded-xl p-2 text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
                 title="Đăng xuất"
               >
                 <LogOut className="w-5 h-5" />

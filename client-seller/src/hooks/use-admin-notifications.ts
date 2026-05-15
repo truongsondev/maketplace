@@ -123,7 +123,7 @@ export function useAdminNotifications() {
             }),
         );
         toast.success(payload.content);
-      } catch (_error) {
+      } catch {
         // Ignore malformed SSE payloads and keep stream alive.
       }
     };

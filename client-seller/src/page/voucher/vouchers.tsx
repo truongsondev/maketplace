@@ -1,12 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Header, Sidebar } from "@/components/admin";
+import {
+  AlertItem,
+  Header,
+  InsightCard,
+  LivePill,
+  MetricBar,
+  OpsCard,
+  SectionHeading,
+  Sidebar,
+} from "@/components/admin";
 import { cloudinaryService, voucherService } from "@/services/api";
 import type {
   VoucherItem,
   VoucherType,
   VoucherUpsertCommand,
 } from "@/types/api";
+import { BadgePercent, PiggyBank, ShieldAlert, TrendingUp } from "lucide-react";
 
 function toDateTimeLocalValue(value: string): string {
   const date = new Date(value);
@@ -293,13 +303,106 @@ export default function VouchersPage() {
     await loadVouchers();
   };
 
+  const activeCount = items.filter((item) => getVoucherDisplayStatus(item) === "active").length;
+  const expiredCount = items.filter((item) => getVoucherDisplayStatus(item) === "expired").length;
+  const depletedCount = items.filter((item) => getVoucherDisplayStatus(item) === "depleted").length;
+  const totalUsage = items.reduce((sum, item) => sum + item.usedCount, 0);
+  const maxUsageTotal = items.reduce((sum, item) => sum + (item.maxUsage ?? item.usedCount), 0);
+  const usageRate = maxUsageTotal ? Math.round((totalUsage / maxUsageTotal) * 100) : 0;
+  const mostUsedVoucher = [...items].sort((a, b) => b.usedCount - a.usedCount)[0];
+  const abuseRisk = items.filter((item) => item.userUsageLimit && item.userUsageLimit > 3).length;
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-9xl mx-auto space-y-6">
+        <main className="min-w-0 flex-1 p-6 lg:p-8">
+          <div className="mx-auto max-w-375 space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#ecfeff,#fff_34%,#f8fafc)] p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+                    Hiệu suất khuyến mãi
+                  </p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-950">
+                    Bảng hiệu suất khuyến mãi
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Đánh giá hiệu quả voucher theo usage, cost proxy, ROI risk và khả năng abuse trước khi chỉnh form.
+                  </p>
+                </div>
+                  <LivePill label="Giám sát khuyến mãi" />
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+              <OpsCard>
+                <SectionHeading
+                  title="Phân tích voucher"
+                  description="Tín hiệu business của promotion, không chỉ trạng thái bật/tắt."
+                />
+                <div className="space-y-4">
+                  <MetricBar label="Tỉ lệ sử dụng" value={usageRate} max={100} tone={usageRate > 85 ? "warning" : "info"} detail={`${usageRate}%`} />
+                  <MetricBar label="Voucher đang hoạt động" value={activeCount} max={Math.max(items.length, 1)} tone="good" detail={`${activeCount}/${items.length}`} />
+                  <MetricBar label="Hết hạn/hết lượt" value={expiredCount + depletedCount} max={Math.max(items.length, 1)} tone="neutral" detail={`${expiredCount + depletedCount}`} />
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <InsightCard
+                    tone="good"
+                    priority="Hiệu quả nhất"
+                    metric={mostUsedVoucher?.code ?? "—"}
+                    title="Voucher hiệu quả nhất theo lượt dùng"
+                    description={mostUsedVoucher ? `${mostUsedVoucher.code} có ${mostUsedVoucher.usedCount} lượt dùng. Cần đối chiếu revenue generated và discount cost.` : "Chưa có voucher được dùng."}
+                  />
+                  <InsightCard
+                    tone="warning"
+                    priority="Ảnh hưởng lợi nhuận"
+                    metric="ROI"
+                    title="ROI cần tính cả discount cost"
+                    description="Hiện có usage/cap; khi backend trả revenue generated, card sẽ xác định voucher lỗ nhất."
+                  />
+                </div>
+              </OpsCard>
+
+              <OpsCard className="border-amber-200 bg-gradient-to-br from-white to-amber-50">
+                <SectionHeading
+                  title="Điểm nổi bật thông minh"
+                  description="Các promotion cần review trước khi chạy campaign."
+                />
+                <div className="grid gap-3">
+                  <AlertItem
+                    tone={depletedCount > 0 ? "warning" : "good"}
+                    icon={BadgePercent}
+                    title={`${depletedCount} voucher hết lượt`}
+                    description="Voucher depleted cần tắt hoặc mở rộng quota có kiểm soát."
+                    action="Xem danh sách"
+                  />
+                  <AlertItem
+                    tone={abuseRisk > 0 ? "danger" : "info"}
+                    icon={ShieldAlert}
+                    title={`${abuseRisk} voucher có rủi ro lạm dụng`}
+                    description="User usage limit cao có thể làm xấu profit nếu không gắn segment."
+                    action="Review giới hạn"
+                  />
+                  <AlertItem
+                    tone="info"
+                    icon={TrendingUp}
+                    title="Doanh thu tạo ra cần xem sâu"
+                    description="Liên kết voucher với đơn hàng giúp admin biết tăng doanh thu thật hay chỉ tăng giảm giá."
+                    action="Nối với đơn hàng"
+                  />
+                  <AlertItem
+                    tone="warning"
+                    icon={PiggyBank}
+                    title="Ảnh hưởng lợi nhuận chưa là chỉ số chính"
+                    description="Nên bổ sung doanh thu ròng/hiệu quả đầu tư khuyến mãi từ backend để ra quyết định ngân sách."
+                    action="Đánh dấu việc cần làm"
+                  />
+                </div>
+              </OpsCard>
+            </section>
+
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 {editingItem

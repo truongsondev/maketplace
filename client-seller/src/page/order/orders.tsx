@@ -1,4 +1,12 @@
-import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
+import {
+  AlertItem,
+  DateRangeFilter,
+  Header,
+  InsightCard,
+  LivePill,
+  SituationAssessmentPanel,
+  Sidebar,
+} from "@/components/admin";
 import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
 import { orderService } from "@/services/api";
 import type {
@@ -12,6 +20,14 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import {
+  Ban,
+  Brain,
+  Clock3,
+  CreditCard,
+  RotateCcw,
+  ShieldAlert,
+} from "lucide-react";
 
 type RowActionItem = {
   key: string;
@@ -184,7 +200,7 @@ function paymentStatusText(status?: string | null) {
 function formatShippingAddress(order: AdminOrderListItem) {
   const shipping = order.shipping;
   if (!shipping) {
-    return "Chua co du lieu dia chi giao hang";
+    return "Chưa có dữ liệu địa chỉ giao hàng";
   }
 
   const parts = [
@@ -198,7 +214,7 @@ function formatShippingAddress(order: AdminOrderListItem) {
 
   return parts.length > 0
     ? parts.join(", ")
-    : "Chua co du lieu dia chi giao hang";
+    : "Chưa có dữ liệu địa chỉ giao hàng";
 }
 
 function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
@@ -346,6 +362,7 @@ export default function OrdersPage() {
   >(undefined);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [showAssessment, setShowAssessment] = useState(false);
 
   const tabs = useMemo(
     () => [
@@ -650,12 +667,59 @@ export default function OrdersPage() {
     }
   };
 
+  const pendingReturnCount = orders.filter((order) =>
+    order.returns?.details?.some((item) => item.status === "RT_REQUESTED"),
+  ).length;
+  const cancelRequestCount = orders.filter(
+    (order) => order.cancelRequest?.status === "REQUESTED",
+  ).length;
+  const failedPaymentCount = orders.filter((order) =>
+    ["FAILED", "EXPIRED"].includes(
+      order.payment.status ?? order.payment.transactionStatus ?? "",
+    ),
+  ).length;
+  const suspiciousOrderCount = orders.filter(
+    (order) =>
+      Number(order.totalPrice) > 2_000_000 ||
+      order.cancelRequest ||
+      order.returnStatus === "REQUESTED",
+  ).length;
+  const ordersAssessment = {
+    summary:
+      counts.pending > 0 || cancelRequestCount > 0 || failedPaymentCount > 0
+        ? "Đơn hàng đang có áp lực xử lý vận hành, nên ưu tiên giảm hàng đợi trước khi nói đến tối ưu tăng trưởng."
+        : "Tình hình đơn hàng đang tương đối ổn định, có thể chuyển trọng tâm sang tối ưu tốc độ và trải nghiệm chi tiết hơn.",
+    items: [
+      {
+        title: "Áp lực hàng đợi",
+        detail: `Có ${counts.pending} đơn chờ xác nhận, ${cancelRequestCount} yêu cầu hủy và ${pendingReturnCount} yêu cầu trả hàng đang chờ xử lý.`,
+        tone:
+          counts.pending > 0 || cancelRequestCount > 0
+            ? ("warning" as const)
+            : ("good" as const),
+      },
+      {
+        title: "Rủi ro thanh toán",
+        detail: `Hệ thống ghi nhận ${failedPaymentCount} trường hợp thanh toán thử lại hoặc thất bại trong tập đơn hiện tại.`,
+        tone: failedPaymentCount > 0 ? ("danger" as const) : ("good" as const),
+      },
+      {
+        title: "Đơn cần soi kỹ",
+        detail:
+          suspiciousOrderCount > 0
+            ? `Có ${suspiciousOrderCount} đơn giá trị cao hoặc có tín hiệu hủy/trả hàng, nên mở chi tiết trước để giảm sai sót xử lý.`
+            : "Chưa thấy cụm đơn rủi ro cao nổi bật trong danh sách hiện tại.",
+        tone: "info" as const,
+      },
+    ],
+  };
+
   return (
-    <div className="flex h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+        <main className="min-w-0 flex-1 p-6 lg:p-8">
           <div className="mx-auto max-w-375">
             <section className="rounded-3xl border border-slate-200 bg-linear-to-r from-white via-white to-cyan-50 px-6 py-6 shadow-sm">
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -667,9 +731,18 @@ export default function OrdersPage() {
                     Quản lý đơn hàng
                   </h1>
                   <p className="mt-2 text-sm text-slate-600">
-                    Theo dõi luồng đơn và xử lý nhanh các hành động vận hành.
+                    Hàng đợi vận hành ưu tiên SLA, hủy/hoàn tiền, rủi ro thanh toán và đơn cần hành động ngay.
                   </p>
-                  <div className="mt-4">
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAssessment((prev) => !prev)}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                    >
+                      <Brain className="size-4" />
+                      {showAssessment ? "Ẩn đánh giá tình hình" : "Đánh giá tình hình"}
+                    </button>
+                    <LivePill label="Hàng đợi trực tuyến" />
                     <DateRangeFilter value={range} onChange={setRange} />
                   </div>
                 </div>
@@ -699,6 +772,92 @@ export default function OrdersPage() {
                       {counts.canceled}
                     </p>
                   </div>
+                </div>
+              </div>
+            </section>
+
+            {showAssessment ? (
+              <section className="mt-5">
+                <SituationAssessmentPanel
+                  title="Đánh giá tình hình tab Đơn hàng"
+                  summary={ordersAssessment.summary}
+                  items={ordersAssessment.items}
+                />
+              </section>
+            ) : null}
+
+            <section className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50 p-5 shadow-sm">
+                <div className="mb-4">
+                  <p className="text-sm font-bold text-slate-950">
+                    Hàng đợi ưu tiên
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Những nhóm đơn nên xử lý trước bảng danh sách.
+                  </p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <AlertItem
+                    tone={counts.pending > 0 ? "warning" : "good"}
+                    icon={Clock3}
+                    title={`${counts.pending} đơn cần xác nhận`}
+                    description="Hàng đợi SLA chính. Xác nhận chậm làm tăng rủi ro hủy và mất niềm tin."
+                    action="Lọc chờ xác nhận"
+                    onClick={() => setTab("pending")}
+                  />
+                  <AlertItem
+                    tone={cancelRequestCount > 0 ? "danger" : "good"}
+                    icon={Ban}
+                    title={`${cancelRequestCount} yêu cầu hủy chưa xử lý`}
+                    description="Paid cancel cần quyết định approve/reject và theo dõi hoàn tiền."
+                    action="Xem trong danh sách"
+                  />
+                  <AlertItem
+                    tone={pendingReturnCount > 0 ? "warning" : "good"}
+                    icon={RotateCcw}
+                    title={`${pendingReturnCount} yêu cầu trả hàng pending`}
+                    description="Refund pending lâu ảnh hưởng SLA dịch vụ và trải nghiệm khách."
+                    action="Mở chi tiết đơn"
+                  />
+                  <AlertItem
+                    tone={failedPaymentCount > 0 ? "danger" : "info"}
+                    icon={CreditCard}
+                    title={`${failedPaymentCount} thanh toán thử lại/thất bại`}
+                    description="Theo dõi lỗi thanh toán để phát hiện webhook hoặc phương thức rủi ro."
+                    action="Kiểm tra rủi ro thanh toán"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="rounded-2xl bg-slate-950 p-3 text-white">
+                    <ShieldAlert className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-950">
+                      Chỉ báo rủi ro
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      Giá trị cao, hủy/trả hàng và thanh toán thất bại.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-3">
+                  <InsightCard
+                    tone={suspiciousOrderCount > 0 ? "warning" : "good"}
+                    priority="Điểm rủi ro"
+                    metric={`${suspiciousOrderCount} đơn`}
+                    title="Đơn có tín hiệu cần review"
+                    description="Đơn giá trị cao, có yêu cầu hủy/trả hoặc trạng thái bất thường nên được mở detail trước."
+                  />
+                  <InsightCard
+                    tone="info"
+                    priority="Quy trình"
+                    metric="Trực tiếp"
+                    title="Action chính không nên nằm sau menu ..."
+                    description="Xác nhận, bàn giao shipper, duyệt/từ chối và hoàn tiền được giữ trực tiếp trên hàng hoặc chi tiết."
+                  />
                 </div>
               </div>
             </section>
@@ -1355,15 +1514,15 @@ export default function OrdersPage() {
                 <p className="mt-1 text-sm text-slate-700">
                   {detailModal.shipping?.phone ??
                     detailModal.user.phone ??
-                    "Khong co so dien thoai"}
+                    "Không có số điện thoại"}
                 </p>
                 <p className="mt-1 text-sm text-slate-700">
                   {formatShippingAddress(detailModal)}
                 </p>
                 {detailModal.shipping?.source === "USER_PROFILE_FALLBACK" ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Ghi chu: hien thi theo profile user do chua co dia chi luu
-                    cho don.
+                    Ghi chú: hiển thị theo hồ sơ người dùng do chưa có địa chỉ lưu
+                    cho đơn.
                   </p>
                 ) : null}
               </div>
@@ -1517,7 +1676,7 @@ export default function OrdersPage() {
                                 />
                               ) : (
                                 <span className="text-[11px] text-slate-500">
-                                  No img
+                                  Chưa có ảnh
                                 </span>
                               )}
                             </div>

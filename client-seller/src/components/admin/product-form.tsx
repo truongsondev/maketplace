@@ -445,7 +445,7 @@ export function ProductForm({
           </p>
         </div>
 
-        {/* Product Image Gallery */}
+        {/* Thư viện ảnh sản phẩm */}
         {formData.productImages.length > 0 && (
           <div className="mt-4">
             <div className="grid grid-cols-4 gap-3">
@@ -618,7 +618,7 @@ export function ProductForm({
             </p>
           </div>
 
-          {/* Image Gallery for Active Variant */}
+          {/* Thư viện ảnh cho biến thể đang chọn */}
           {activeVariant && activeVariant.images.length > 0 && (
             <div className="mt-4">
               <h4 className="text-sm font-medium text-gray-700 mb-3">

@@ -1,9 +1,20 @@
-import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
+import {
+  AlertItem,
+  DateRangeFilter,
+  Header,
+  InsightCard,
+  LivePill,
+  MetricBar,
+  OpsCard,
+  SectionHeading,
+  Sidebar,
+} from "@/components/admin";
 import { logsService } from "@/services/api";
 import type { AdminLogItem, AuditActorType } from "@/types/api";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
+import { AlertOctagon, DatabaseZap, KeyRound, RadioTower } from "lucide-react";
 
 function formatDate(value: string) {
   const d = new Date(value);
@@ -146,13 +157,80 @@ export default function LogsPage() {
     setPage(1);
   }, [rangeInfo.from, rangeInfo.to, range.option]);
 
+  const criticalLogs = items.filter((log) =>
+    /FAILED|ERROR|EXPIRED|REJECTED|CANCEL|RETURN/i.test(log.action),
+  );
+  const paymentIssues = items.filter((log) => /PAYMENT/i.test(log.action)).length;
+  const authIssues = items.filter((log) => /LOGIN|AUTH|TOKEN/i.test(log.action)).length;
+  const inventoryIssues = items.filter((log) => /STOCK|INVENTORY|PRODUCT/i.test(log.action)).length;
+  const apiFailures = items.filter((log) => /FAILED|ERROR/i.test(log.action)).length;
+  const severityMax = Math.max(paymentIssues, authIssues, inventoryIssues, apiFailures, 1);
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <Header />
-        <main className="p-6">
-          <div className="bg-white rounded-lg shadow-sm border p-4">
+        <main className="min-w-0 p-6 lg:p-8">
+          <div className="mx-auto max-w-375 space-y-6">
+            <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#ecfeff,#fff_34%,#f8fafc)] p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+                    Giám sát vận hành
+                  </p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-950">
+                    Giám sát vận hành
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Nhật ký được nhóm theo severity và domain để critical event nổi bật, sticky và actionable.
+                  </p>
+                </div>
+                <LivePill label="Luồng nhật ký" />
+              </div>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+              <OpsCard className="border-rose-200 bg-gradient-to-br from-white to-rose-50">
+                <SectionHeading
+                  title="Sự kiện nghiêm trọng"
+                  description="Các event failure/cancel/return nên được xử lý như alert, không lẫn trong log thường."
+                />
+                <div className="grid gap-3">
+                  <AlertItem
+                    tone={criticalLogs.length > 0 ? "danger" : "good"}
+                    icon={AlertOctagon}
+                    title={`${criticalLogs.length} sự kiện nghiêm trọng/cảnh báo`}
+                    description="Thất bại, lỗi, hết hạn, bị từ chối, hủy hoặc trả hàng được gom thành hàng đợi rủi ro."
+                    action="Xem log bên dưới"
+                  />
+                  <InsightCard
+                    tone="warning"
+                    priority="Ghim nổi bật"
+                    metric="Nghiêm trọng"
+                    title="Critical event cần sticky/highlight"
+                    description="Bảng phía dưới vẫn giữ toàn bộ audit trail, nhưng critical summary giúp admin không bỏ sót."
+                  />
+                </div>
+              </OpsCard>
+
+              <OpsCard>
+                <SectionHeading title="Issue Grouping" description="Nhóm theo domain vận hành để drill-down nhanh." />
+                <div className="space-y-4">
+                  <MetricBar label="Vấn đề thanh toán" value={paymentIssues} max={severityMax} tone="danger" detail={`${paymentIssues}`} />
+                  <MetricBar label="Vấn đề xác thực" value={authIssues} max={severityMax} tone="warning" detail={`${authIssues}`} />
+                  <MetricBar label="Tồn kho/API sản phẩm" value={inventoryIssues} max={severityMax} tone="info" detail={`${inventoryIssues}`} />
+                  <MetricBar label="API thất bại" value={apiFailures} max={severityMax} tone="danger" detail={`${apiFailures}`} />
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <AlertItem tone="info" icon={RadioTower} title="Thanh toán" description="Webhook, thử lại và hết hạn." action="Lọc" />
+                  <AlertItem tone="warning" icon={KeyRound} title="Xác thực" description="Đăng nhập/token/bảo mật." action="Lọc" />
+                  <AlertItem tone="info" icon={DatabaseZap} title="Tồn kho" description="Tồn kho/sản phẩm/API." action="Lọc" />
+                </div>
+              </OpsCard>
+            </section>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <div className="flex items-center gap-2">
@@ -200,7 +278,7 @@ export default function LogsPage() {
             <div className="mt-3 text-xs text-gray-500">Tổng: {total}</div>
           </div>
 
-          <div className="mt-4 bg-white rounded-lg shadow-sm border overflow-x-auto">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-x-auto">
             {loading ? (
               <div className="p-6 text-gray-600">Đang tải nhật ký…</div>
             ) : items.length === 0 ? (
@@ -261,7 +339,7 @@ export default function LogsPage() {
             )}
           </div>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="flex items-center justify-between">
             <button
               className="border rounded px-3 py-1 text-sm disabled:opacity-50"
               disabled={page <= 1 || loading}
@@ -281,6 +359,7 @@ export default function LogsPage() {
             >
               Sau
             </button>
+          </div>
           </div>
         </main>
       </div>

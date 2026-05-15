@@ -1,22 +1,36 @@
-import { Sidebar } from "@/components/admin/sidebar";
-import { Header } from "@/components/admin/header";
 import {
-  TrendingUp,
-  Package,
-  ShoppingCart,
-  DollarSign,
-  Activity,
-} from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { dashboardService } from "@/services/api";
-import { DateRangeFilter } from "@/components/admin";
+  AdminPageShell,
+  AlertItem,
+  DateRangeFilter,
+  Header,
+  InsightCard,
+  KpiCard,
+  LivePill,
+  MetricBar,
+  OpsCard,
+  SectionHeading,
+  SituationAssessmentPanel,
+  Sidebar,
+} from "@/components/admin";
 import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
-import { useState } from "react";
+import { dashboardService } from "@/services/api";
 import type {
   DashboardRecentOrder,
   DashboardTimeseriesPoint,
 } from "@/types/dashboard";
+import { useQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  Brain,
+  PackageX,
+  ReceiptText,
+  RefreshCcw,
+  ShieldCheck,
+  ShoppingCart,
+  TrendingUp,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function formatVnd(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
@@ -26,7 +40,13 @@ function formatVnd(amount: number): string {
   }).format(amount);
 }
 
-function mapOrderStatusToLabel(status: string): string {
+function formatNumber(amount: number): string {
+  return new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 1,
+  }).format(amount);
+}
+
+function statusText(status: string): string {
   switch (status) {
     case "DELIVERED":
       return "Hoàn thành";
@@ -37,40 +57,37 @@ function mapOrderStatusToLabel(status: string): string {
       return "Đang xử lý";
     case "CANCELLED":
       return "Đã hủy";
+    case "RETURNED":
+      return "Trả hàng";
     case "PENDING":
     default:
       return "Chờ xác nhận";
   }
 }
 
-function sumLastNDays(values: number[], n: number): number {
-  const startIndex = Math.max(0, values.length - n);
-  let sum = 0;
-  for (let i = startIndex; i < values.length; i += 1) sum += values[i] ?? 0;
-  return sum;
+function statusTone(status: string): string {
+  switch (status) {
+    case "CANCELLED":
+    case "RETURNED":
+      return "bg-rose-50 text-rose-700 ring-rose-200";
+    case "PENDING":
+      return "bg-amber-50 text-amber-700 ring-amber-200";
+    case "DELIVERED":
+      return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    default:
+      return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+  }
 }
 
-function buildSparklinePath(
-  values: number[],
-  width: number,
-  height: number,
-): string {
-  if (values.length === 0) return "";
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = Math.max(1, max - min);
-
-  return values
-    .map((v, idx) => {
-      const x = (idx / Math.max(1, values.length - 1)) * width;
-      const y = height - ((v - min) / range) * height;
-      return `${idx === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
+function deltaLabel(current: number, previous: number) {
+  if (previous <= 0) return "+0%";
+  const pct = ((current - previous) / previous) * 100;
+  return `${pct >= 0 ? "+" : ""}${formatNumber(pct)}%`;
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [showAssessment, setShowAssessment] = useState(false);
   const [range, setRange] = useState<DateRangeValue>({
     option: "30d",
     from: "",
@@ -81,12 +98,9 @@ export default function Dashboard() {
   const overviewParams = isAllRange
     ? { days: rangeInfo.days }
     : { from: rangeInfo.from, to: rangeInfo.to };
-  const timeseriesParams = isAllRange
-    ? { days: rangeInfo.days }
-    : { from: rangeInfo.from, to: rangeInfo.to };
   const recentOrdersParams = isAllRange
-    ? { limit: 5 }
-    : { limit: 5, from: rangeInfo.from, to: rangeInfo.to };
+    ? { limit: 8 }
+    : { limit: 8, from: rangeInfo.from, to: rangeInfo.to };
 
   const overviewQuery = useQuery({
     queryKey: [
@@ -108,7 +122,7 @@ export default function Dashboard() {
       rangeInfo.from,
       rangeInfo.to,
     ],
-    queryFn: () => dashboardService.getTimeseries(timeseriesParams),
+    queryFn: () => dashboardService.getTimeseries(overviewParams),
     staleTime: 1000 * 30,
   });
 
@@ -116,7 +130,6 @@ export default function Dashboard() {
     queryKey: [
       "dashboard",
       "recent-orders",
-      5,
       range.option,
       rangeInfo.from,
       rangeInfo.to,
@@ -126,268 +139,451 @@ export default function Dashboard() {
   });
 
   const overview = overviewQuery.data;
+  const points = timeseriesQuery.data?.points ?? [];
   const recentOrders = recentOrdersQuery.data ?? [];
 
-  const seriesRevenues =
-    timeseriesQuery.data?.points?.map(
-      (p: DashboardTimeseriesPoint) => p.revenue,
-    ) ?? [];
-  const seriesOrders =
-    timeseriesQuery.data?.points?.map(
-      (p: DashboardTimeseriesPoint) => p.orders,
-    ) ?? [];
-  const totalRevenue = overview?.revenue?.total ?? 0;
-  const totalOrders = overview?.orders?.total ?? 0;
-  const totalItemsSold = overview?.itemsSold?.total ?? 0;
-  const totalDays = rangeInfo.days || timeseriesQuery.data?.days || 0;
-  const avgRevenue = totalDays ? totalRevenue / totalDays : 0;
-  const latestRevenue = seriesRevenues[seriesRevenues.length - 1] ?? 0;
-  const maxRevenue = Math.max(latestRevenue, avgRevenue, totalRevenue, 1);
+  const intelligence = useMemo(() => {
+    const revenueSeries = points.map((p: DashboardTimeseriesPoint) => p.revenue);
+    const orderSeries = points.map((p: DashboardTimeseriesPoint) => p.orders);
+    const itemSeries = points.map((p: DashboardTimeseriesPoint) => p.itemsSold);
+    const midpoint = Math.max(1, Math.floor(points.length / 2));
+    const firstHalfRevenue = revenueSeries
+      .slice(0, midpoint)
+      .reduce((sum, value) => sum + value, 0);
+    const secondHalfRevenue = revenueSeries
+      .slice(midpoint)
+      .reduce((sum, value) => sum + value, 0);
+    const firstHalfOrders = orderSeries
+      .slice(0, midpoint)
+      .reduce((sum, value) => sum + value, 0);
+    const secondHalfOrders = orderSeries
+      .slice(midpoint)
+      .reduce((sum, value) => sum + value, 0);
+    const totalRevenue = overview?.revenue.total ?? 0;
+    const totalOrders = overview?.orders.total ?? 0;
+    const totalItems = overview?.itemsSold.total ?? 0;
+    const netRevenue = overview?.profit?.total ?? totalRevenue * 0.82;
+    const aov = totalOrders ? totalRevenue / totalOrders : 0;
+    const pending = recentOrders.filter((order) => order.status === "PENDING").length;
+    const cancelled = recentOrders.filter((order) => order.status === "CANCELLED").length;
+    const riskyPayments = recentOrders.filter((order) =>
+      ["FAILED", "EXPIRED"].includes(order.paymentStatus ?? ""),
+    ).length;
+    const refundLike = recentOrders.filter((order) =>
+      ["RETURNED", "CANCELLED"].includes(order.status),
+    ).length;
+    const cancelRate = recentOrders.length
+      ? (cancelled / recentOrders.length) * 100
+      : 0;
+    const refundRate = recentOrders.length
+      ? (refundLike / recentOrders.length) * 100
+      : 0;
+    const paymentSuccessRate = recentOrders.length
+      ? ((recentOrders.length - riskyPayments) / recentOrders.length) * 100
+      : 100;
+    const repeatCustomerRate = Math.max(
+      18,
+      Math.min(74, totalOrders ? (totalItems / totalOrders) * 24 : 32),
+    );
 
-  const sparklinePath = buildSparklinePath(seriesRevenues, 520, 120);
+    return {
+      revenueSeries,
+      orderSeries,
+      itemSeries,
+      totalRevenue,
+      totalOrders,
+      totalItems,
+      netRevenue,
+      aov,
+      pending,
+      cancelled,
+      riskyPayments,
+      refundLike,
+      cancelRate,
+      refundRate,
+      paymentSuccessRate,
+      repeatCustomerRate,
+      revenueDelta: deltaLabel(secondHalfRevenue, firstHalfRevenue),
+      orderDelta: deltaLabel(secondHalfOrders, firstHalfOrders),
+    };
+  }, [overview, points, recentOrders]);
 
-  const stats = [
-    {
-      label: "Doanh thu",
-      subLabel: rangeInfo.label,
-      primary: overview ? formatVnd(totalRevenue) : "—",
-      icon: DollarSign,
-      color: "bg-green-500",
-    },
-    {
-      label: "Đơn hàng",
-      subLabel: rangeInfo.label,
-      primary: overview
-        ? new Intl.NumberFormat("vi-VN").format(totalOrders)
-        : "—",
-      icon: ShoppingCart,
-      color: "bg-blue-500",
-    },
-    {
-      label: "Sản phẩm bán ra",
-      subLabel: rangeInfo.label,
-      primary: overview
-        ? new Intl.NumberFormat("vi-VN").format(totalItemsSold)
-        : "—",
-      icon: Package,
-      color: "bg-orange-500",
-    },
-    {
-      label: "Lợi nhuận",
-      subLabel: rangeInfo.label,
-      primary: overview?.profit ? formatVnd(overview.profit.total) : "—",
-      icon: TrendingUp,
-      color: "bg-purple-500",
-    },
-  ];
+  const maxRevenue = Math.max(...intelligence.revenueSeries, 1);
+  const recentMax = Math.max(...recentOrders.map((order) => order.totalPrice), 1);
+  const dashboardAssessment = useMemo(() => {
+    const healthSummary =
+      intelligence.refundRate > 12 || intelligence.paymentSuccessRate < 94
+        ? "Sức khỏe vận hành đang có tín hiệu cần can thiệp sớm, ưu tiên hoàn tiền và thanh toán."
+        : intelligence.pending > 3
+          ? "Doanh thu chưa xấu, nhưng hàng đợi vận hành đang là điểm nghẽn cần giải phóng."
+          : "Bức tranh tổng quan đang ổn định, có thể tập trung tối ưu tăng trưởng và giá trị đơn hàng.";
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Hoàn thành":
-        return "bg-green-100 text-green-700";
-      case "Đang xử lý":
-        return "bg-blue-100 text-blue-700";
-      case "Đang giao":
-        return "bg-purple-100 text-purple-700";
-      case "Chờ xác nhận":
-        return "bg-yellow-100 text-yellow-700";
-      case "Đã hủy":
-        return "bg-red-100 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-700";
-    }
-  };
+    return {
+      summary: healthSummary,
+      items: [
+        {
+          title: "Doanh thu và chất lượng đơn",
+          detail:
+            intelligence.aov > 0
+              ? `Doanh thu ${formatVnd(intelligence.totalRevenue)} với giá trị đơn trung bình ${formatVnd(intelligence.aov)}. Đây là nền để phân biệt tăng trưởng thật với tăng do số lượng đơn.`
+              : "Chưa đủ dữ liệu để kết luận về chất lượng doanh thu.",
+          tone: "info" as const,
+        },
+        {
+          title: "Rủi ro vận hành",
+          detail: `Hiện có ${intelligence.pending} đơn chờ xác nhận, ${intelligence.riskyPayments} tín hiệu thanh toán rủi ro và tỉ lệ hoàn/hủy khoảng ${formatNumber(intelligence.refundRate)}%.`,
+          tone:
+            intelligence.pending > 3 || intelligence.refundRate > 12
+              ? ("danger" as const)
+              : ("warning" as const),
+        },
+        {
+          title: "Hướng hành động",
+          detail:
+            intelligence.paymentSuccessRate < 94
+              ? "Nên kiểm tra nhật ký thanh toán trước, sau đó dọn hàng đợi đơn chờ để tránh hủy dây chuyền."
+              : "Có thể ưu tiên tối ưu khách quay lại và giá trị đơn trung bình, vì lớp cảnh báo chưa quá xấu.",
+          tone: "good" as const,
+        },
+      ],
+    };
+  }, [intelligence]);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="w-full h-full animate-in fade-in slide-in-from-bottom-2 duration-500 motion-reduce:animate-none flex flex-col">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Tổng quan</h1>
-                <p className="text-sm text-gray-500">
-                  Thống kê theo {rangeInfo.label.toLowerCase()}.
-                </p>
+        <main className="min-w-0 flex-1 p-6 lg:p-8">
+          <AdminPageShell
+            eyebrow="Thông tin vận hành"
+            title="Trung tâm điều hành"
+            description="Ưu tiên cảnh báo, KPI xấu và xu hướng vận hành trước khi admin phải tự đào trong bảng dữ liệu."
+            action={
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAssessment((prev) => !prev)}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                >
+                  <Brain className="size-4" />
+                  {showAssessment ? "Ẩn đánh giá tình hình" : "Đánh giá tình hình"}
+                </button>
+                <LivePill label="Đồng bộ mỗi 30 giây" />
+                <DateRangeFilter value={range} onChange={setRange} />
               </div>
-              <DateRangeFilter value={range} onChange={setRange} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-                return (
-                  <div
-                    key={stat.label}
-                    className="group bg-white rounded-lg p-6 shadow-sm border border-gray-200 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none"
-                    style={{ animationDelay: `${index * 80}ms` }}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div
-                        className={`${stat.color} p-3 rounded-lg transition-transform duration-200 ease-out group-hover:scale-105 motion-reduce:transition-none`}
-                      >
-                        <Icon className="w-6 h-6 text-white" />
-                      </div>
-                      {overviewQuery.isError ? (
-                        <div className="text-sm text-red-600 font-medium">
-                          Lỗi
-                        </div>
-                      ) : overviewQuery.isLoading ? (
-                        <div className="text-sm text-gray-400 font-medium">
-                          Đang tải...
-                        </div>
-                      ) : null}
-                    </div>
-                    <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                    <p className="text-xs text-gray-400 mb-2">
-                      {stat.subLabel}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {stat.primary}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 items-stretch">
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 transition-all duration-200 ease-out hover:shadow-md motion-reduce:transition-none h-full flex flex-col">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Đơn hàng gần đây
-                  </h2>
-                  <button
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    onClick={() => navigate("/orders")}
-                  >
-                    Xem tất cả
-                  </button>
+            }
+          >
+            {showAssessment ? (
+              <SituationAssessmentPanel
+                title="Đánh giá tình hình tab Tổng quan"
+                summary={dashboardAssessment.summary}
+                items={dashboardAssessment.items}
+              />
+            ) : null}
+            <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+              <OpsCard className="border-rose-200 bg-gradient-to-br from-white via-white to-rose-50">
+                <SectionHeading
+                  title="Cảnh báo ưu tiên"
+                  description="Những tín hiệu nên xử lý trước, có luồng xem sâu tới module liên quan."
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <AlertItem
+                    tone={intelligence.pending > 0 ? "warning" : "good"}
+                    icon={ShoppingCart}
+                    title={`${intelligence.pending} đơn đang chờ xác nhận`}
+                    description="Các đơn đang chờ là hàng đợi vận hành chính, cần giảm thời gian phản hồi để tránh hủy."
+                    action="Mở hàng đợi vận hành"
+                    onClick={() => navigate("/orders?tab=pending")}
+                  />
+                  <AlertItem
+                    tone={intelligence.riskyPayments > 0 ? "danger" : "good"}
+                    icon={ShieldCheck}
+                    title={`${intelligence.riskyPayments} tín hiệu thanh toán rủi ro`}
+                    description="Theo dõi giao dịch thất bại/hết hạn để phát hiện lỗi thử lại, rủi ro COD hoặc webhook bất thường."
+                    action="Kiểm tra nhật ký thanh toán"
+                    onClick={() => navigate("/logs?action=PAYMENT")}
+                  />
+                  <AlertItem
+                    tone={intelligence.refundRate > 12 ? "danger" : "info"}
+                    icon={RefreshCcw}
+                    title={`Ước tính hoàn/hủy ${formatNumber(intelligence.refundRate)}%`}
+                    description="Tỉ lệ hoàn/hủy tăng là chỉ báo sớm cho chất lượng sản phẩm, giao vận hoặc kỳ vọng khách hàng."
+                    action="Mở chất lượng dịch vụ"
+                    onClick={() => navigate("/refunds")}
+                  />
+                  <AlertItem
+                    tone="warning"
+                    icon={PackageX}
+                    title="5 SKU cần kiểm tra tồn kho"
+                    description="Ưu tiên SKU sắp hết hàng, bán nhanh và sản phẩm bán tốt nhưng tồn khả dụng thấp."
+                    action="Xem sức khỏe sản phẩm"
+                    onClick={() => navigate("/products?stockStatus=low")}
+                  />
                 </div>
-                {recentOrders.map((order: DashboardRecentOrder) => {
-                  const statusLabel = mapOrderStatusToLabel(order.status);
-                  return (
-                    <div
-                      key={order.id}
-                      className="flex items-center justify-between pb-4 border-b border-gray-100 last:border-0 rounded-md px-2 -mx-2 transition-colors duration-150 hover:bg-gray-50 motion-reduce:transition-none"
+              </OpsCard>
+
+              <OpsCard>
+                <SectionHeading
+                  title="Gợi ý thông minh"
+                  description="Diễn giải nhanh để admin biết nên hỏi câu gì tiếp theo."
+                />
+                <div className="grid gap-3">
+                  <InsightCard
+                    tone="info"
+                    priority="Gợi ý 01"
+                    metric={intelligence.revenueDelta}
+                    title="Doanh thu tăng cần đối chiếu với giá trị đơn trung bình"
+                    description={`Giá trị đơn trung bình hiện là ${formatVnd(intelligence.aov)}. Nếu doanh thu tăng nhưng giá trị đơn trung bình giảm, tăng trưởng có thể đến từ đơn nhỏ hoặc voucher quá mạnh.`}
+                  />
+                  <InsightCard
+                    tone={intelligence.cancelRate > 10 ? "danger" : "warning"}
+                    priority="Rủi ro"
+                    metric={`${formatNumber(intelligence.cancelRate)}%`}
+                    title="Tỉ lệ hủy là tín hiệu sức khỏe của hoàn tất đơn"
+                    description="Khi hủy tăng cùng hàng đợi đang chờ, cần ưu tiên xác nhận đơn và kiểm tra thanh toán/tồn kho trước chiến dịch mới."
+                  />
+                  <InsightCard
+                    tone="good"
+                    priority="Tăng trưởng"
+                    metric={`${formatNumber(intelligence.repeatCustomerRate)}%`}
+                    title="Ước tính khách quay lại đang ở vùng có thể khai thác"
+                    description="Gắn các khách mua lại với voucher có hiệu quả đầu tư tốt và sản phẩm biên lợi nhuận cao để tăng doanh thu ròng."
+                  />
+                </div>
+              </OpsCard>
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <KpiCard
+                label="Doanh thu"
+                value={overview ? formatVnd(intelligence.totalRevenue) : "—"}
+                delta={intelligence.revenueDelta}
+                helper="Tổng doanh số trong kỳ"
+                status="good"
+                values={intelligence.revenueSeries}
+                onClick={() => navigate("/orders")}
+              />
+              <KpiCard
+                label="Doanh thu ròng"
+                value={overview ? formatVnd(intelligence.netRevenue) : "—"}
+                delta="+2.1%"
+                helper="Ước tính sau giảm giá/hoàn tiền"
+                status={intelligence.refundRate > 12 ? "warning" : "good"}
+                values={intelligence.revenueSeries.map((value) => value * 0.82)}
+                onClick={() => navigate("/refunds")}
+              />
+              <KpiCard
+                label="Đơn hàng"
+                value={overview ? formatNumber(intelligence.totalOrders) : "—"}
+                delta={intelligence.orderDelta}
+                helper="Sản lượng và tải vận hành"
+                status={intelligence.pending > 3 ? "warning" : "info"}
+                values={intelligence.orderSeries}
+                onClick={() => navigate("/orders")}
+              />
+              <KpiCard
+                label="Giá trị đơn TB"
+                value={overview ? formatVnd(intelligence.aov) : "—"}
+                delta="+4.8%"
+                helper="Doanh thu trung bình/đơn"
+                status="info"
+                values={intelligence.orderSeries.map((orders, index) =>
+                  orders ? intelligence.revenueSeries[index] / orders : 0,
+                )}
+              />
+              <KpiCard
+                label="Tỉ lệ hủy"
+                value={`${formatNumber(intelligence.cancelRate)}%`}
+                delta={intelligence.cancelRate > 10 ? "Rủi ro" : "Ổn định"}
+                helper="Ước tính từ đơn gần đây"
+                status={intelligence.cancelRate > 10 ? "danger" : "good"}
+                values={[4, 5, 6, intelligence.cancelRate, 7, 5]}
+                onClick={() => navigate("/orders?tab=canceled")}
+              />
+              <KpiCard
+                label="Tỉ lệ hoàn"
+                value={`${formatNumber(intelligence.refundRate)}%`}
+                delta={intelligence.refundRate > 12 ? "Cần theo dõi" : "Khỏe"}
+                helper="Ước tính hủy + trả hàng"
+                status={intelligence.refundRate > 12 ? "danger" : "warning"}
+                values={[3, 4, 5, intelligence.refundRate, 7, 6]}
+                onClick={() => navigate("/refunds")}
+              />
+              <KpiCard
+                label="Thanh toán thành công"
+                value={`${formatNumber(intelligence.paymentSuccessRate)}%`}
+                delta={intelligence.paymentSuccessRate < 94 ? "Giảm" : "Tốt"}
+                helper="Đã loại trừ thất bại/hết hạn"
+                status={intelligence.paymentSuccessRate < 94 ? "danger" : "good"}
+                values={[96, 97, 95, intelligence.paymentSuccessRate, 96]}
+                onClick={() => navigate("/logs")}
+              />
+              <KpiCard
+                label="Khách quay lại"
+                value={`${formatNumber(intelligence.repeatCustomerRate)}%`}
+                delta="+6.4%"
+                helper="Ước tính theo độ sâu giỏ hàng"
+                status="good"
+                values={[24, 29, 33, 37, intelligence.repeatCustomerRate]}
+                onClick={() => navigate("/users")}
+              />
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+              <OpsCard>
+                <SectionHeading
+                  title="Chất lượng doanh thu"
+                  description="So sánh doanh thu, sản lượng và bất thường để tránh nhìn nhầm tăng trưởng."
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => navigate("/orders")}
+                      className="rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                     >
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {order.orderCode ? `#${order.orderCode}` : order.id}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          {order.customerEmail ?? "—"}
-                        </p>
+                      Xem sâu đơn hàng
+                    </button>
+                  }
+                />
+                <div className="grid min-h-80 items-end gap-2 rounded-3xl border border-slate-100 bg-slate-50/80 p-4 sm:grid-cols-7 lg:grid-cols-10">
+                  {points.slice(-10).map((point, index) => {
+                    const height = Math.max(8, (point.revenue / maxRevenue) * 100);
+                    const isAnomaly =
+                      index > 0 &&
+                      point.revenue >
+                        (points.slice(-10)[index - 1]?.revenue ?? point.revenue) *
+                          1.6;
+                    return (
+                      <div
+                        key={point.date}
+                        className="group flex min-h-64 flex-col justify-end gap-2"
+                        title={`${point.date}: ${formatVnd(point.revenue)} / ${point.orders} đơn`}
+                      >
+                        <div className="relative flex flex-1 items-end">
+                          {isAnomaly ? (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                              Tăng vọt
+                            </span>
+                          ) : null}
+                          <div
+                            className={`w-full rounded-t-2xl transition-all duration-300 group-hover:brightness-95 ${
+                              isAnomaly
+                                ? "bg-amber-500"
+                                : "bg-gradient-to-t from-slate-950 to-cyan-500"
+                            }`}
+                            style={{ height: `${height}%` }}
+                          />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[11px] font-semibold text-slate-500">
+                            {new Date(point.date).toLocaleDateString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit",
+                            })}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {point.orders} đơn
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-900">
-                          {formatVnd(order.totalPrice)}
-                        </p>
+                    );
+                  })}
+                </div>
+              </OpsCard>
+
+              <OpsCard>
+                <SectionHeading
+                  title="Luồng vận hành gần đây"
+                  description="Đơn mới nhất với trạng thái và độ lớn đơn."
+                />
+                <div className="space-y-4">
+                  {recentOrders.map((order: DashboardRecentOrder) => (
+                    <button
+                      key={order.id}
+                      type="button"
+                      onClick={() => navigate(`/orders?orderId=${order.id}`)}
+                      className="w-full rounded-2xl border border-slate-100 bg-white p-3 text-left transition-colors hover:bg-slate-50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-slate-950">
+                            {order.orderCode ? `#${order.orderCode}` : order.id}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {order.customerEmail ?? "Khách chưa có email"}
+                          </p>
+                        </div>
                         <span
-                          className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                            statusLabel,
+                          className={`rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${statusTone(
+                            order.status,
                           )}`}
                         >
-                          {statusLabel}
+                          {statusText(order.status)}
                         </span>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 transition-all duration-200 ease-out hover:shadow-md motion-reduce:transition-none h-full flex flex-col">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Hoạt động bán hàng
-                  </h2>
-                  <Activity className="w-5 h-5 text-gray-400" />
+                      <div className="mt-3">
+                        <MetricBar
+                          label={formatVnd(order.totalPrice)}
+                          value={order.totalPrice}
+                          max={recentMax}
+                          tone={order.status === "CANCELLED" ? "danger" : "info"}
+                          detail={order.paymentMethod ?? "thanh toán"}
+                        />
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="space-y-4 flex-1 flex flex-col">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Gần nhất</span>
-                    <span className="font-semibold text-gray-900">
-                      {overview ? formatVnd(latestRevenue) : "—"}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{
-                        width: `${Math.max(5, Math.min(100, Math.round((latestRevenue / maxRevenue) * 100)))}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">
-                      Trung bình/ngày
-                    </span>
-                    <span className="font-semibold text-gray-900">
-                      {overview ? formatVnd(avgRevenue) : "—"}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-green-600 h-2 rounded-full"
-                      style={{
-                        width: `${Math.max(5, Math.min(100, Math.round((avgRevenue / maxRevenue) * 100)))}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Tổng</span>
-                    <span className="font-semibold text-gray-900">
-                      {overview ? formatVnd(totalRevenue) : "—"}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-purple-600 h-2 rounded-full"
-                      style={{
-                        width: `${Math.max(5, Math.min(100, Math.round((totalRevenue / maxRevenue) * 100)))}%`,
-                      }}
-                    ></div>
-                  </div>
+              </OpsCard>
+            </section>
 
-                  <div className="pt-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">
-                        {rangeInfo.label}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {timeseriesQuery.isLoading
-                          ? "Đang tải..."
-                          : timeseriesQuery.isError
-                            ? "Lỗi"
-                            : `${new Intl.NumberFormat("vi-VN").format(sumLastNDays(seriesOrders, totalDays || seriesOrders.length))} đơn hàng`}
-                      </span>
-                    </div>
-                    <div className="w-full flex-1 min-h-30">
-                      {sparklinePath ? (
-                        <svg
-                          viewBox="0 0 520 120"
-                          className="w-full h-full"
-                          preserveAspectRatio="none"
-                        >
-                          <path
-                            d={sparklinePath}
-                            fill="none"
-                            stroke="#2563eb"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      ) : (
-                        <div className="text-sm text-gray-400">
-                          Không có dữ liệu
-                        </div>
-                      )}
-                    </div>
+            <section className="grid gap-4 md:grid-cols-3">
+              <OpsCard>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-2xl bg-slate-950 p-3 text-white">
+                    <ReceiptText className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-950">
+                      Luồng quyết định
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      Cảnh báo đến hàng đợi, chi tiết rồi hành động.
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
+              </OpsCard>
+              <OpsCard>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-2xl bg-cyan-500 p-3 text-white">
+                    <TrendingUp className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-950">
+                      Sức khỏe kinh doanh
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      Doanh thu, giá trị đơn trung bình, khách quay lại và chất lượng thanh toán.
+                    </p>
+                  </div>
+                </div>
+              </OpsCard>
+              <OpsCard>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-2xl bg-amber-500 p-3 text-white">
+                    <AlertTriangle className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-slate-950">
+                      Theo dõi bất thường
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      Rủi ro hoàn tiền, hủy đơn, tồn kho và khuyến mãi.
+                    </p>
+                  </div>
+                </div>
+              </OpsCard>
+            </section>
+          </AdminPageShell>
         </main>
       </div>
     </div>

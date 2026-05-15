@@ -56,11 +56,11 @@ export class AddToCartUseCase implements IAddToCartUseCase {
     // 5. Validate stock and max quantity
     const availableStock = variantWithProduct.stockOnHand - variantWithProduct.stockReserved;
 
-    if (availableStock < command.quantity) {
+    if (availableStock < newQuantity) {
       throw new InsufficientStockError({
         variantId: command.variantId,
         sku: variantWithProduct.sku,
-        requested: command.quantity,
+        requested: newQuantity,
         available: availableStock,
       });
     }
@@ -112,6 +112,11 @@ export class AddToCartUseCase implements IAddToCartUseCase {
             variantSku: item.variantInfo.sku,
             variantAttributes: item.variantInfo.attributes,
             quantity: item.quantity,
+            availableStock: item.variantInfo.stockAvailable,
+            maxAllowedQuantity: Math.max(
+              0,
+              Math.min(item.variantInfo.stockAvailable, MAX_QUANTITY_PER_VARIANT),
+            ),
             unitPrice: item.unitPrice,
             subtotal: item.subtotal,
             image: image

@@ -652,7 +652,7 @@ export default function Home() {
               <div className="relative min-h-[520px] overflow-hidden">
                 <Image
                   src={campaignStoryImages[0]}
-                  alt="AURA seasonal campaign"
+                  alt="Chiến dịch mùa của AURA"
                   fill
                   sizes="(max-width: 1024px) 100vw, 58vw"
                   className="object-cover opacity-88"
@@ -676,8 +676,8 @@ export default function Home() {
                 <div className="mt-8 grid gap-px bg-white/16 sm:grid-cols-3">
                   {[
                     ["01", "Chất liệu", "Ưu tiên cảm giác mặc lâu."],
-                    ["02", "Silhouette", "Dáng gọn, dễ phối, không ồn ào."],
-                    ["03", "Occasion", "Từ văn phòng đến cuối tuần."],
+                    ["02", "Phom dáng", "Dáng gọn, dễ phối, không ồn ào."],
+                    ["03", "Hoàn cảnh", "Từ văn phòng đến cuối tuần."],
                   ].map(([index, title, copy]) => (
                     <div key={index} className="bg-neutral-950 p-4">
                       <p className="text-xs text-white/42">{index}</p>

@@ -1,4 +1,14 @@
-import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
+import {
+  AlertItem,
+  DateRangeFilter,
+  Header,
+  InsightCard,
+  LivePill,
+  MetricBar,
+  OpsCard,
+  SectionHeading,
+  Sidebar,
+} from "@/components/admin";
 import { refundService } from "@/services/api";
 import type {
   AdminRefundItem,
@@ -8,6 +18,7 @@ import type {
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { resolveDateRange, type DateRangeValue } from "@/lib/date-range";
+import { AlertTriangle, Banknote, Clock3, Truck } from "lucide-react";
 
 function formatMoney(value: string, currency: string) {
   const n = Number(value);
@@ -153,22 +164,140 @@ export default function RefundsPage() {
     }
   };
 
+  const totalRefunds =
+    aggregations.pending +
+    aggregations.success +
+    aggregations.failed +
+    aggregations.retrying;
+  const failedRate = totalRefunds
+    ? Math.round((aggregations.failed / totalRefunds) * 100)
+    : 0;
+  const pendingTooLong = items.filter((item) => {
+    const requestedAt = new Date(item.requestedAt).getTime();
+    return (
+      item.status === "PENDING" &&
+      Number.isFinite(requestedAt) &&
+      Date.now() - requestedAt > 24 * 60 * 60 * 1000
+    );
+  }).length;
+  const cancelRefunds = items.filter((item) => item.type === "CANCEL_REFUND").length;
+  const returnRefunds = items.filter((item) => item.type === "RETURN_REFUND").length;
+
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <main className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-9xl mx-auto">
-            <div className="flex items-center justify-between mb-6">
+        <main className="min-w-0 flex-1 p-6 lg:p-8">
+          <div className="mx-auto max-w-375">
+            <div className="mb-6 rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,#ecfeff,#fff_34%,#f8fafc)] p-6 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Hoàn tiền</h1>
-                <p className="text-gray-600 mt-1">
-                  Theo dõi và xử lý hoàn tiền đơn hàng
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+                    Giám sát chất lượng dịch vụ
+                  </p>
+                  <h1 className="mt-2 text-3xl font-bold text-slate-950">
+                    Hoàn tiền & chất lượng dịch vụ
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Theo dõi SLA hoàn tiền, lỗi retry và nguyên nhân dịch vụ trước khi xử lý từng dòng.
                 </p>
               </div>
-              <DateRangeFilter value={range} onChange={setRange} />
+                <div className="flex flex-wrap items-center gap-3">
+                  <LivePill label="Giám sát hoàn tiền" />
+                  <DateRangeFilter value={range} onChange={setRange} />
+                </div>
+              </div>
             </div>
+
+            <section className="mb-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+              <OpsCard className="border-rose-200 bg-gradient-to-br from-white to-rose-50">
+                <SectionHeading
+                  title="SLA & cảnh báo thất bại"
+                  description="Ưu tiên refund thất bại, retry và pending quá lâu."
+                />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <AlertItem
+                    tone={aggregations.failed > 0 ? "danger" : "good"}
+                    icon={AlertTriangle}
+                    title={`${aggregations.failed} refund thất bại`}
+                    description="Refund failed cần retry hoặc xử lý thủ công để tránh khiếu nại."
+                    action="Lọc FAILED"
+                    onClick={() => setStatus("FAILED")}
+                  />
+                  <AlertItem
+                    tone={pendingTooLong > 0 ? "warning" : "good"}
+                    icon={Clock3}
+                    title={`${pendingTooLong} refund pending > 24h`}
+                    description="SLA chậm làm xấu trải nghiệm và tăng tải hỗ trợ."
+                    action="Lọc PENDING"
+                    onClick={() => setStatus("PENDING")}
+                  />
+                  <AlertItem
+                    tone={aggregations.retrying > 0 ? "warning" : "info"}
+                    icon={Banknote}
+                    title={`${aggregations.retrying} giao dịch retrying`}
+                    description="Theo dõi ngân hàng/cổng thanh toán để tránh retry vòng lặp."
+                    action="Xem retry queue"
+                    onClick={() => setStatus("RETRYING")}
+                  />
+                  <AlertItem
+                    tone="info"
+                    icon={Truck}
+                    title={`${returnRefunds} refund do trả hàng`}
+                    description="Tín hiệu root-cause liên quan sản phẩm, giao vận hoặc kỳ vọng khách."
+                    action="Lọc return refund"
+                    onClick={() => setType("RETURN_REFUND")}
+                  />
+                </div>
+              </OpsCard>
+
+              <OpsCard>
+                <SectionHeading
+                  title="Phân tích nguyên nhân gốc"
+                  description="Phân rã theo loại refund và trạng thái để đọc chất lượng dịch vụ."
+                />
+                <div className="space-y-4">
+                  <MetricBar
+                    label="Hoàn tiền do hủy"
+                    value={cancelRefunds}
+                    max={Math.max(totalRefunds, 1)}
+                    tone="warning"
+                    detail={`${cancelRefunds} trường hợp`}
+                  />
+                  <MetricBar
+                    label="Hoàn tiền do trả hàng"
+                    value={returnRefunds}
+                    max={Math.max(totalRefunds, 1)}
+                    tone="info"
+                    detail={`${returnRefunds} trường hợp`}
+                  />
+                  <MetricBar
+                    label="Tỉ lệ thất bại"
+                    value={failedRate}
+                    max={100}
+                    tone={failedRate > 10 ? "danger" : "good"}
+                    detail={`${failedRate}%`}
+                  />
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  <InsightCard
+                    tone="warning"
+                    priority="Xu hướng SKU"
+                    metric="Bước tiếp theo"
+                    title="Refund theo SKU/category"
+                    description="Khi API có dimension SKU/category, card này sẽ highlight sản phẩm gây refund bất thường."
+                  />
+                  <InsightCard
+                    tone="info"
+                    priority="Thanh toán"
+                    metric={`${aggregations.retrying}`}
+                    title="Refund theo phương thức thanh toán"
+                    description="Tỉ lệ thử lại/thất bại cao theo phương thức thanh toán là tín hiệu vận hành thanh toán cần xử lý."
+                  />
+                </div>
+              </OpsCard>
+            </section>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
               {stats.map((stat) => (

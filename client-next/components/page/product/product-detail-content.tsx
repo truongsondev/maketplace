@@ -314,7 +314,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
         "Giữ sản phẩm ở nơi khô thoáng, giặt nhẹ và phơi tránh nắng trực tiếp để form bền hơn.",
     },
     {
-      title: "Occasion",
+      title: "Hoàn cảnh sử dụng",
       copy:
         usageOccasionLabels.length > 0
           ? `Phù hợp cho ${usageOccasionLabels.join(", ").toLowerCase()}.`

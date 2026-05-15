@@ -193,16 +193,16 @@ export function ChatbotWidget() {
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="fixed bottom-5 right-5 z-50 inline-flex h-14 items-center gap-3 rounded-full bg-[#111111] px-5 text-sm font-semibold text-white shadow-[0_18px_50px_rgba(0,0,0,0.24)] transition-transform hover:-translate-y-0.5"
+        aria-label={isOpen ? "Đóng tư vấn chọn đồ" : "Mở tư vấn chọn đồ"}
+        className="fixed bottom-5 right-5 z-50 inline-flex size-14 items-center justify-center rounded-full bg-[#111111] text-white shadow-[0_18px_50px_rgba(0,0,0,0.24)] transition-transform hover:-translate-y-0.5"
       >
-        <span className="inline-flex size-8 items-center justify-center rounded-full bg-white/12">
+        <span className="inline-flex size-9 items-center justify-center rounded-full bg-white/12">
           <MessageCircleMore className="size-4" />
         </span>
-        <span className="hidden sm:inline">Tư vấn chọn đồ</span>
       </button>
 
       {isOpen ? (
-        <section className="fixed bottom-24 right-5 z-50 flex h-[min(78vh,700px)] w-[min(calc(100vw-2rem),390px)] flex-col overflow-hidden rounded-[28px] border border-black/10 bg-[#fcfaf7] shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
+        <section className="fixed bottom-24 right-5 z-50 flex h-[min(78vh,700px)] w-[min(calc(100vw-2rem),390px)] flex-col overflow-hidden rounded-[28px] border border-black/10 bg-[#fcfaf7] shadow-[0_28px_80px_rgba(0,0,0,0.22)] sm:bottom-25">
           <div className="relative overflow-hidden bg-[linear-gradient(135deg,#111111_0%,#2b211b_55%,#7a4b30_100%)] px-5 py-4 text-white">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(255,166,77,0.22),transparent_35%)]" />
             <div className="relative flex items-start justify-between gap-4">

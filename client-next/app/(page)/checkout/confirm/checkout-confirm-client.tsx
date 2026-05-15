@@ -435,6 +435,7 @@ export function CheckoutConfirmClient() {
           isDark={isDark}
           onToggleDarkMode={() => setIsDark((prev) => !prev)}
           cartCount={cartCount}
+          variant="solid"
         />
         <main className="flex-1">
           <div className="luxury-container pb-16 pt-10">
@@ -457,19 +458,20 @@ export function CheckoutConfirmClient() {
         isDark={isDark}
         onToggleDarkMode={() => setIsDark((prev) => !prev)}
         cartCount={cartCount}
+        variant="solid"
       />
 
       <main className="flex-1">
         <div className="luxury-container pb-20 pt-34">
           <header className="mb-8">
-            <p className="luxury-eyebrow">Secure checkout</p>
-            <h1 className="luxury-title mt-4">Quiet checkout</h1>
+            <p className="luxury-eyebrow">Thanh toán an toàn</p>
+            <h1 className="luxury-title mt-4">Thanh toán tinh gọn</h1>
             <p className="luxury-copy mt-4 max-w-2xl">
               Hoàn tất đơn hàng trong một không gian yên tĩnh: địa chỉ rõ ràng,
               thanh toán bảo mật và tóm tắt shopping bag luôn ở bên cạnh.
             </p>
             <div className="mt-7 grid gap-px bg-black/10 text-xs uppercase tracking-[0.18em] text-neutral-600 dark:bg-white/10 dark:text-neutral-300 sm:grid-cols-3">
-              {["Bag review", "Delivery edit", "Secure payment"].map(
+              {["Kiểm tra giỏ hàng", "Cập nhật giao hàng", "Thanh toán an toàn"].map(
                 (step, index) => (
                   <div
                     key={step}
@@ -625,7 +627,7 @@ export function CheckoutConfirmClient() {
 
                 <section className="space-y-4">
                   <h2 className="text-xl font-semibold uppercase tracking-[-0.02em] text-neutral-900 dark:text-white">
-                    Payment
+                    Thanh toán
                   </h2>
                   <p className="text-sm leading-6 text-neutral-500 dark:text-neutral-400">
                     Giao dịch được chuyển qua cổng thanh toán bảo mật. AURA
@@ -730,7 +732,7 @@ export function CheckoutConfirmClient() {
                       }
                       className="luxury-button-ghost h-12 w-full px-4 py-0 disabled:cursor-not-allowed disabled:opacity-60 sm:w-28"
                     >
-                      {isValidatingVoucher ? "..." : "Apply"}
+                      {isValidatingVoucher ? "..." : "Áp dụng"}
                     </button>
                     {voucherResult ? (
                       <button

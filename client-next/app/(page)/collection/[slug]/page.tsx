@@ -222,6 +222,7 @@ export default function CategoryCollectionPage() {
         isDark={isDark}
         onToggleDarkMode={() => setIsDark(!isDark)}
         cartCount={cartCount}
+        variant="solid"
       />
 
       <main className="-mt-18.25 flex-1 pb-20 pt-34">

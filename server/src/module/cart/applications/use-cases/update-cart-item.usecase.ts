@@ -39,20 +39,18 @@ export class UpdateCartItemUseCase implements IUpdateCartItemUseCase {
       });
     }
 
-    const delta = command.quantity - item.quantity;
-
-    if (delta > 0) {
+    if (command.quantity > item.quantity) {
       const variant = await this.variantRepository.findByIdWithProduct(item.variantId);
       if (!variant || variant.isDeleted || variant.product.isDeleted) {
         throw new CartItemNotFoundError(command.itemId);
       }
 
       const availableStock = variant.stockOnHand - variant.stockReserved;
-      if (availableStock < delta) {
+      if (availableStock < command.quantity) {
         throw new InsufficientStockError({
           variantId: variant.id,
           sku: variant.sku,
-          requested: delta,
+          requested: command.quantity,
           available: availableStock,
         });
       }
@@ -85,6 +83,11 @@ export class UpdateCartItemUseCase implements IUpdateCartItemUseCase {
             variantSku: cartItem.variantInfo.sku,
             variantAttributes: cartItem.variantInfo.attributes,
             quantity: cartItem.quantity,
+            availableStock: cartItem.variantInfo.stockAvailable,
+            maxAllowedQuantity: Math.max(
+              0,
+              Math.min(cartItem.variantInfo.stockAvailable, MAX_QUANTITY_PER_VARIANT),
+            ),
             unitPrice: cartItem.unitPrice,
             subtotal: cartItem.subtotal,
             image: image

@@ -555,9 +555,9 @@ export default function AddProductPage() {
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar />
-      <main className="flex-1 flex flex-col">
+      <main className="flex min-w-0 flex-1 flex-col">
         <Header />
-        <div className="flex-1 p-8">
+        <div className="min-w-0 flex-1 p-8">
           {/* Breadcrumb */}
           <div className="flex items-center gap-2 mb-8">
             <Link

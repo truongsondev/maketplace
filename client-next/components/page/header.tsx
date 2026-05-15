@@ -63,6 +63,7 @@ interface HeaderProps {
   isDark: boolean;
   onToggleDarkMode: () => void;
   cartCount: number;
+  variant?: "overlay" | "solid";
 }
 
 const FALLBACK_IMAGE =
@@ -115,7 +116,12 @@ function formatNotificationDate(value: string) {
   });
 }
 
-export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
+export function Header({
+  isDark,
+  onToggleDarkMode,
+  cartCount,
+  variant = "overlay",
+}: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [activeRootCategoryId, setActiveRootCategoryId] = useState<
@@ -478,11 +484,15 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
       router.push("/login");
     }
   };
+
+  const shouldUseSolidHeader =
+    variant === "solid" || isScrolled || isSearchOpen || isMenuOpen;
+
   return (
     <>
       <header
         className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-4 transition-all duration-500 lg:px-10 ${
-          isScrolled || isSearchOpen || isMenuOpen
+          shouldUseSolidHeader
             ? "border-b border-black/10 bg-[#f8f4ed]/88 text-neutral-950 shadow-[0_16px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/88 dark:text-white"
             : "border-b border-white/0 bg-transparent text-white"
         }`}

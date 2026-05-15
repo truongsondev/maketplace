@@ -35,7 +35,10 @@ export function CartItemCard({
   onRemove,
 }: CartItemCardProps) {
   const canDecrease = item.quantity > 1 && !isUpdating && !isRemoving;
-  const canIncrease = item.quantity < 10 && !isUpdating && !isRemoving;
+  const canIncrease =
+    item.quantity < item.maxAllowedQuantity && !isUpdating && !isRemoving;
+  const reachedStockLimit =
+    item.maxAllowedQuantity > 0 && item.quantity >= item.maxAllowedQuantity;
 
   return (
     <article
@@ -103,6 +106,12 @@ export function CartItemCard({
                 </span>
               ))}
             </div>
+
+            {reachedStockLimit ? (
+              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
+                Đã đạt số lượng tối đa theo tồn kho hiện tại.
+              </p>
+            ) : null}
           </div>
         </div>
 

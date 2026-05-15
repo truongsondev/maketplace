@@ -60,7 +60,7 @@ export function TeamSection() {
 
         <div className="mt-12 rounded-sm bg-white p-6 shadow-sm dark:bg-neutral-800 md:p-8">
           <h3 className="text-3xl font-black uppercase text-[#374151] dark:text-neutral-100">
-            Outfit đi làm hay đi chơi?
+            Trang phục đi làm hay đi chơi?
           </h3>
           <p className="mt-2 text-sm text-[#6b7280] dark:text-neutral-300">
             Tủ đồ của bạn cần gì, click vào đó. YaMe đã lên set sẵn sàng.
@@ -79,7 +79,7 @@ export function TeamSection() {
               >
                 <Image
                   src={item.imageUrl}
-                  alt={`Outfit ${item.title}`}
+                  alt={`Trang phục ${item.title}`}
                   width={1200}
                   height={900}
                   className="aspect-16/10 w-full object-cover transition-transform duration-700 group-hover:scale-105"
@@ -125,7 +125,7 @@ export function TeamSection() {
               >
                 <Image
                   src={item.imageUrl}
-                  alt={`Outfit ${imageIndex + 1}`}
+                  alt={`Trang phục ${imageIndex + 1}`}
                   width={320}
                   height={420}
                   className="aspect-3/4 w-full object-cover transition-transform duration-500 group-hover:scale-110"

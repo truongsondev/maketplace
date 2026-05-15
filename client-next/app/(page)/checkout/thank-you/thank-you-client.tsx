@@ -199,6 +199,7 @@ export function ThankYouClient() {
         isDark={isDark}
         onToggleDarkMode={() => setIsDark((prev) => !prev)}
         cartCount={cartCount}
+        variant="solid"
       />
 
       <main className="luxury-container flex-1 pb-20 pt-34">

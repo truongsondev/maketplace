@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
-import { categoryService, tagService } from "@/services/api";
-import type { ProductListFilters, Category, Tag } from "@/types/api";
+import { categoryService } from "@/services/api";
+import type { ProductListFilters, Category } from "@/types/api";
 
 interface ProductFiltersProps {
   filters: ProductListFilters;
@@ -18,19 +18,13 @@ export function ProductFilters({
   onFilterChange,
 }: ProductFiltersProps) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [searchQuery, setSearchQuery] = useState(filters.search || "");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [categoriesRes, tagsRes] = await Promise.all([
-          categoryService.getCategories(),
-          tagService.getTags(),
-        ]);
+        const categoriesRes = await categoryService.getCategories();
         setCategories(categoriesRes.data.categories);
-        console.log(tags);
-        setTags(tagsRes.data.tags);
       } catch (error) {
         console.error("Failed to load filter data", error);
       }
@@ -46,10 +40,6 @@ export function ProductFilters({
     }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
-  useEffect(() => {
-    setSearchQuery(filters.search || "");
-  }, [filters.search]);
 
   const handleClearFilters = () => {
     setSearchQuery("");

@@ -3,6 +3,8 @@ import { IGetCartUseCase } from '../ports/input';
 import { ICartRepository, IProductImageRepository } from '../ports/output';
 
 export class GetCartUseCase implements IGetCartUseCase {
+  private static readonly MAX_QUANTITY_PER_VARIANT = 10;
+
   constructor(
     private readonly cartRepository: ICartRepository,
     private readonly productImageRepository: IProductImageRepository,
@@ -35,6 +37,14 @@ export class GetCartUseCase implements IGetCartUseCase {
             variantSku: item.variantInfo.sku,
             variantAttributes: item.variantInfo.attributes,
             quantity: item.quantity,
+            availableStock: item.variantInfo.stockAvailable,
+            maxAllowedQuantity: Math.max(
+              0,
+              Math.min(
+                item.variantInfo.stockAvailable,
+                GetCartUseCase.MAX_QUANTITY_PER_VARIANT,
+              ),
+            ),
             unitPrice: item.unitPrice,
             subtotal: item.subtotal,
             image: image

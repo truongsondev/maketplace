@@ -4,6 +4,8 @@ import { IRemoveCartItemUseCase } from '../ports/input';
 import { ICartRepository, IProductImageRepository } from '../ports/output';
 
 export class RemoveCartItemUseCase implements IRemoveCartItemUseCase {
+  private static readonly MAX_QUANTITY_PER_VARIANT = 10;
+
   constructor(
     private readonly cartRepository: ICartRepository,
     private readonly productImageRepository: IProductImageRepository,
@@ -46,6 +48,14 @@ export class RemoveCartItemUseCase implements IRemoveCartItemUseCase {
             variantSku: cartItem.variantInfo.sku,
             variantAttributes: cartItem.variantInfo.attributes,
             quantity: cartItem.quantity,
+            availableStock: cartItem.variantInfo.stockAvailable,
+            maxAllowedQuantity: Math.max(
+              0,
+              Math.min(
+                cartItem.variantInfo.stockAvailable,
+                RemoveCartItemUseCase.MAX_QUANTITY_PER_VARIANT,
+              ),
+            ),
             unitPrice: cartItem.unitPrice,
             subtotal: cartItem.subtotal,
             image: image
