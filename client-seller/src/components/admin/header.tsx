@@ -1,4 +1,4 @@
-import { Bell, Command, LogOut, Search, X } from "lucide-react";
+import { Bell, Command, LogOut, Search, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -15,6 +15,11 @@ export function Header() {
     markAsRead,
     markAllAsRead,
     isLoading: notificationsLoading,
+    soundEnabled,
+    soundNeedsInteraction,
+    enableSound,
+    disableSound,
+    testSound,
   } = useAdminNotifications();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -115,6 +120,18 @@ export function Header() {
       return `/orders?${search.toString()}`;
     }
 
+    const newOrderMatch = content.match(/\[NEW_ORDER\|([^\]]+)\]/i);
+    if (newOrderMatch?.[1]) {
+      const orderCodeMatch = content.match(/Don hang moi\s*#(\d+)/i);
+      if (orderCodeMatch?.[1]) {
+        const search = new URLSearchParams({ search: orderCodeMatch[1] });
+        return `/orders?${search.toString()}`;
+      }
+
+      const search = new URLSearchParams({ orderId: newOrderMatch[1] });
+      return `/orders?${search.toString()}`;
+    }
+
     // Payment success notification: route to orders page and prefill search by order code.
     const orderCodeMatch = content.match(/Don hang\s*#(\d+)/i);
     if (orderCodeMatch?.[1]) {
@@ -136,7 +153,7 @@ export function Header() {
   };
 
   const displayNotificationContent = (content: string) =>
-    content.replace(/^\[ORDER_RETURN\|([^\]]+)\]\s*/, "");
+    content.replace(/^\[(ORDER_RETURN|NEW_ORDER)\|([^\]]+)\]\s*/, "");
 
   return (
     <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white/90 px-6 py-4 backdrop-blur-xl lg:px-8">
@@ -219,14 +236,62 @@ export function Header() {
                     <h3 className="text-sm font-semibold text-gray-900">
                       Thông báo
                     </h3>
-                    <button
-                      type="button"
-                      onClick={() => markAllAsRead()}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Đánh dấu đã đọc tất cả
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          soundEnabled ? disableSound() : void enableSound()
+                        }
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                          soundEnabled
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-slate-200 bg-slate-50 text-slate-600"
+                        }`}
+                        title={
+                          soundEnabled
+                            ? "Tắt âm thanh thông báo đơn mới"
+                            : "Bật âm thanh thông báo đơn mới"
+                        }
+                      >
+                        {soundEnabled ? (
+                          <Volume2 className="size-3.5" />
+                        ) : (
+                          <VolumeX className="size-3.5" />
+                        )}
+                        {soundEnabled ? "Âm thanh bật" : "Âm thanh tắt"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void testSound()}
+                        className="text-xs text-emerald-700 hover:text-emerald-800 font-medium"
+                      >
+                        Test âm thanh
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => markAllAsRead()}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Đánh dấu đã đọc tất cả
+                      </button>
+                    </div>
                   </div>
+
+                  {soundEnabled && soundNeedsInteraction ? (
+                    <div className="border-b border-amber-100 bg-amber-50 px-4 py-3">
+                      <p className="text-xs font-medium text-amber-800">
+                        Trình duyệt đang chặn autoplay. Bấm nút dưới đây một lần để bật âm thanh thông báo đơn hàng mới.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void enableSound()}
+                        className="mt-2 inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+                      >
+                        <Volume2 className="size-3.5" />
+                        Bật âm thanh
+                      </button>
+                    </div>
+                  ) : null}
 
                   <div className="max-h-95 overflow-auto">
                     {notificationsLoading ? (

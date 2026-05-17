@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { adminNotificationService } from "@/services/api";
 import { useAuthStore } from "@/store/authStore";
+import { useAdminNotificationSound } from "@/hooks/use-admin-notification-sound";
 import type {
   AdminNotificationItem,
   AdminNotificationListResult,
@@ -15,6 +16,11 @@ interface NotificationRealtimePayload {
   content: string;
   isRead: boolean;
   createdAt: string;
+  type?: "PAYMENT_SUCCESS" | "LOW_STOCK" | "CANCEL_REQUEST" | "NEW_ORDER";
+  orderId?: string;
+  orderCode?: string | null;
+  customerName?: string | null;
+  totalAmount?: number;
 }
 
 function buildNextCache(
@@ -47,6 +53,14 @@ function buildNextCache(
 export function useAdminNotifications() {
   const queryClient = useQueryClient();
   const { isAuthenticated, accessToken } = useAuthStore();
+  const {
+    soundEnabled,
+    needsInteraction,
+    enableSound,
+    disableSound,
+    playNewOrderSound,
+    testSound,
+  } = useAdminNotificationSound();
 
   const listQuery = useQuery({
     queryKey: ADMIN_NOTIFICATIONS_QUERY_KEY,
@@ -107,36 +121,69 @@ export function useAdminNotifications() {
 
     const eventSource = new EventSource(streamUrl);
 
+    const applyRealtimePayload = (payload: NotificationRealtimePayload) => {
+      queryClient.setQueryData(
+        ADMIN_NOTIFICATIONS_QUERY_KEY,
+        (prev: AdminNotificationListResult | undefined) =>
+          buildNextCache(prev, {
+            id: payload.id,
+            content: payload.content,
+            isRead: payload.isRead,
+            createdAt: payload.createdAt,
+          }),
+      );
+    };
+
     const upsertFromSseEvent = (event: Event) => {
       try {
         const payload = JSON.parse(
           (event as MessageEvent<string>).data,
         ) as NotificationRealtimePayload;
-        queryClient.setQueryData(
-          ADMIN_NOTIFICATIONS_QUERY_KEY,
-          (prev: AdminNotificationListResult | undefined) =>
-            buildNextCache(prev, {
-              id: payload.id,
-              content: payload.content,
-              isRead: payload.isRead,
-              createdAt: payload.createdAt,
-            }),
-        );
+        applyRealtimePayload(payload);
         toast.success(payload.content);
       } catch {
         // Ignore malformed SSE payloads and keep stream alive.
       }
     };
 
+    const handleNewOrderEvent = (event: Event) => {
+      try {
+        const payload = JSON.parse(
+          (event as MessageEvent<string>).data,
+        ) as NotificationRealtimePayload;
+        applyRealtimePayload(payload);
+
+        toast.success(payload.content, {
+          description: needsInteraction
+            ? "Trinh duyet dang chan autoplay. Bam Bat am thanh de nghe thong bao don moi."
+            : "Don hang moi vua duoc tao.",
+        });
+      } catch {
+        // Keep stream alive on malformed payload.
+      }
+
+      void playNewOrderSound();
+    };
+
     eventSource.addEventListener("payment_success", upsertFromSseEvent);
     eventSource.addEventListener("low_stock", upsertFromSseEvent);
+    eventSource.addEventListener("cancel_request", upsertFromSseEvent);
+    eventSource.addEventListener("new_order", handleNewOrderEvent);
 
     return () => {
       eventSource.removeEventListener("payment_success", upsertFromSseEvent);
       eventSource.removeEventListener("low_stock", upsertFromSseEvent);
+      eventSource.removeEventListener("cancel_request", upsertFromSseEvent);
+      eventSource.removeEventListener("new_order", handleNewOrderEvent);
       eventSource.close();
     };
-  }, [isAuthenticated, accessToken, queryClient]);
+  }, [
+    isAuthenticated,
+    accessToken,
+    queryClient,
+    needsInteraction,
+    playNewOrderSound,
+  ]);
 
   const notifications = useMemo(
     () => listQuery.data?.items ?? [],
@@ -148,6 +195,11 @@ export function useAdminNotifications() {
     unreadCount: listQuery.data?.unreadCount ?? 0,
     isLoading: listQuery.isLoading,
     isFetching: listQuery.isFetching,
+    soundEnabled,
+    soundNeedsInteraction: needsInteraction,
+    enableSound,
+    disableSound,
+    testSound,
     markAsRead: (notificationId: string) =>
       markReadMutation.mutateAsync(notificationId),
     markAllAsRead: () => markAllReadMutation.mutateAsync(),

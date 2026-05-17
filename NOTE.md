@@ -243,3 +243,38 @@
 - Personalized cold-start mới được dùng trending fallback; khi đã có interaction thì không append global/home feed vào personalized.
 - Khi query personalized, session events chỉ được lấy nếu `user_id IS NULL`; tránh user A logout rồi user B login cùng browser bị ăn lịch sử của user A.
 - Frontend React Query key phải chứa `userId` và/hoặc `sessionId` tương ứng endpoint để không reuse cache sai phiên/tài khoản.
+
+# Admin New Order Realtime + Sound Context
+
+- Feature mới: admin nhận realtime notification khi có đơn hàng mới tạo thành công, kèm âm thanh ở `client-seller`.
+- Luồng tạo order hiện tại nằm ở `server/src/module/payment/infrastructure/repositories/prisma-payment.repository.ts`
+  - method `createPendingTransaction()`
+  - đây là nơi tạo `order`, `orderItem`, `payment`, `paymentTransaction`, `auditLog` trong cùng Prisma transaction
+  - `createPendingTransaction()` chỉ tạo pending order, không còn phát `NEW_ORDER`
+  - `NEW_ORDER` hiện được phát trong luồng payment success sau khi PayOS xác nhận `PAID`
+- Realtime admin hiện có sẵn và tiếp tục được tái sử dụng:
+  - API SSE: `GET /api/admin/notifications/stream`
+  - hub: `server/src/module/admin/notifications/infrastructure/realtime/admin-notification-hub.ts`
+  - bảng lưu: `notifications`
+  - frontend hook: `client-seller/src/hooks/use-admin-notifications.ts`
+- Loại event mới:
+  - SSE event name: `new_order`
+  - payload có thêm metadata như `type`, `orderId`, `orderCode`, `customerName`, `totalAmount`, `createdAt`
+- Backend processor mới:
+  - file `server/src/module/admin/notifications/infrastructure/services/admin-new-order-notification.processor.ts`
+  - chỉ gửi cho user có role `ADMIN`
+  - có dedupe Redis key `notify:admin:new-order:{orderId}`
+  - lưu notification DB + push SSE + ghi audit log `ADMIN_NEW_ORDER_NOTIFICATION_SENT`
+- Điểm gọi `NEW_ORDER`:
+  - RabbitMQ consumer `server/src/module/admin/notifications/infrastructure/consumers/admin-payment-success.consumer.ts`
+  - notifier fallback `server/src/module/payment/infrastructure/notifiers/admin-payment-success.notifier.ts`
+  - vì vậy nếu chưa `PAID` thì admin chưa thấy notification/sound `NEW_ORDER`
+- Frontend admin sound:
+  - hook mới `client-seller/src/hooks/use-admin-notification-sound.ts`
+  - setting lưu `localStorage` key `aura-admin:new-order-sound-enabled`
+  - phát âm thanh bằng Web Audio API, không cần asset mp3
+  - nếu browser chặn autoplay thì UI trong dropdown thông báo sẽ yêu cầu user bấm `Bật âm thanh`
+- Header admin đã hỗ trợ:
+  - toggle bật/tắt âm thanh
+  - gợi ý bật âm thanh khi autoplay bị chặn
+  - điều hướng notification `NEW_ORDER` về trang orders

@@ -11,6 +11,11 @@ export interface NotificationRealtimePayload {
   content: string;
   isRead: boolean;
   createdAt: string;
+  type?: 'PAYMENT_SUCCESS' | 'LOW_STOCK' | 'CANCEL_REQUEST' | 'NEW_ORDER';
+  orderId?: string;
+  orderCode?: string | null;
+  customerName?: string | null;
+  totalAmount?: number;
 }
 
 class AdminNotificationHub {
@@ -52,6 +57,14 @@ class AdminNotificationHub {
     for (const client of this.clients.values()) {
       if (client.userId !== userId) continue;
       client.res.write('event: cancel_request\n');
+      client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    }
+  }
+
+  sendNewOrder(userId: string, payload: NotificationRealtimePayload): void {
+    for (const client of this.clients.values()) {
+      if (client.userId !== userId) continue;
+      client.res.write('event: new_order\n');
       client.res.write(`data: ${JSON.stringify(payload)}\n\n`);
     }
   }

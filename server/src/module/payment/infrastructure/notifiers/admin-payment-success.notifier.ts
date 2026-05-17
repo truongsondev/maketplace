@@ -6,14 +6,17 @@ import type {
 import { rabbitMQService } from '../../../../infrastructure/messaging/rabbitmq.service';
 import { createLogger } from '../../../../shared/util/logger';
 import { AdminPaymentNotificationProcessor } from '../../../admin/notifications/infrastructure/services/admin-payment-notification.processor';
+import { AdminNewOrderNotificationProcessor } from '../../../admin/notifications/infrastructure/services/admin-new-order-notification.processor';
 
 const logger = createLogger('AdminPaymentSuccessNotifier');
 
 export class AdminPaymentSuccessNotifier implements IPaymentSuccessNotifier {
   private readonly processor: AdminPaymentNotificationProcessor;
+  private readonly newOrderProcessor: AdminNewOrderNotificationProcessor;
 
   constructor(private readonly prisma: PrismaClient) {
     this.processor = new AdminPaymentNotificationProcessor(prisma);
+    this.newOrderProcessor = new AdminNewOrderNotificationProcessor(prisma);
   }
 
   async notify(input: PaymentSuccessNotification): Promise<void> {
@@ -31,6 +34,12 @@ export class AdminPaymentSuccessNotifier implements IPaymentSuccessNotifier {
       });
 
       await this.processor.process(input);
+      await this.newOrderProcessor.process({
+        orderId: input.orderId,
+        orderCode: input.orderCode,
+        totalAmount: input.amount,
+        paidAt: input.paidAt,
+      });
     }
   }
 }
