@@ -1,6 +1,7 @@
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import path from 'path';
+import { inspect } from 'node:util';
 
 // Define log levels
 const levels = {
@@ -43,7 +44,28 @@ const format = winston.format.combine(
 const consoleFormat = winston.format.combine(
   winston.format.colorize({ all: true }),
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
-  winston.format.printf((info) => `${info.timestamp} ${info.level}: ${info.message}`),
+  winston.format.printf((info) => {
+    const { timestamp, level, message } = info;
+    const meta = Object.fromEntries(
+      Object.entries(info).filter(
+        ([key, value]) =>
+          key !== 'timestamp' && key !== 'level' && key !== 'message' && value !== undefined,
+      ),
+    );
+    const metaKeys = Object.keys(meta);
+    if (metaKeys.length === 0) {
+      return `${timestamp} ${level}: ${message}`;
+    }
+
+    const serializedMeta = inspect(meta, {
+      depth: 5,
+      colors: true,
+      compact: true,
+      breakLength: 140,
+    });
+
+    return `${timestamp} ${level}: ${message} ${serializedMeta}`;
+  }),
 );
 
 // Define transports

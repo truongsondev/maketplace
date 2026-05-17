@@ -27,7 +27,8 @@ export class ReviewAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.body as any)?.orderId;
+    const body = req.body as Record<string, unknown>;
+    const rawOrderId = body.orderId;
     const orderId =
       typeof rawOrderId === 'string' && rawOrderId.trim() ? rawOrderId.trim() : undefined;
 
@@ -43,8 +44,7 @@ export class ReviewAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
-    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const orderId = Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId;
     if (!orderId || typeof orderId !== 'string') {
       throw new BadRequestError('orderId is required');
     }
@@ -59,7 +59,8 @@ export class ReviewAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const orderItemId = String((req.body as any)?.orderItemId || '').trim();
+    const body = req.body as Record<string, unknown>;
+    const orderItemId = String(body.orderItemId || '').trim();
     if (!orderItemId) {
       throw new BadRequestError('orderItemId is required');
     }
@@ -67,9 +68,9 @@ export class ReviewAPI {
     const command: CreateReviewCommand = {
       userId,
       orderItemId,
-      rating: Number((req.body as any)?.rating),
-      comment: (req.body as any)?.comment,
-      images: Array.isArray((req.body as any)?.images) ? (req.body as any).images : [],
+      rating: Number(body.rating),
+      comment: typeof body.comment === 'string' ? body.comment : undefined,
+      images: Array.isArray(body.images) ? body.images : [],
     };
 
     const result = await this.reviewController.createReview(command);

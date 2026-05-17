@@ -101,18 +101,11 @@ export function useAdminNotificationSound() {
     }
   }, [ensureAudio, soundEnabled]);
 
-  const testSound = useCallback(async () => {
-    const enabled = soundEnabled ? true : await enableSound();
-    if (!enabled) return false;
-    return playNewOrderSound();
-  }, [enableSound, playNewOrderSound, soundEnabled]);
-
   return {
     soundEnabled,
     needsInteraction,
     enableSound,
     disableSound,
     playNewOrderSound,
-    testSound,
   };
 }

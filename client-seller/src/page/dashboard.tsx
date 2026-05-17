@@ -1,9 +1,7 @@
 import {
   AdminPageShell,
-  AlertItem,
   DateRangeFilter,
   Header,
-  InsightCard,
   KpiCard,
   LivePill,
   MetricBar,
@@ -22,11 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Brain,
-  PackageX,
   ReceiptText,
-  RefreshCcw,
-  ShieldCheck,
-  ShoppingCart,
   TrendingUp,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -143,7 +137,9 @@ export default function Dashboard() {
   const recentOrders = recentOrdersQuery.data ?? [];
 
   const intelligence = useMemo(() => {
-    const revenueSeries = points.map((p: DashboardTimeseriesPoint) => p.revenue);
+    const revenueSeries = points.map(
+      (p: DashboardTimeseriesPoint) => p.revenue,
+    );
     const orderSeries = points.map((p: DashboardTimeseriesPoint) => p.orders);
     const itemSeries = points.map((p: DashboardTimeseriesPoint) => p.itemsSold);
     const midpoint = Math.max(1, Math.floor(points.length / 2));
@@ -164,8 +160,12 @@ export default function Dashboard() {
     const totalItems = overview?.itemsSold.total ?? 0;
     const netRevenue = overview?.profit?.total ?? totalRevenue * 0.82;
     const aov = totalOrders ? totalRevenue / totalOrders : 0;
-    const pending = recentOrders.filter((order) => order.status === "PENDING").length;
-    const cancelled = recentOrders.filter((order) => order.status === "CANCELLED").length;
+    const pending = recentOrders.filter(
+      (order) => order.status === "PENDING",
+    ).length;
+    const cancelled = recentOrders.filter(
+      (order) => order.status === "CANCELLED",
+    ).length;
     const riskyPayments = recentOrders.filter((order) =>
       ["FAILED", "EXPIRED"].includes(order.paymentStatus ?? ""),
     ).length;
@@ -209,7 +209,10 @@ export default function Dashboard() {
   }, [overview, points, recentOrders]);
 
   const maxRevenue = Math.max(...intelligence.revenueSeries, 1);
-  const recentMax = Math.max(...recentOrders.map((order) => order.totalPrice), 1);
+  const recentMax = Math.max(
+    ...recentOrders.map((order) => order.totalPrice),
+    1,
+  );
   const dashboardAssessment = useMemo(() => {
     const healthSummary =
       intelligence.refundRate > 12 || intelligence.paymentSuccessRate < 94
@@ -267,7 +270,9 @@ export default function Dashboard() {
                   className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Brain className="size-4" />
-                  {showAssessment ? "Ẩn đánh giá tình hình" : "Đánh giá tình hình"}
+                  {showAssessment
+                    ? "Ẩn đánh giá tình hình"
+                    : "Đánh giá tình hình"}
                 </button>
                 <LivePill label="Đồng bộ mỗi 30 giây" />
                 <DateRangeFilter value={range} onChange={setRange} />
@@ -281,79 +286,6 @@ export default function Dashboard() {
                 items={dashboardAssessment.items}
               />
             ) : null}
-            <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-              <OpsCard className="border-rose-200 bg-gradient-to-br from-white via-white to-rose-50">
-                <SectionHeading
-                  title="Cảnh báo ưu tiên"
-                  description="Những tín hiệu nên xử lý trước, có luồng xem sâu tới module liên quan."
-                />
-                <div className="grid gap-3 md:grid-cols-2">
-                  <AlertItem
-                    tone={intelligence.pending > 0 ? "warning" : "good"}
-                    icon={ShoppingCart}
-                    title={`${intelligence.pending} đơn đang chờ xác nhận`}
-                    description="Các đơn đang chờ là hàng đợi vận hành chính, cần giảm thời gian phản hồi để tránh hủy."
-                    action="Mở hàng đợi vận hành"
-                    onClick={() => navigate("/orders?tab=pending")}
-                  />
-                  <AlertItem
-                    tone={intelligence.riskyPayments > 0 ? "danger" : "good"}
-                    icon={ShieldCheck}
-                    title={`${intelligence.riskyPayments} tín hiệu thanh toán rủi ro`}
-                    description="Theo dõi giao dịch thất bại/hết hạn để phát hiện lỗi thử lại, rủi ro COD hoặc webhook bất thường."
-                    action="Kiểm tra nhật ký thanh toán"
-                    onClick={() => navigate("/logs?action=PAYMENT")}
-                  />
-                  <AlertItem
-                    tone={intelligence.refundRate > 12 ? "danger" : "info"}
-                    icon={RefreshCcw}
-                    title={`Ước tính hoàn/hủy ${formatNumber(intelligence.refundRate)}%`}
-                    description="Tỉ lệ hoàn/hủy tăng là chỉ báo sớm cho chất lượng sản phẩm, giao vận hoặc kỳ vọng khách hàng."
-                    action="Mở chất lượng dịch vụ"
-                    onClick={() => navigate("/refunds")}
-                  />
-                  <AlertItem
-                    tone="warning"
-                    icon={PackageX}
-                    title="5 SKU cần kiểm tra tồn kho"
-                    description="Ưu tiên SKU sắp hết hàng, bán nhanh và sản phẩm bán tốt nhưng tồn khả dụng thấp."
-                    action="Xem sức khỏe sản phẩm"
-                    onClick={() => navigate("/products?stockStatus=low")}
-                  />
-                </div>
-              </OpsCard>
-
-              <OpsCard>
-                <SectionHeading
-                  title="Gợi ý thông minh"
-                  description="Diễn giải nhanh để admin biết nên hỏi câu gì tiếp theo."
-                />
-                <div className="grid gap-3">
-                  <InsightCard
-                    tone="info"
-                    priority="Gợi ý 01"
-                    metric={intelligence.revenueDelta}
-                    title="Doanh thu tăng cần đối chiếu với giá trị đơn trung bình"
-                    description={`Giá trị đơn trung bình hiện là ${formatVnd(intelligence.aov)}. Nếu doanh thu tăng nhưng giá trị đơn trung bình giảm, tăng trưởng có thể đến từ đơn nhỏ hoặc voucher quá mạnh.`}
-                  />
-                  <InsightCard
-                    tone={intelligence.cancelRate > 10 ? "danger" : "warning"}
-                    priority="Rủi ro"
-                    metric={`${formatNumber(intelligence.cancelRate)}%`}
-                    title="Tỉ lệ hủy là tín hiệu sức khỏe của hoàn tất đơn"
-                    description="Khi hủy tăng cùng hàng đợi đang chờ, cần ưu tiên xác nhận đơn và kiểm tra thanh toán/tồn kho trước chiến dịch mới."
-                  />
-                  <InsightCard
-                    tone="good"
-                    priority="Tăng trưởng"
-                    metric={`${formatNumber(intelligence.repeatCustomerRate)}%`}
-                    title="Ước tính khách quay lại đang ở vùng có thể khai thác"
-                    description="Gắn các khách mua lại với voucher có hiệu quả đầu tư tốt và sản phẩm biên lợi nhuận cao để tăng doanh thu ròng."
-                  />
-                </div>
-              </OpsCard>
-            </section>
-
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <KpiCard
                 label="Doanh thu"
@@ -415,7 +347,9 @@ export default function Dashboard() {
                 value={`${formatNumber(intelligence.paymentSuccessRate)}%`}
                 delta={intelligence.paymentSuccessRate < 94 ? "Giảm" : "Tốt"}
                 helper="Đã loại trừ thất bại/hết hạn"
-                status={intelligence.paymentSuccessRate < 94 ? "danger" : "good"}
+                status={
+                  intelligence.paymentSuccessRate < 94 ? "danger" : "good"
+                }
                 values={[96, 97, 95, intelligence.paymentSuccessRate, 96]}
                 onClick={() => navigate("/logs")}
               />
@@ -434,7 +368,6 @@ export default function Dashboard() {
               <OpsCard>
                 <SectionHeading
                   title="Chất lượng doanh thu"
-                  description="So sánh doanh thu, sản lượng và bất thường để tránh nhìn nhầm tăng trưởng."
                   action={
                     <button
                       type="button"
@@ -447,11 +380,15 @@ export default function Dashboard() {
                 />
                 <div className="grid min-h-80 items-end gap-2 rounded-3xl border border-slate-100 bg-slate-50/80 p-4 sm:grid-cols-7 lg:grid-cols-10">
                   {points.slice(-10).map((point, index) => {
-                    const height = Math.max(8, (point.revenue / maxRevenue) * 100);
+                    const height = Math.max(
+                      8,
+                      (point.revenue / maxRevenue) * 100,
+                    );
                     const isAnomaly =
                       index > 0 &&
                       point.revenue >
-                        (points.slice(-10)[index - 1]?.revenue ?? point.revenue) *
+                        (points.slice(-10)[index - 1]?.revenue ??
+                          point.revenue) *
                           1.6;
                     return (
                       <div
@@ -496,7 +433,7 @@ export default function Dashboard() {
                   title="Luồng vận hành gần đây"
                   description="Đơn mới nhất với trạng thái và độ lớn đơn."
                 />
-                <div className="space-y-4">
+                <div className="scrollbar-hidden max-h-80 space-y-4 overflow-y-auto pr-1">
                   {recentOrders.map((order: DashboardRecentOrder) => (
                     <button
                       key={order.id}
@@ -526,7 +463,9 @@ export default function Dashboard() {
                           label={formatVnd(order.totalPrice)}
                           value={order.totalPrice}
                           max={recentMax}
-                          tone={order.status === "CANCELLED" ? "danger" : "info"}
+                          tone={
+                            order.status === "CANCELLED" ? "danger" : "info"
+                          }
                           detail={order.paymentMethod ?? "thanh toán"}
                         />
                       </div>
@@ -562,7 +501,8 @@ export default function Dashboard() {
                       Sức khỏe kinh doanh
                     </p>
                     <p className="text-sm text-slate-600">
-                      Doanh thu, giá trị đơn trung bình, khách quay lại và chất lượng thanh toán.
+                      Doanh thu, giá trị đơn trung bình, khách quay lại và chất
+                      lượng thanh toán.
                     </p>
                   </div>
                 </div>

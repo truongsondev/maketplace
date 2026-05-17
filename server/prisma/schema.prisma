@@ -199,7 +199,6 @@ model User {
   phone         String?    @unique @db.VarChar(20)
   passwordHash  String?    @map("password_hash") @db.VarChar(255)
   emailVerified Boolean    @default(false) @map("email_verified")
-  phoneVerified Boolean    @default(false) @map("phone_verified")
   status        UserStatus @default(ACTIVE)
   lastLogin     DateTime?  @map("last_login")
 
@@ -314,9 +313,8 @@ model Role {
 
 /// Bảng trung gian - gán vai trò cho user (n-n)
 model UserRole {
-  userId     String   @map("user_id") @db.VarChar(36)
-  roleId     Int      @map("role_id")
-  assignedAt DateTime @default(now()) @map("assigned_at")
+  userId String @map("user_id") @db.VarChar(36)
+  roleId Int    @map("role_id")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -367,10 +365,6 @@ model Product {
   basePrice   Decimal @map("base_price") @db.Decimal(10, 2)
   /// Trạng thái catalog (đi đường dài). Migrate dần, mặc định ACTIVE.
   status      ProductStatus @default(ACTIVE)
-  /// Cache min/max price (không phải source of truth)
-  minPrice    Decimal? @map("min_price") @db.Decimal(10, 2)
-  maxPrice    Decimal? @map("max_price") @db.Decimal(10, 2)
-  isNew       Boolean @default(false) @map("is_new")
   isSale      Boolean @default(false) @map("is_sale")
   isDeleted   Boolean @default(false) @map("is_deleted")
   /// Soft-delete chuẩn (nullable để migrate dần).
@@ -917,8 +911,6 @@ model DiscountUsage {
   discountId String   @map("discount_id") @db.VarChar(36)
   userId     String   @map("user_id") @db.VarChar(36)
   orderId    String   @unique @map("order_id") @db.VarChar(36)
-
-  usedAt DateTime @default(now()) @map("used_at")
 
   // Relations
   discount Discount @relation(fields: [discountId], references: [id])

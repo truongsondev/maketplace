@@ -82,9 +82,15 @@ export class GetRelatedProductsFromOrdersUseCase
         id: true,
         name: true,
         basePrice: true,
-        minPrice: true,
-        isNew: true,
         isSale: true,
+        variants: {
+          where: { isDeleted: false },
+          orderBy: { price: 'asc' },
+          take: 1,
+          select: {
+            price: true,
+          },
+        },
         images: {
           orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
           take: 1,
@@ -99,8 +105,8 @@ export class GetRelatedProductsFromOrdersUseCase
       id: row.id,
       name: row.name,
       imageUrl: row.images[0]?.url ?? null,
-      minPrice: Number(row.minPrice ?? row.basePrice),
-      isNew: row.isNew ?? false,
+      minPrice: Number(row.variants[0]?.price ?? row.basePrice),
+      isNew: false,
       isSale: row.isSale ?? false,
     }));
 

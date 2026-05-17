@@ -14,6 +14,10 @@ function parsePositiveInt(value: unknown, fallback: number): number {
   return Math.floor(n);
 }
 
+function getRouteParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function parseCancelReason(value: unknown): CancelReason {
   const reason = String(value || '').toUpperCase();
   if (reason === 'NO_LONGER_NEEDED') return 'NO_LONGER_NEEDED';
@@ -101,18 +105,18 @@ export class OrdersAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
-    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const orderId = getRouteParam(req.params.orderId);
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }
 
-    const reasonCode = parseCancelReason((req.body as any)?.reasonCode);
-    const reasonTextRaw = String((req.body as any)?.reasonText || '').trim();
+    const body = req.body as Record<string, unknown>;
+    const reasonCode = parseCancelReason(body.reasonCode);
+    const reasonTextRaw = String(body.reasonText || '').trim();
     const reasonText = reasonTextRaw ? reasonTextRaw.slice(0, 500) : null;
-    const bankAccountName = String((req.body as any)?.bankAccountName || '').trim();
-    const bankAccountNumber = String((req.body as any)?.bankAccountNumber || '').trim();
-    const bankName = String((req.body as any)?.bankName || '').trim();
+    const bankAccountName = String(body.bankAccountName || '').trim();
+    const bankAccountNumber = String(body.bankAccountNumber || '').trim();
+    const bankName = String(body.bankName || '').trim();
 
     if (!bankAccountName || !bankAccountNumber || !bankName) {
       throw new BadRequestError('bankAccountName, bankAccountNumber and bankName are required');
@@ -149,8 +153,7 @@ export class OrdersAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
-    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const orderId = getRouteParam(req.params.orderId);
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }
@@ -165,19 +168,19 @@ export class OrdersAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
-    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const orderId = getRouteParam(req.params.orderId);
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }
 
-    const reason = (req.body as any)?.reason;
-    const reasonCode = String((req.body as any)?.reasonCode || '').trim().toUpperCase();
-    const bankAccountName = String((req.body as any)?.bankAccountName || '').trim();
-    const bankAccountNumber = String((req.body as any)?.bankAccountNumber || '').trim();
-    const bankName = String((req.body as any)?.bankName || '').trim();
-    const evidenceImages = Array.isArray((req.body as any)?.evidenceImages)
-      ? (req.body as any).evidenceImages
+    const body = req.body as Record<string, unknown>;
+    const reason = body.reason;
+    const reasonCode = String(body.reasonCode || '').trim().toUpperCase();
+    const bankAccountName = String(body.bankAccountName || '').trim();
+    const bankAccountNumber = String(body.bankAccountNumber || '').trim();
+    const bankName = String(body.bankName || '').trim();
+    const evidenceImages = Array.isArray(body.evidenceImages)
+      ? body.evidenceImages
       : [];
 
     const result = await this.orderReturnsController.requestReturn({
@@ -203,7 +206,6 @@ export class OrdersAPI {
 
   private async listMyOrders(req: Request, res: Response): Promise<void> {
     const userId = req.userId;
-    console.log('OrdersAPI.listMyOrders called with userId:', userId);
     if (!userId) {
       throw new BadRequestError('User ID not found');
     }
@@ -241,8 +243,7 @@ export class OrdersAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
-    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const orderId = getRouteParam(req.params.orderId);
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }
@@ -257,8 +258,7 @@ export class OrdersAPI {
       throw new BadRequestError('User ID not found');
     }
 
-    const rawOrderId = (req.params as any).orderId as string | string[] | undefined;
-    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const orderId = getRouteParam(req.params.orderId);
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }

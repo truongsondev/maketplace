@@ -13,6 +13,8 @@ type PayosPaymentLink = {
   id: string;
   status: string;
   transactionDateTime?: string;
+  reference?: string | null;
+  counterAccountBankId?: string | null;
 };
 
 type GetPaymentLinkFn = (orderCode: number) => Promise<PayosPaymentLink>;
@@ -51,7 +53,7 @@ export class HandlePayosReturnUseCase {
         const paidAt = (() => {
           if (!isPaid) return null;
 
-          const raw = (paymentLink as any)?.transactionDateTime;
+          const raw = paymentLink.transactionDateTime;
           if (typeof raw === 'string' && raw.trim()) {
             const parsed = new Date(raw);
             if (!Number.isNaN(parsed.getTime())) {
@@ -65,9 +67,9 @@ export class HandlePayosReturnUseCase {
           orderCode,
           status: isPaid ? 'PAID' : isExpired ? 'EXPIRED' : 'FAILED',
           paymentLinkId: paymentLink.id ?? null,
-          gatewayReference: (paymentLink as any)?.reference ?? null,
+          gatewayReference: paymentLink.reference ?? null,
           gatewayCode: isPaid ? '00' : paymentLink.status,
-          bankCode: (paymentLink as any)?.counterAccountBankId ?? null,
+          bankCode: paymentLink.counterAccountBankId ?? null,
           paidAt,
           rawPayload: {
             source: 'return-reconcile',

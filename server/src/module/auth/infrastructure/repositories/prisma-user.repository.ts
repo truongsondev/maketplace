@@ -10,9 +10,22 @@ import { Email } from '../../entities/value-object/email.vo';
 export class PrismaUserRepository implements IUserRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private readonly userSelect = {
+    id: true,
+    email: true,
+    phone: true,
+    passwordHash: true,
+    emailVerified: true,
+    status: true,
+    lastLogin: true,
+    createdAt: true,
+    updatedAt: true,
+  } as const;
+
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      select: this.userSelect,
     });
 
     return user ? this.toDomain(user) : null;
@@ -21,6 +34,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findByPhone(phone: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { phone },
+      select: this.userSelect,
     });
 
     return user ? this.toDomain(user) : null;
@@ -29,6 +43,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findById(id: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
+      select: this.userSelect,
     });
 
     return user ? this.toDomain(user) : null;
@@ -46,6 +61,7 @@ export class PrismaUserRepository implements IUserRepository {
       const updated = await this.prisma.user.update({
         where: { id: user.id },
         data,
+        select: this.userSelect,
       });
       return this.toDomain(updated);
     }
@@ -53,6 +69,7 @@ export class PrismaUserRepository implements IUserRepository {
     const created = await this.prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data,
+        select: this.userSelect,
       });
 
       const buyerRole = await tx.role.findUnique({

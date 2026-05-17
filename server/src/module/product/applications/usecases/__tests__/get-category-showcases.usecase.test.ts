@@ -7,6 +7,7 @@ describe('GetCategoryShowcasesUseCase', () => {
     const repository: IProductRepository = {
       findWithFilters: jest.fn(async () => ({ products: [], total: 0 })),
       findByIdWithDetails: jest.fn(async () => null),
+      findHomeTeamContent: jest.fn(async () => ({ teamCards: [], highlights: [], gallery: [] })),
       findCategoryShowcases: jest.fn(async () => [
         {
           id: 'cat-1',
@@ -39,6 +40,7 @@ describe('GetCategoryShowcasesUseCase', () => {
     const repository: IProductRepository = {
       findWithFilters: jest.fn(async () => ({ products: [], total: 0 })),
       findByIdWithDetails: jest.fn(async () => null),
+      findHomeTeamContent: jest.fn(async () => ({ teamCards: [], highlights: [], gallery: [] })),
       findCategoryShowcases: jest.fn(async () => []),
     };
 

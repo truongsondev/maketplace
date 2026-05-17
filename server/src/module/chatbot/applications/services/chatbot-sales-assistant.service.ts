@@ -3,6 +3,11 @@ import {
   ChatbotCatalogProduct,
   IChatbotProductCatalog,
 } from '../ports/output/chatbot-product-catalog';
+import {
+  buildSimpleChatbotReply,
+  detectSimpleChatbotIntent,
+  hasFashionShoppingIntent,
+} from './chatbot-conversation-intent';
 
 type ShopperProfile = {
   budgetMin?: number;
@@ -36,7 +41,7 @@ const OCCASION_KEYWORDS: Array<{ value: string; keywords: string[] }> = [
 const CATEGORY_KEYWORDS: Array<{ value: string; keywords: string[] }> = [
   { value: 'ao', keywords: ['ao', 'ao thun', 'shirt', 'tee'] },
   { value: 'quan', keywords: ['quan', 'jean', 'trouser'] },
-  { value: 'vay', keywords: ['vay', 'dam', 'dress'] },
+  { value: 'vay', keywords: ['dam', 'dress'] },
   { value: 'hoodie', keywords: ['hoodie', 'sweater'] },
   { value: 'ao-khoac', keywords: ['ao khoac', 'jacket', 'blazer'] },
 ];
@@ -115,6 +120,14 @@ function normalizeText(value: string): string {
     .trim();
 }
 
+function normalizeTextKeepingAccents(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function extractEmail(content: string): string | null {
   const match = content.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   return match ? match[0].toLowerCase() : null;
@@ -176,9 +189,17 @@ function pickKeywordValue(
   dictionary: Array<{ value: string; keywords: string[] }>,
 ): string | undefined {
   const normalized = normalizeText(content);
+  const haystack = ` ${normalized} `;
   return dictionary.find((entry) =>
-    entry.keywords.some((keyword) => normalized.includes(normalizeText(keyword))),
+    entry.keywords.some((keyword) => haystack.includes(` ${normalizeText(keyword)} `)),
   )?.value;
+}
+
+function pickCategoryHint(content: string): string | undefined {
+  const accented = ` ${normalizeTextKeepingAccents(content)} `;
+  if (accented.includes(' váy ')) return 'vay';
+
+  return pickKeywordValue(content, CATEGORY_KEYWORDS);
 }
 
 function pickColor(content: string): string | undefined {
@@ -345,13 +366,54 @@ export class ChatbotSalesAssistantService {
   async buildReply(session: ChatSessionRecord, userMessage: string): Promise<AssistantReply> {
     const previousProfile = (session.shopperProfile ?? {}) as ShopperProfile;
     const normalizedMessage = normalizeText(userMessage);
+    const simpleIntent = detectSimpleChatbotIntent(userMessage);
+    if (simpleIntent) {
+      const simpleReply = buildSimpleChatbotReply(simpleIntent);
+      return {
+        content: simpleReply.content,
+        status: session.status,
+        shopperProfile: previousProfile as Record<string, unknown>,
+        leadPhone: session.leadPhone,
+        leadEmail: session.leadEmail,
+        lastIntent: simpleReply.lastIntent,
+        lastSummary: simpleReply.lastSummary,
+        suggestedProducts: [],
+        quickReplies: QUICK_REPLIES,
+      };
+    }
+
     const budget = extractBudget(userMessage);
     const pickedColor = pickColor(userMessage);
     const pickedSize = pickSize(userMessage);
     const pickedUsageOccasion = pickKeywordValue(userMessage, OCCASION_KEYWORDS);
-    const pickedCategoryHint = pickKeywordValue(userMessage, CATEGORY_KEYWORDS);
+    const pickedCategoryHint = pickCategoryHint(userMessage);
     const leadEmail = extractEmail(userMessage) ?? session.leadEmail;
     const leadPhone = extractPhone(userMessage) ?? session.leadPhone;
+    const hasContact = Boolean(leadPhone || leadEmail);
+    const hasNewShoppingSignal = Boolean(
+      hasFashionShoppingIntent(userMessage) ||
+        budget.min !== undefined ||
+        budget.max !== undefined ||
+        pickedColor ||
+        pickedSize ||
+        pickedUsageOccasion ||
+        pickedCategoryHint,
+    );
+
+    if (!hasNewShoppingSignal && !hasContact) {
+      return {
+        content:
+          'Mình có thể tư vấn sản phẩm thời trang trong shop AURA. Bạn cho mình biết cần đồ đi làm, đi chơi, màu/size nào hoặc ngân sách khoảng bao nhiêu nhé.',
+        status: session.status,
+        shopperProfile: previousProfile as Record<string, unknown>,
+        leadPhone: session.leadPhone,
+        leadEmail: session.leadEmail,
+        lastIntent: 'qualify_need',
+        lastSummary: 'missing_shopping_signal',
+        suggestedProducts: [],
+        quickReplies: QUICK_REPLIES,
+      };
+    }
 
     // Selecting a new occasion quick reply such as "outfit đi làm" should start
     // a fresh recommendation context instead of carrying stale color/budget filters.
@@ -449,7 +511,6 @@ export class ChatbotSalesAssistantService {
       categoryHint,
     }).slice(0, 4);
 
-    const hasContact = Boolean(leadPhone || leadEmail);
     const status: ChatSessionStatus = hasContact
       ? 'CONTACT_CAPTURED'
       : products.length > 0

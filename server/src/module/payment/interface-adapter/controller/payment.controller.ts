@@ -34,7 +34,7 @@ export class PaymentController {
     return this.handlePayosWebhookUseCase.execute(payload);
   }
 
-  getPaymentStatus(orderCode: string): Promise<PaymentStatusResult> {
-    return this.getPaymentStatusUseCase.execute(orderCode);
+  getPaymentStatus(orderCode: string, userId: string): Promise<PaymentStatusResult> {
+    return this.getPaymentStatusUseCase.execute(orderCode, userId);
   }
 }

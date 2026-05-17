@@ -33,7 +33,6 @@ export class CartAPI {
   }
 
   private async getCart(req: Request, res: Response): Promise<void> {
-    console.log('CartAPI.getCart called with userId:', req.userId);
     const userId = req.userId;
 
     if (!userId) {

@@ -90,7 +90,7 @@ export class ProductAPI {
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
 
     // Handle query parameters that can be string | string[] | ParsedQs
-    const getStringParam = (param: any): string | undefined => {
+    const getStringParam = (param: unknown): string | undefined => {
       if (typeof param === 'string') return param;
       if (Array.isArray(param) && param.length > 0) return param[0];
       return undefined;
@@ -281,7 +281,7 @@ export class ProductAPI {
     }
   }
 
-  private async setCache(key: string, payload: any): Promise<void> {
+  private async setCache(key: string, payload: unknown): Promise<void> {
     try {
       await this.withTimeout(
         redis.setex(key, this.homeCacheTtlSeconds, JSON.stringify(payload)),

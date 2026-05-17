@@ -27,10 +27,17 @@ export const chatbotService = {
     }
   },
 
-  async getSession(sessionId: string): Promise<ChatbotSessionPayload> {
+  async getSession(sessionId: string, guestToken?: string): Promise<ChatbotSessionPayload> {
     try {
       const response = await apiClient.get<ChatbotSessionPayload>(
         `api/chatbot/sessions/${sessionId}`,
+        guestToken
+          ? {
+              headers: {
+                "x-chatbot-guest-token": guestToken,
+              },
+            }
+          : undefined,
       );
 
       if (response.success) {
@@ -47,11 +54,12 @@ export const chatbotService = {
   async sendMessage(
     sessionId: string,
     content: string,
+    guestToken?: string,
   ): Promise<ChatbotSessionPayload> {
     try {
       const response = await apiClient.post<ChatbotSessionPayload>(
         `api/chatbot/sessions/${sessionId}/messages`,
-        { content },
+        guestToken ? { content, guestToken } : { content },
       );
 
       if (response.success) {

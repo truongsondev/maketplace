@@ -108,11 +108,11 @@ app.use('/api/common/locations', createPublicLocationModule());
 
 app.use(requestLoggingMiddleware);
 
-app.use('/api/chatbot', createChatbotModule());
 app.use('/api/auth', createAuthModule());
 app.use('/api/admin/auth', createAdminAuthModule());
 
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
+app.use('/api/chatbot', createChatbotModule());
 app.use('/api', createRecommendationModule());
 app.use('/api/addresses', createAddressModule());
 app.use('/api/cart', createCartModule());

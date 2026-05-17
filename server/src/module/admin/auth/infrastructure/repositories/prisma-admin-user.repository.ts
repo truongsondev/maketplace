@@ -8,7 +8,12 @@ export class PrismaAdminUserRepository implements IAdminUserRepository {
   async findByEmailWithRoles(email: string): Promise<AdminAuthUser | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        emailVerified: true,
+        status: true,
         userRoles: {
           include: {
             role: true,

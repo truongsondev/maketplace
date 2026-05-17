@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { UpdateCartItemUseCase } from '../update-cart-item.usecase';
 import { RemoveCartItemUseCase } from '../remove-cart-item.usecase';
 import { Cart, CartItem } from '../../../entities/cart.entity';
-import { InsufficientStockError } from '../../errors';
+import { CartItemNotFoundError, InsufficientStockError } from '../../errors';
 
 function makeCart(quantity = 2): Cart {
   return new Cart('cart-1', 'user-1', new Date(), [
@@ -154,5 +154,42 @@ describe('Cart item management use cases', () => {
     await useCase.execute('user-1', 'item-1');
 
     expect(cartRepository.removeItem).toHaveBeenCalledWith('item-1');
+  });
+
+  it('UpdateCartItemUseCase should not update an item owned by another user', async () => {
+    const cartRepository = {
+      findByUserId: jest.fn(),
+      create: jest.fn(),
+      findItem: jest.fn(),
+      findItemByIdForUser: jest.fn(async (_itemId: string, _userId: string) => null),
+      addItem: jest.fn(),
+      updateItemQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      getCartDetail: jest.fn(),
+    };
+
+    const variantRepository = {
+      findByIdWithProduct: jest.fn(),
+    };
+
+    const imageRepository = {
+      findImageForVariant: jest.fn(),
+    };
+
+    const useCase = new UpdateCartItemUseCase(
+      cartRepository as any,
+      variantRepository as any,
+      imageRepository as any,
+    );
+
+    await expect(
+      useCase.execute('user-2', { itemId: 'item-owned-by-user-1', quantity: 2 }),
+    ).rejects.toBeInstanceOf(CartItemNotFoundError);
+
+    expect(cartRepository.findItemByIdForUser).toHaveBeenCalledWith(
+      'item-owned-by-user-1',
+      'user-2',
+    );
+    expect(cartRepository.updateItemQuantity).not.toHaveBeenCalled();
   });
 });

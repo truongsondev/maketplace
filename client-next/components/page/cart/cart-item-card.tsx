@@ -106,12 +106,6 @@ export function CartItemCard({
                 </span>
               ))}
             </div>
-
-            {reachedStockLimit ? (
-              <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-300">
-                Đã đạt số lượng tối đa theo tồn kho hiện tại.
-              </p>
-            ) : null}
           </div>
         </div>
 

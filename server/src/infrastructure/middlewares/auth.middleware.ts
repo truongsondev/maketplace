@@ -34,12 +34,10 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       !isRelatedFromMyOrdersEndpoint;
     const isPublicPayosPath =
       requestPath.startsWith('/api/payments/payos/webhook') ||
-      requestPath.startsWith('/api/payments/payos/return') ||
-      requestPath.startsWith('/api/payments/payos/orders/');
+      requestPath.startsWith('/api/payments/payos/return');
     const isPublicPayosPathByReqPath =
       req.path.startsWith('/api/payments/payos/webhook') ||
-      req.path.startsWith('/api/payments/payos/return') ||
-      req.path.startsWith('/api/payments/payos/orders/');
+      req.path.startsWith('/api/payments/payos/return');
     const isPublicCommonPath =
       requestPath.startsWith('/api/common') || req.path.startsWith('/api/common');
     const isPublicMockOrdersPath =
@@ -142,7 +140,10 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
     // Query user with roles from database
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        status: true,
         userRoles: {
           include: {
             role: true,

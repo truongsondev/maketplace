@@ -1,188 +1,353 @@
-Mức “AI chatbot + API sản phẩm + CRM + tự động chốt đơn” là một hệ thống bán hàng gần như bán tự động hoàn chỉnh. Về bản chất, đây không còn là chatbot đơn lẻ mà là một lớp giao diện hội thoại nằm trên một kiến trúc backend thương mại điện tử + CRM + AI reasoning layer.
+# FULLSTACK AI CHATBOT INTENT ROUTER IMPLEMENTATION PROMPT
 
-Dưới đây là quy trình triển khai đúng chuẩn kỹ thuật (thực tế dùng trong hệ thống bán hàng lớn).
+## ROLE
 
-Trước tiên là kiến trúc tổng thể hệ thống.
+Bạn là Senior AI Fullstack Engineer chuyên về:
 
-Bạn sẽ có 5 khối chính:
+- Node.js
+- TypeScript
+- Clean Architecture
+- LLM Orchestration
+- Gemini API
+- AI Intent Classification
+- Prompt Engineering
+- RAG
+- E-commerce chatbot systems
 
-Frontend chatbot widget trên website
-Backend chatbot server (API gateway)
-AI engine (LLM như Gemini hoặc model nội bộ)
-Product API (kho dữ liệu sản phẩm)
-CRM/Order system (quản lý khách hàng + đơn hàng trong server nội bộ)
+Bạn có khả năng:
 
-Luồng hoạt động cơ bản: user chat → widget → backend → AI + product API + CRM → trả kết quả → hiển thị lại chat.
+- Thiết kế AI orchestration chuẩn production
+- Tách intent classification khỏi business logic
+- Tối ưu token usage và giảm hallucination
+- Thiết kế AI routing pipeline
+- Viết structured JSON response từ LLM
+- Thiết kế hệ thống chatbot e-commerce thực tế
 
-Xây dựng Product API (nền tảng dữ liệu bán hàng)
+---
 
-Đây là lõi “biết bán cái gì”.
+# OBJECTIVE
 
-API cần có các endpoint:
+Refactor chatbot hiện tại của AURA.
 
-(lọc theo giá, danh mục, nhu cầu)
-(chi tiết sản phẩm)
-(tồn kho)
-(giá + khuyến mãi)
-SEARCH
+Hiện tại chatbot đang detect intent bằng keyword hardcode như:
 
-Dữ liệu cần chuẩn hóa:
+- hasFashionShoppingIntent()
+- isGreeting()
+- isThanks()
 
-tên sản phẩm
-nhóm nhu cầu (use case)
-mức giá
-thuộc tính (size, màu, cấu hình…)
-lợi ích (benefit-based data, rất quan trọng cho AI)
-Tích hợp CRM (quản lý khách hàng và đơn hàng)
+Cách này không đủ thông minh và khó scale.
 
-CRM sẽ lưu toàn bộ hành vi chat.
+Tôi muốn chuyển toàn bộ sang AI Intent Router dùng Gemini.
 
-Cần các API:
+---
 
-POST (tạo khách hàng)
-POST (tạo đơn)
-PATCH (cập nhật trạng thái)
-GET
+# NEW ARCHITECTURE
 
-CRM có thể là hệ thống nội bộ trong server (ưu tiên cho project hiện tại),
+Flow mới phải hoạt động như sau:
 
-Quan trọng: mỗi cuộc chat = một “lead session”.
+User Message
+↓
+Gemini Intent Classifier
+↓
+Return Structured JSON
+↓
+Backend Router
+├── product_search → query DB products
+├── shop_question → answer from markdown knowledge
+├── fashion_advice → AI stylist response
+├── greeting / thanks → simple AI response
+└── out_of_scope → reject politely
 
-AI chatbot engine (bộ não bán hàng)
+---
 
-Đây là phần quan trọng nhất.
+# REQUIRED INTENTS
 
-AI không chỉ trả lời, mà phải có “tool use” (gọi API).
+Tạo intent system gồm:
 
-AI cần được thiết kế với 3 lớp:
+```ts
+type ChatIntent =
+  | "product_search"
+  | "shop_question"
+  | "fashion_advice"
+  | "greeting"
+  | "thanks"
+  | "out_of_scope";
+```
 
-(1) System Prompt (vai trò)
+---
 
-là nhân viên tư vấn bán hàng
-mục tiêu: tối đa hóa chuyển đổi
-luôn đề xuất sản phẩm từ API, không bịa
+# PRODUCT SEARCH REQUIREMENT
 
-(2) Tool calling functions:
+Nếu user đang muốn tìm/mua/gợi ý sản phẩm:
 
-searchProducts()
-getProductDetail()
-createLead()
-createOrder()
+Ví dụ:
 
-(3) Memory context:
+- "Mình cần áo sơ mi đỏ size M"
+- "Tìm outfit đi chơi dưới 500k"
+- "Có quần jean đen không?"
+- "Da ngăm nên mặc gì đi tiệc?"
 
-lịch sử chat
-nhu cầu khách
-ngân sách
-sản phẩm đã xem
-Logic bán hàng (conversion flow)
+Gemini phải:
 
-AI chatbot bán hàng cao cấp phải đi theo pipeline:
+1. Detect intent = product_search
+2. Extract filters structured JSON
 
-Bước 1: Khai thác nhu cầu
-→ hỏi mục đích sử dụng, ngân sách, sở thích
+Ví dụ output:
 
-Bước 2: Gợi ý sản phẩm từ API
-→ gọi searchProducts()
+```json
+{
+  "intent": "product_search",
+  "confidence": 0.95,
+  "filters": {
+    "keyword": "áo sơ mi",
+    "category": "shirt",
+    "color": "đỏ",
+    "size": "M",
+    "budgetMin": null,
+    "budgetMax": 500000,
+    "occasion": "đi chơi",
+    "style": null,
+    "gender": null
+  }
+}
+```
 
-Bước 3: So sánh 2–3 sản phẩm
-→ ưu/nhược điểm, phù hợp nhu cầu
+Backend phải dùng filters này để query database thật.
 
-Bước 4: Xử lý phản đối
-→ giá cao, chưa tin, cần suy nghĩ
+KHÔNG được hardcode keyword detection nữa.
 
-Bước 5: Chốt đơn hoặc tạo lead
-→ createOrder() hoặc createLead()
+---
 
-Bước 6: CRM tiếp nhận
-→ chuyển sang sale nếu cần
+# SHOP QUESTION REQUIREMENT
 
-Nhiệm vụ:
+Nếu user hỏi về:
 
-nhận message từ frontend
-gọi AI API
-xử lý function calling
-kết nối product API + CRM
-trả response về frontend
+- đổi trả
+- vận chuyển
+- thanh toán
+- địa chỉ shop
+- thời gian giao hàng
+- COD
+- chính sách bảo hành
 
-Quan trọng: backend phải là “orchestrator”, không để AI gọi trực tiếp database.
+Intent phải là:
 
-Chatbot widget trên website
+```json
+{
+  "intent": "shop_question"
+}
+```
 
-Một script JS nhúng:
+Lúc này backend sẽ:
 
-floating chat button
-UI chat window
-streaming message (real-time typing)
-gửi message qua WebSocket hoặc REST API
+1. Load markdown knowledge file
+2. Inject markdown content vào Gemini
+3. Gemini trả lời dựa trên markdown
 
-Nâng cao:
+Ví dụ:
 
-hiển thị sản phẩm dạng card trong chat
-nút “Mua ngay”
-nút “Nhận tư vấn”
-Tự động chốt đơn (automation layer)
+```txt
+/shop-knowledge/policy.md
+/shop-knowledge/shipping.md
+/shop-knowledge/payment.md
+```
 
-Đây là điểm tạo khác biệt lớn.
+KHÔNG được hallucinate thông tin ngoài markdown.
 
-Có 3 mức tự động:
+---
 
-Mức 1: tạo lead
-→ AI thu SĐT + nhu cầu → CRM
+# FASHION ADVICE REQUIREMENT
 
-Mức 2: tạo đơn bán tự động
-→ AI gọi createOrder()
+Nếu user hỏi tư vấn thời trang nhưng chưa muốn tìm sản phẩm cụ thể:
 
-Mức 3: auto checkout
-→ tạo link thanh toán
+Ví dụ:
 
-Tối ưu chuyển đổi (growth layer)
+- "Da ngăm nên mặc màu gì?"
+- "Đi phỏng vấn nên mặc gì?"
+- "Nam thấp nên phối đồ sao?"
 
-Sau khi chạy thật:
+Intent:
 
-Theo dõi:
+```json
+{
+  "intent": "fashion_advice"
+}
+```
 
-CTR sản phẩm trong chat
-tỷ lệ tạo lead
-tỷ lệ chốt đơn
-câu hỏi khiến khách thoát chat
+Gemini sẽ đóng vai stylist AI trả lời.
 
-Tối ưu:
+Sau đó có thể CTA nhẹ:
 
-prompt AI
-cách hỏi mở đầu
-thứ tự gợi ý sản phẩm
-mức giá hiển thị
-Stack gợi ý triển khai thực tế
+```txt
+Bạn muốn mình gợi ý vài mẫu phù hợp trong shop không?
+```
 
-Frontend:
+---
 
-Next.js widget
+# GREETING / THANKS REQUIREMENT
 
-Backend:
+Ví dụ:
 
-Node.js (Express) + Prisma
+- hello
+- xin chào
+- cảm ơn
 
-AI:
+Intent:
 
-Gemini API (function calling, gọi qua backend)
+- greeting
+- thanks
 
-Database:
+Cho AI trả lời ngắn gọn tự nhiên.
 
-MariaDB
+---
 
-CRM/Order:
+# OUT OF SCOPE REQUIREMENT
 
-Module noi bo trong server (orders, customers, admin)
+Nếu user hỏi không liên quan:
 
-Realtime:
+Ví dụ:
 
-WebSocket / Socket.io (neu can)
+- code
+- crypto
+- toán học
+- chính trị
+- sex
+- vũ khí
 
-Nếu bạn muốn, tôi có thể làm tiếp 1 trong 3 thứ cực thực chiến:
+Intent:
 
-Sơ đồ kiến trúc hệ thống dạng diagram chuẩn dev
-Prompt AI chatbot bán hàng tối ưu conversion (rất quan trọng)
-Code mẫu Node.js + Gemini function calling + product API
+```json
+{
+  "intent": "out_of_scope"
+}
+```
 
-Chỉ cần nói hướng bạn muốn triển khai.
+Response:
+
+```txt
+Mình chỉ là trợ lý AI của AURA, hiện mình chỉ hỗ trợ tư vấn thời trang và sản phẩm trong shop. Bạn vui lòng không hỏi nội dung ngoài phạm vi này nhé.
+```
+
+---
+
+# IMPLEMENTATION REQUIREMENTS
+
+nếu Gemini SDK hỗ trợ.
+
+---
+
+# 4. REMOVE OLD LOGIC
+
+Xóa dependency vào:
+
+- hasFashionShoppingIntent()
+- detectSimpleChatbotIntent()
+- keyword regex routing
+
+Chỉ giữ fallback nếu AI classifier fail.
+
+---
+
+# 5. BACKEND ROUTER
+
+Router flow:
+
+```ts
+switch (intent.intent) {
+  case 'product_search':
+    ...
+  case 'shop_question':
+    ...
+  case 'fashion_advice':
+    ...
+  case 'greeting':
+    ...
+  case 'thanks':
+    ...
+  case 'out_of_scope':
+    ...
+}
+```
+
+---
+
+# 6. PRODUCT SEARCH FLOW
+
+Flow chuẩn:
+
+User
+↓
+Gemini extract filters
+↓
+Backend query DB
+↓
+Pass real products back to Gemini
+↓
+Gemini generate final response
+↓
+Return to client
+
+Gemini KHÔNG được tự bịa sản phẩm.
+
+---
+
+# 9. ERROR HANDLING
+
+Nếu Gemini classifier fail:
+
+Fallback:
+
+```json
+{
+  "intent": "out_of_scope",
+  "confidence": 0
+}
+```
+
+Không được crash chatbot.
+
+---
+
+# 10. CODE QUALITY
+
+Yêu cầu:
+
+- Clean Architecture
+- SOLID
+- Typed strictly
+- No any
+- Reusable services
+- Scalable orchestration
+- Production-ready
+- No duplicated prompts
+- Dependency Injection compatible
+
+---
+
+# 11. IMPORTANT
+
+- Không dùng keyword hardcode làm logic chính.
+- AI classifier phải là nguồn quyết định intent duy nhất.
+- Product recommendation phải luôn dựa trên DB thật.
+- Shop information phải luôn dựa trên markdown knowledge.
+- Không hallucinate sản phẩm, giá, tồn kho, chính sách.
+
+---
+
+# EXPECTED RESULT
+
+Sau khi hoàn thành:
+
+Chatbot có thể:
+
+- hiểu ý định người dùng tự nhiên
+- extract filter thông minh
+- route đúng flow
+- query sản phẩm thật
+- trả lời chính sách shop bằng knowledge base
+- từ chối câu hỏi ngoài phạm vi
+- hoạt động như AI sales assistant thực tế
+
+# NOTE
+
+Ghi nhớ context vào NOTE.md quên thì vào đó đọc lại đẻ làm tiếp

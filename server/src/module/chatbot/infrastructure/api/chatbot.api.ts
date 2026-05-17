@@ -17,9 +17,27 @@ export class ChatbotAPI {
     this.router.post('/sessions/:sessionId/messages', asyncHandler(this.sendMessage.bind(this)));
   }
 
+  private getGuestToken(req: Request): string | null {
+    const headerValue = req.header('x-chatbot-guest-token');
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return headerValue.trim();
+    }
+
+    const queryValue = req.query.guestToken;
+    if (typeof queryValue === 'string' && queryValue.trim()) {
+      return queryValue.trim();
+    }
+
+    const bodyValue = req.body?.guestToken;
+    if (typeof bodyValue === 'string' && bodyValue.trim()) {
+      return bodyValue.trim();
+    }
+
+    return null;
+  }
+
   private async startSession(req: Request, res: Response): Promise<void> {
-    const guestToken =
-      typeof req.body?.guestToken === 'string' ? req.body.guestToken.trim() : undefined;
+    const guestToken = this.getGuestToken(req) ?? undefined;
     const result = await this.chatbotController.startSession({
       userId: req.userId ?? null,
       guestToken,
@@ -33,7 +51,10 @@ export class ChatbotAPI {
       throw new BadRequestError('sessionId is required');
     }
 
-    const result = await this.chatbotController.getSession(sessionId);
+    const result = await this.chatbotController.getSession(sessionId, {
+      userId: req.userId ?? null,
+      guestToken: this.getGuestToken(req),
+    });
     res.status(200).json(ResponseFormatter.success(result));
   }
 
@@ -51,7 +72,12 @@ export class ChatbotAPI {
       throw new BadRequestError('content is too long');
     }
 
-    const result = await this.chatbotController.sendMessage({ sessionId, content });
+    const result = await this.chatbotController.sendMessage({
+      sessionId,
+      content,
+      userId: req.userId ?? null,
+      guestToken: this.getGuestToken(req),
+    });
     res.status(200).json(ResponseFormatter.success(result));
   }
 }

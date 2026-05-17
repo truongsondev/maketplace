@@ -1,5 +1,5 @@
 import { GetProductsUseCase } from '@/module/product/applications/usecases/get-products.usecase';
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@/generated/prisma/client';
 import {
   ChatbotCatalogProduct,
   ChatbotCatalogSearchInput,
@@ -167,7 +167,7 @@ export class ProductCatalogAdapter implements IChatbotProductCatalog {
 
     return rows.map((product: any) => {
       const minVariantPrice = product.variants?.[0]?.price;
-      const minPrice = Number(product.minPrice ?? minVariantPrice ?? product.basePrice ?? 0);
+      const minPrice = Number(minVariantPrice ?? product.basePrice ?? 0);
 
       return {
         id: product.id,
@@ -333,13 +333,12 @@ export class ProductCatalogAdapter implements IChatbotProductCatalog {
   private async findRelaxedProducts(where: any, limit: number): Promise<any[]> {
     return this.prisma.product.findMany({
       where,
-      orderBy: [{ isSale: 'desc' }, { isNew: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ isSale: 'desc' }, { createdAt: 'desc' }],
       take: limit,
       select: {
         id: true,
         name: true,
         basePrice: true,
-        minPrice: true,
         images: {
           where: { isPrimary: true },
           take: 1,

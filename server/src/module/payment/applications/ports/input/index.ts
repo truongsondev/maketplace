@@ -19,5 +19,5 @@ export interface IHandlePayosWebhookUseCase {
 }
 
 export interface IGetPaymentStatusUseCase {
-  execute(orderCode: string): Promise<PaymentStatusResult>;
+  execute(orderCode: string, userId: string): Promise<PaymentStatusResult>;
 }

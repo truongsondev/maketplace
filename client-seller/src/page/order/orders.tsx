@@ -1,8 +1,6 @@
 import {
-  AlertItem,
   DateRangeFilter,
   Header,
-  InsightCard,
   LivePill,
   SituationAssessmentPanel,
   Sidebar,
@@ -21,12 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Ban,
   Brain,
-  Clock3,
-  CreditCard,
-  RotateCcw,
-  ShieldAlert,
 } from "lucide-react";
 
 type RowActionItem = {
@@ -731,7 +724,8 @@ export default function OrdersPage() {
                     Quản lý đơn hàng
                   </h1>
                   <p className="mt-2 text-sm text-slate-600">
-                    Hàng đợi vận hành ưu tiên SLA, hủy/hoàn tiền, rủi ro thanh toán và đơn cần hành động ngay.
+                    Hàng đợi vận hành ưu tiên SLA, hủy/hoàn tiền, rủi ro thanh
+                    toán và đơn cần hành động ngay.
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button
@@ -740,7 +734,9 @@ export default function OrdersPage() {
                       className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                     >
                       <Brain className="size-4" />
-                      {showAssessment ? "Ẩn đánh giá tình hình" : "Đánh giá tình hình"}
+                      {showAssessment
+                        ? "Ẩn đánh giá tình hình"
+                        : "Đánh giá tình hình"}
                     </button>
                     <LivePill label="Hàng đợi trực tuyến" />
                     <DateRangeFilter value={range} onChange={setRange} />
@@ -785,83 +781,6 @@ export default function OrdersPage() {
                 />
               </section>
             ) : null}
-
-            <section className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-              <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50 p-5 shadow-sm">
-                <div className="mb-4">
-                  <p className="text-sm font-bold text-slate-950">
-                    Hàng đợi ưu tiên
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Những nhóm đơn nên xử lý trước bảng danh sách.
-                  </p>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <AlertItem
-                    tone={counts.pending > 0 ? "warning" : "good"}
-                    icon={Clock3}
-                    title={`${counts.pending} đơn cần xác nhận`}
-                    description="Hàng đợi SLA chính. Xác nhận chậm làm tăng rủi ro hủy và mất niềm tin."
-                    action="Lọc chờ xác nhận"
-                    onClick={() => setTab("pending")}
-                  />
-                  <AlertItem
-                    tone={cancelRequestCount > 0 ? "danger" : "good"}
-                    icon={Ban}
-                    title={`${cancelRequestCount} yêu cầu hủy chưa xử lý`}
-                    description="Paid cancel cần quyết định approve/reject và theo dõi hoàn tiền."
-                    action="Xem trong danh sách"
-                  />
-                  <AlertItem
-                    tone={pendingReturnCount > 0 ? "warning" : "good"}
-                    icon={RotateCcw}
-                    title={`${pendingReturnCount} yêu cầu trả hàng pending`}
-                    description="Refund pending lâu ảnh hưởng SLA dịch vụ và trải nghiệm khách."
-                    action="Mở chi tiết đơn"
-                  />
-                  <AlertItem
-                    tone={failedPaymentCount > 0 ? "danger" : "info"}
-                    icon={CreditCard}
-                    title={`${failedPaymentCount} thanh toán thử lại/thất bại`}
-                    description="Theo dõi lỗi thanh toán để phát hiện webhook hoặc phương thức rủi ro."
-                    action="Kiểm tra rủi ro thanh toán"
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-4 flex items-center gap-3">
-                  <span className="rounded-2xl bg-slate-950 p-3 text-white">
-                    <ShieldAlert className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-950">
-                      Chỉ báo rủi ro
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      Giá trị cao, hủy/trả hàng và thanh toán thất bại.
-                    </p>
-                  </div>
-                </div>
-                <div className="grid gap-3">
-                  <InsightCard
-                    tone={suspiciousOrderCount > 0 ? "warning" : "good"}
-                    priority="Điểm rủi ro"
-                    metric={`${suspiciousOrderCount} đơn`}
-                    title="Đơn có tín hiệu cần review"
-                    description="Đơn giá trị cao, có yêu cầu hủy/trả hoặc trạng thái bất thường nên được mở detail trước."
-                  />
-                  <InsightCard
-                    tone="info"
-                    priority="Quy trình"
-                    metric="Trực tiếp"
-                    title="Action chính không nên nằm sau menu ..."
-                    description="Xác nhận, bàn giao shipper, duyệt/từ chối và hoàn tiền được giữ trực tiếp trên hàng hoặc chi tiết."
-                  />
-                </div>
-              </div>
-            </section>
-
             <section className="mt-5 grid gap-4 lg:grid-cols-2">
               <div className="rounded-3xl border border-slate-200 bg-white px-5 py-5 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
@@ -1521,8 +1440,8 @@ export default function OrdersPage() {
                 </p>
                 {detailModal.shipping?.source === "USER_PROFILE_FALLBACK" ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Ghi chú: hiển thị theo hồ sơ người dùng do chưa có địa chỉ lưu
-                    cho đơn.
+                    Ghi chú: hiển thị theo hồ sơ người dùng do chưa có địa chỉ
+                    lưu cho đơn.
                   </p>
                 ) : null}
               </div>
@@ -1613,9 +1532,8 @@ export default function OrdersPage() {
                           </p>
                         ) : null}
                         <p className="md:col-span-2">
-                          Thông tin chuyển khoản:{" "}
-                          {item.bankAccountName ?? "—"} -{" "}
-                          {item.bankAccountNumber ?? "—"} -{" "}
+                          Thông tin chuyển khoản: {item.bankAccountName ?? "—"}{" "}
+                          - {item.bankAccountNumber ?? "—"} -{" "}
                           {item.bankName ?? "—"}
                         </p>
                       </div>

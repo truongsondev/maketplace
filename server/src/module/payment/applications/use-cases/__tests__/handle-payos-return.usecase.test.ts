@@ -1,5 +1,26 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { HandlePayosReturnUseCase } from '../handle-payos-return.usecase';
+import type {
+  IPaymentRepository,
+  PaymentTransactionRecord,
+} from '../../ports/output/payment.repository';
+import type { IPaymentSuccessNotifier } from '../../ports/output/payment-success-notifier';
+
+function paymentRecord(
+  overrides: Partial<PaymentTransactionRecord>,
+): PaymentTransactionRecord {
+  return {
+    orderId: 'order-1',
+    orderCode: '20260001',
+    amount: 500000,
+    status: 'PENDING',
+    bankCode: null,
+    gatewayReference: null,
+    gatewayCode: null,
+    paidAt: null,
+    ...overrides,
+  };
+}
 
 describe('HandlePayosReturnUseCase', () => {
   it('notifies admin when return-reconcile marks payment PAID', async () => {
@@ -12,36 +33,42 @@ describe('HandlePayosReturnUseCase', () => {
       transactionDateTime: '2026-04-20T10:00:00.000Z',
     }));
 
-    const paymentRepository = {
-      findByOrderCode: jest
-        .fn()
-        .mockResolvedValueOnce({
+    const findByOrderCode = jest
+      .fn<IPaymentRepository['findByOrderCode']>()
+      .mockResolvedValueOnce(
+        paymentRecord({
           orderId: 'order-1',
           orderCode: '20260001',
           amount: 500000,
           status: 'PENDING',
-          paidAt: null,
-        })
-        .mockResolvedValueOnce({
-          orderId: 'order-1',
-          orderCode: '20260001',
-          amount: 500000,
-          status: 'PAID',
-          paidAt: new Date('2026-04-20T10:00:00.000Z'),
-        })
-        .mockResolvedValueOnce({
+        }),
+      )
+      .mockResolvedValueOnce(
+        paymentRecord({
           orderId: 'order-1',
           orderCode: '20260001',
           amount: 500000,
           status: 'PAID',
           paidAt: new Date('2026-04-20T10:00:00.000Z'),
         }),
+      )
+      .mockResolvedValueOnce(
+        paymentRecord({
+          orderId: 'order-1',
+          orderCode: '20260001',
+          amount: 500000,
+          status: 'PAID',
+          paidAt: new Date('2026-04-20T10:00:00.000Z'),
+        }),
+      );
+    const paymentRepository = {
+      findByOrderCode,
       updateFromWebhookIfPending: jest.fn(async () => true),
-    } as any;
+    } as Partial<IPaymentRepository> as IPaymentRepository;
 
     const notifier = {
       notify: jest.fn(async () => undefined),
-    } as any;
+    } satisfies IPaymentSuccessNotifier;
 
     const useCase = new HandlePayosReturnUseCase(paymentRepository, notifier, getPaymentLink);
 
@@ -62,29 +89,32 @@ describe('HandlePayosReturnUseCase', () => {
       transactionDateTime: '2026-04-20T11:00:00.000Z',
     }));
 
-    const paymentRepository = {
-      findByOrderCode: jest
-        .fn()
-        .mockResolvedValueOnce({
+    const findByOrderCode = jest
+      .fn<IPaymentRepository['findByOrderCode']>()
+      .mockResolvedValueOnce(
+        paymentRecord({
           orderId: 'order-2',
           orderCode: '20260002',
           amount: 300000,
           status: 'PENDING',
-          paidAt: null,
-        })
-        .mockResolvedValueOnce({
-          orderId: 'order-2',
-          orderCode: '20260002',
-          amount: 300000,
-          status: 'PENDING',
-          paidAt: null,
         }),
+      )
+      .mockResolvedValueOnce(
+        paymentRecord({
+          orderId: 'order-2',
+          orderCode: '20260002',
+          amount: 300000,
+          status: 'PENDING',
+        }),
+      );
+    const paymentRepository = {
+      findByOrderCode,
       updateFromWebhookIfPending: jest.fn(async () => false),
-    } as any;
+    } as Partial<IPaymentRepository> as IPaymentRepository;
 
     const notifier = {
       notify: jest.fn(async () => undefined),
-    } as any;
+    } satisfies IPaymentSuccessNotifier;
 
     const useCase = new HandlePayosReturnUseCase(paymentRepository, notifier, getPaymentLink);
 

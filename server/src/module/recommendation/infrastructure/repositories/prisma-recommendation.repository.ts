@@ -262,9 +262,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       select: {
         id: true,
         name: true,
-        minPrice: true,
         basePrice: true,
-        isNew: true,
         isSale: true,
         variants: {
           where: { isDeleted: false },
@@ -291,13 +289,8 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
           id: product.id,
           name: product.name,
           imageUrl: product.images[0]?.url ?? null,
-          minPrice: Number(
-            product.variants[0]?.price ??
-              (product.minPrice && Number(product.minPrice) > 0 ? product.minPrice : null) ??
-              product.basePrice ??
-              0,
-          ),
-          isNew: product.isNew,
+          minPrice: Number(product.variants[0]?.price ?? product.basePrice ?? 0),
+          isNew: false,
           isSale: product.isSale,
           score: item.score,
           reason: item.reason,
@@ -421,7 +414,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
             related_product_id,
             algorithm,
             score,
-            rank,
+            \`rank\`,
             metadata,
             created_at
           )
@@ -529,7 +522,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       },
       select: { id: true },
       take: limit,
-      orderBy: [{ isNew: 'desc' }, { updatedAt: 'desc' }],
+      orderBy: [{ updatedAt: 'desc' }],
     });
 
     return products.map((product, index) => ({
@@ -568,7 +561,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       },
       select: { id: true },
       take: limit,
-      orderBy: [{ isNew: 'desc' }, { updatedAt: 'desc' }],
+      orderBy: [{ updatedAt: 'desc' }],
     });
 
     return products.map((product, index) => ({
@@ -649,7 +642,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
             LOWER(name) LIKE LOWER(${pattern})
             OR LOWER(COALESCE(description, '')) LIKE LOWER(${pattern})
           )
-        ORDER BY is_new DESC, updated_at DESC
+        ORDER BY updated_at DESC
         LIMIT ${Math.max(3, Math.ceil(limit / 2))}
       `;
 
@@ -855,7 +848,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       },
       select: { id: true },
       take: limit,
-      orderBy: [{ isNew: 'desc' }, { isSale: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ isSale: 'desc' }, { createdAt: 'desc' }],
     });
 
     return products.map((product, index) => ({

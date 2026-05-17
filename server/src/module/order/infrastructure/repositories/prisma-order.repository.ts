@@ -112,20 +112,6 @@ export class PrismaOrderRepository implements IOrderRepository {
     if (!userId) {
       throw new BadRequestError('User ID not found');
     }
-    console.log(
-      'Listing orders for userId:',
-      userId,
-      'tab:',
-      input.tab,
-      'search:',
-      input.search,
-      'sort:',
-      input.sort,
-      'page:',
-      input.page,
-      'limit:',
-      input.limit,
-    );
 
     const tab = input.tab ?? 'all';
     const sort = input.sort ?? 'new';

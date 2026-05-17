@@ -1,5 +1,6 @@
 import { StartChatSessionCommand } from '../../applications/dto/command/start-chat-session.command';
 import { SendChatMessageCommand } from '../../applications/dto/command/send-chat-message.command';
+import { ChatSessionAccessContext } from '../../applications/dto/command/chat-session-access-context';
 import { ChatSessionResult } from '../../applications/dto/result/chat-session.result';
 import { IGetChatSessionUseCase } from '../../applications/ports/input/get-chat-session.usecase';
 import { ISendChatMessageUseCase } from '../../applications/ports/input/send-chat-message.usecase';
@@ -16,8 +17,8 @@ export class ChatbotController {
     return this.startChatSessionUseCase.execute(command);
   }
 
-  getSession(sessionId: string): Promise<ChatSessionResult> {
-    return this.getChatSessionUseCase.execute(sessionId);
+  getSession(sessionId: string, context: ChatSessionAccessContext): Promise<ChatSessionResult> {
+    return this.getChatSessionUseCase.execute(sessionId, context);
   }
 
   sendMessage(command: SendChatMessageCommand): Promise<ChatSessionResult> {

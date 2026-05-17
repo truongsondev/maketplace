@@ -5,8 +5,8 @@ import { IPaymentRepository } from '../ports/output';
 export class GetPaymentStatusUseCase {
   constructor(private readonly paymentRepository: IPaymentRepository) {}
 
-  async execute(orderCode: string): Promise<PaymentStatusResult> {
-    const payment = await this.paymentRepository.findByOrderCode(orderCode);
+  async execute(orderCode: string, userId: string): Promise<PaymentStatusResult> {
+    const payment = await this.paymentRepository.findByOrderCodeForUser(orderCode, userId);
     if (!payment) {
       throw new NotFoundError('Payment transaction not found');
     }

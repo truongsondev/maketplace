@@ -40,6 +40,7 @@ export interface IPaymentRepository {
   }>;
   existsByOrderCode(orderCode: string): Promise<boolean>;
   findByOrderCode(orderCode: string): Promise<PaymentTransactionRecord | null>;
+  findByOrderCodeForUser(orderCode: string, userId: string): Promise<PaymentTransactionRecord | null>;
   setCheckoutReference(orderCode: string, paymentLinkId: string): Promise<void>;
   markCreateLinkFailed(orderCode: string, reason: string): Promise<void>;
   updateFromWebhookIfPending(input: UpdateTransactionFromWebhookInput): Promise<boolean>;

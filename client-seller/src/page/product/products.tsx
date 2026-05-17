@@ -6,7 +6,6 @@ import {
   BulkActions,
   AdminPageShell,
   AlertItem,
-  InsightCard,
   MetricBar,
   OpsCard,
   SectionHeading,
@@ -212,7 +211,11 @@ export default function ProductsPage() {
         title: "Tồn kho",
         detail: `Hiện có ${lowStockCount} SKU sắp hết hàng và ${outStockCount} SKU hết hàng trên tổng ${aggregations.stockStatus.all} SKU trong vùng theo dõi.`,
         tone:
-          outStockCount > 0 ? ("danger" as const) : lowStockCount > 0 ? ("warning" as const) : ("good" as const),
+          outStockCount > 0
+            ? ("danger" as const)
+            : lowStockCount > 0
+              ? ("warning" as const)
+              : ("good" as const),
       },
       {
         title: "Nhu cầu thị trường",
@@ -249,7 +252,9 @@ export default function ProductsPage() {
                   className="flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Brain className="size-4" />
-                  {showAssessment ? "Ẩn đánh giá tình hình" : "Đánh giá tình hình"}
+                  {showAssessment
+                    ? "Ẩn đánh giá tình hình"
+                    : "Đánh giá tình hình"}
                 </button>
                 <LivePill label="Sức khỏe tồn kho trực tuyến" />
                 <button
@@ -277,11 +282,8 @@ export default function ProductsPage() {
               />
             ) : null}
             <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
-              <OpsCard className="border-amber-200 bg-gradient-to-br from-white to-amber-50">
-                <SectionHeading
-                  title="Bảng sức khỏe tồn kho"
-                  description="Tín hiệu tồn kho được đặt trước CRUD để admin không bỏ lỡ SKU cần hành động."
-                />
+              <OpsCard className="border-amber-200 bg-linear-to-br from-white to-amber-50">
+                <SectionHeading title="Bảng tồn kho" />
                 <div className="grid gap-3 sm:grid-cols-3">
                   <button
                     type="button"
@@ -338,10 +340,7 @@ export default function ProductsPage() {
               </OpsCard>
 
               <OpsCard>
-                <SectionHeading
-                  title="Thông tin sản phẩm"
-                  description="Những sản phẩm cần quyết định: đẩy hàng, bổ sung tồn, hoặc kiểm tra conversion."
-                />
+                <SectionHeading title="Thông tin sản phẩm" />
                 <div className="grid gap-3 lg:grid-cols-3">
                   <AlertItem
                     tone="good"
@@ -378,30 +377,6 @@ export default function ProductsPage() {
                   />
                 </div>
               </OpsCard>
-            </section>
-
-            <section className="grid gap-4 lg:grid-cols-3">
-              <InsightCard
-                tone="warning"
-                priority="Reorder"
-                metric={`${lowStockCount} SKU`}
-                title="Low stock phải đứng trước filter"
-                description="Các SKU sắp hết hàng nên là hàng đợi hành động, không chỉ là một bộ lọc trong bảng."
-              />
-              <InsightCard
-                tone="info"
-                priority="Demand"
-                metric={mostFavorited ? `${formatCompactNumber(mostFavorited.favoritesCount)} fav` : "—"}
-                title="Favorite cao nhưng bán thấp là conversion gap"
-                description="Nên kiểm tra giá, ảnh, size chart hoặc variant thiếu hàng cho nhóm được yêu thích."
-              />
-              <InsightCard
-                tone="good"
-                priority="Margin"
-                metric="Bước tiếp theo"
-                title="Bổ sung margin intelligence"
-                description="Khi backend có biên lợi nhuận theo SKU, thẻ này sẽ ưu tiên sản phẩm lợi nhuận cao thay vì chỉ sản lượng."
-              />
             </section>
 
             <div className="relative grid grid-cols-1 gap-4 lg:grid-cols-3 mb-6">

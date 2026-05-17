@@ -1,4 +1,12 @@
-import { Bell, Command, LogOut, Search, Volume2, VolumeX, X } from "lucide-react";
+import {
+  Bell,
+  Command,
+  LogOut,
+  Search,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -19,7 +27,6 @@ export function Header() {
     soundNeedsInteraction,
     enableSound,
     disableSound,
-    testSound,
   } = useAdminNotifications();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -195,10 +202,6 @@ export function Header() {
               <h2 className="text-xl font-bold text-slate-950">
                 {getPageTitle()}
               </h2>
-              <span className="hidden rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-700 sm:inline-flex">
-                <Command className="mr-1.5 size-3.5" />
-                Lớp thông tin vận hành
-              </span>
             </div>
           )}
         </div>
@@ -262,13 +265,6 @@ export function Header() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => void testSound()}
-                        className="text-xs text-emerald-700 hover:text-emerald-800 font-medium"
-                      >
-                        Test âm thanh
-                      </button>
-                      <button
-                        type="button"
                         onClick={() => markAllAsRead()}
                         className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                       >
@@ -280,7 +276,8 @@ export function Header() {
                   {soundEnabled && soundNeedsInteraction ? (
                     <div className="border-b border-amber-100 bg-amber-50 px-4 py-3">
                       <p className="text-xs font-medium text-amber-800">
-                        Trình duyệt đang chặn autoplay. Bấm nút dưới đây một lần để bật âm thanh thông báo đơn hàng mới.
+                        Trình duyệt đang chặn autoplay. Bấm nút dưới đây một lần
+                        để bật âm thanh thông báo đơn hàng mới.
                       </p>
                       <button
                         type="button"
@@ -326,7 +323,9 @@ export function Header() {
                                     : "text-gray-900 font-semibold"
                                 }`}
                               >
-                                {displayNotificationContent(notification.content)}
+                                {displayNotificationContent(
+                                  notification.content,
+                                )}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 {formatRelativeTime(notification.createdAt)}

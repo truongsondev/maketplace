@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  AlertItem,
   Header,
-  InsightCard,
   LivePill,
-  MetricBar,
-  OpsCard,
-  SectionHeading,
   Sidebar,
 } from "@/components/admin";
 import { userService } from "@/services/api";
@@ -20,7 +15,6 @@ import type {
   AdminUserTopSpenders,
 } from "@/types/user";
 import { toast } from "sonner";
-import { Crown, Repeat2, UserPlus, UserRoundX } from "lucide-react";
 
 const STATUS_OPTIONS: Array<{ label: string; value: AdminUserStatus | "" }> = [
   { label: "Tất cả trạng thái", value: "" },
@@ -272,24 +266,6 @@ export default function UsersPage() {
     return `Tổng ${totalUsers} người dùng`;
   }, [totalUsers]);
 
-  const newCustomers = cohorts?.newCustomers ?? 0;
-  const returningCustomers = cohorts?.returningCustomers ?? 0;
-  const vipCustomers = topSpenders?.items.length ?? 0;
-  const dormantUsers = items.filter((item) => !item.lastLogin).length;
-  const churnRiskUsers = items.filter((item) => {
-    if (!item.lastLogin) return false;
-    const lastLogin = new Date(item.lastLogin).getTime();
-    return Number.isFinite(lastLogin) && Date.now() - lastLogin > 30 * 24 * 60 * 60 * 1000;
-  }).length;
-  const segmentMax = Math.max(
-    newCustomers,
-    returningCustomers,
-    vipCustomers,
-    dormantUsers,
-    churnRiskUsers,
-    1,
-  );
-
   return (
     <div className="flex min-h-screen bg-slate-100">
       <Sidebar />
@@ -307,7 +283,8 @@ export default function UsersPage() {
                     Thông tin khách hàng
                   </h1>
                   <p className="mt-2 text-sm text-slate-600">
-                    Phân khúc khách hàng, retention signal và hành vi mua để admin ưu tiên chăm sóc đúng nhóm.
+                    Phân khúc khách hàng, retention signal và hành vi mua để
+                    admin ưu tiên chăm sóc đúng nhóm.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -321,69 +298,6 @@ export default function UsersPage() {
                 </div>
               </div>
             </section>
-
-            <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-              <OpsCard>
-                <SectionHeading
-                  title="Phân khúc khách hàng"
-                  description="Không chỉ danh sách user, mà là nhóm cần tăng trưởng/giữ chân/xử lý rủi ro."
-                />
-                <div className="grid gap-3 md:grid-cols-2">
-                  <AlertItem
-                    tone="info"
-                    icon={UserPlus}
-                    title={`${newCustomers} khách mới`}
-                    description="Cần onboarding, first-order follow-up và voucher có kiểm soát margin."
-                    action="Lọc khách mới"
-                  />
-                  <AlertItem
-                    tone="good"
-                    icon={Repeat2}
-                    title={`${returningCustomers} khách quay lại`}
-                    description="Nhóm khách quay lại có thể tăng giá trị đơn trung bình bằng gói sản phẩm hoặc sản phẩm biên lợi nhuận cao."
-                    action="Xem retention"
-                  />
-                  <AlertItem
-                    tone="warning"
-                    icon={Crown}
-                    title={`${vipCustomers} VIP/khách chi tiêu cao`}
-                    description="Ưu tiên chăm sóc, tránh refund chậm hoặc trải nghiệm kém."
-                    action="Xem top spender"
-                  />
-                  <AlertItem
-                    tone={churnRiskUsers > 0 ? "danger" : "info"}
-                    icon={UserRoundX}
-                    title={`${churnRiskUsers} nguy cơ rời bỏ`}
-                    description="Đã lâu không đăng nhập, cần chiến dịch win-back hoặc kiểm tra vấn đề."
-                    action="Xem dormant"
-                  />
-                </div>
-              </OpsCard>
-
-              <OpsCard>
-                <SectionHeading
-                  title="Chỉ báo giữ chân"
-                  description="Tín hiệu hành vi để giảm rủi ro rời bỏ."
-                />
-                <div className="space-y-4">
-                  <MetricBar label="Mới" value={newCustomers} max={segmentMax} tone="info" />
-                  <MetricBar label="Quay lại" value={returningCustomers} max={segmentMax} tone="good" />
-                  <MetricBar label="VIP" value={vipCustomers} max={segmentMax} tone="warning" />
-                  <MetricBar label="Ngủ đông" value={dormantUsers} max={segmentMax} tone="neutral" />
-                  <MetricBar label="Nguy cơ rời bỏ" value={churnRiskUsers} max={segmentMax} tone="danger" />
-                </div>
-                <div className="mt-5">
-                  <InsightCard
-                    tone="info"
-                    priority="Lịch sử liên kết"
-                    metric="Đơn hàng"
-                    title="User detail cần nối orders/refunds/cancel"
-                    description="Chi tiết hiện có số đơn, chi tiêu và audit. Bước tiếp theo là timeline liên kết đơn hàng/hoàn tiền/vấn đề hỗ trợ."
-                  />
-                </div>
-              </OpsCard>
-            </section>
-
             <section className="rounded-xl border border-gray-200 bg-white p-6">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>

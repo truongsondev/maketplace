@@ -751,7 +751,7 @@ export class PrismaProductRepository implements IProductRepository {
 
     const rootCategories = categories.filter((category) => !category.parentId);
 
-    const buildShowcases = async (includePromotionFlags: boolean): Promise<CategoryShowcase[]> => {
+    const buildShowcases = async (): Promise<CategoryShowcase[]> => {
       const showcases: CategoryShowcase[] = [];
 
       for (const root of rootCategories) {
@@ -786,10 +786,7 @@ export class PrismaProductRepository implements IProductRepository {
           },
         };
 
-        if (includePromotionFlags) {
-          productSelect.isNew = true;
-          productSelect.isSale = true;
-        }
+        productSelect.isSale = true;
 
         const products = await this.prisma.product.findMany({
           where: {
@@ -821,8 +818,8 @@ export class PrismaProductRepository implements IProductRepository {
             name: product.name,
             imageUrl: product.images[0]?.url ?? null,
             minPrice: Number(product.variants[0]?.price ?? product.basePrice),
-            isNew: includePromotionFlags ? Boolean(product.isNew) : false,
-            isSale: includePromotionFlags ? Boolean(product.isSale) : false,
+            isNew: false,
+            isSale: Boolean(product.isSale),
           })),
         });
       }
@@ -830,20 +827,7 @@ export class PrismaProductRepository implements IProductRepository {
       return showcases;
     };
 
-    try {
-      return await buildShowcases(true);
-    } catch (error) {
-      const isUnknownIsNewFieldError =
-        error instanceof Error &&
-        (error.message.includes('Unknown field `isNew`') ||
-          error.message.includes('Unknown field `isSale`'));
-
-      if (!isUnknownIsNewFieldError) {
-        throw error;
-      }
-
-      return buildShowcases(false);
-    }
+    return buildShowcases();
   }
 
   private pickCollection(product: any): { slug: string; name: string } {
@@ -1058,7 +1042,7 @@ export class PrismaProductRepository implements IProductRepository {
       minPrice: Number(minPrice),
       originalPrice: undefined,
       discountPercent: undefined,
-      isNew: row.isNew ?? false,
+      isNew: false,
       isSale: row.isSale ?? false,
     });
   }

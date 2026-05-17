@@ -4,7 +4,9 @@ import { SendChatMessageCommand } from '../dto/command/send-chat-message.command
 import { ChatSessionResult } from '../dto/result/chat-session.result';
 import { ISendChatMessageUseCase } from '../ports/input/send-chat-message.usecase';
 import { IChatSessionRepository } from '../ports/output/chat-session.repository';
+import { ChatbotLLMOrchestratorService } from '../services/chatbot-llm-orchestrator.service';
 import { ChatbotSalesAssistantService } from '../services/chatbot-sales-assistant.service';
+import { assertCanAccessChatSession } from './chat-session-access';
 import { toChatSessionResult } from './chat-session-result.mapper';
 
 export class SendChatMessageUseCase implements ISendChatMessageUseCase {
@@ -13,6 +15,7 @@ export class SendChatMessageUseCase implements ISendChatMessageUseCase {
   constructor(
     private readonly sessionRepository: IChatSessionRepository,
     private readonly salesAssistant: ChatbotSalesAssistantService,
+    private readonly llmOrchestrator?: ChatbotLLMOrchestratorService,
   ) {}
 
   async execute(command: SendChatMessageCommand): Promise<ChatSessionResult> {
@@ -21,13 +24,21 @@ export class SendChatMessageUseCase implements ISendChatMessageUseCase {
       throw new NotFoundError('Chat session not found');
     }
 
+    assertCanAccessChatSession(session, {
+      userId: command.userId ?? null,
+      guestToken: command.guestToken ?? null,
+    });
+
     await this.sessionRepository.appendMessage(session.id, 'USER', command.content);
     const updatedSession = await this.sessionRepository.findById(session.id);
     if (!updatedSession) {
       throw new NotFoundError('Chat session not found after appending message');
     }
 
-    const reply = await this.salesAssistant.buildReply(updatedSession, command.content);
+    const reply =
+      this.llmOrchestrator?.isEnabled() === true
+        ? await this.buildLLMReplyWithFallback(updatedSession)
+        : await this.salesAssistant.buildReply(updatedSession, command.content);
 
     await this.sessionRepository.updateSession(session.id, {
       status: reply.status,
@@ -61,8 +72,42 @@ export class SendChatMessageUseCase implements ISendChatMessageUseCase {
       sessionId: reloaded.id,
       status: reloaded.status,
       suggestedCount: reply.suggestedProducts.length,
+      llmEnabled: this.llmOrchestrator?.isEnabled() === true,
     });
 
     return toChatSessionResult(reloaded);
+  }
+
+  private async buildLLMReplyWithFallback(
+    session: Parameters<ChatbotSalesAssistantService['buildReply']>[0],
+  ) {
+    try {
+      const lastUserMessage = [...session.messages].reverse().find((message) => message.role === 'USER');
+      return await this.llmOrchestrator!.buildReply(session, lastUserMessage?.content ?? '');
+    } catch (error) {
+      this.logger.warn('Chatbot LLM failed', {
+        sessionId: session.id,
+        fallbackUsed: 'safe_out_of_scope',
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return {
+        content:
+          'Mình chỉ là trợ lý AI của AURA, hiện mình chỉ hỗ trợ tư vấn thời trang và sản phẩm trong shop. Bạn vui lòng không hỏi nội dung ngoài phạm vi này nhé.',
+        status: session.status,
+        shopperProfile: session.shopperProfile ?? {},
+        leadPhone: session.leadPhone,
+        leadEmail: session.leadEmail,
+        lastIntent: 'out_of_scope',
+        lastSummary: 'llm_safe_fallback',
+        suggestedProducts: [],
+        quickReplies: [
+          { label: 'Đồ đi làm', value: 'Mình cần outfit đi làm' },
+          { label: 'Đồ đi chơi', value: 'Gợi ý outfit đi chơi cuối tuần' },
+          { label: 'Ngân sách 500k', value: 'Ngân sách của mình khoảng 500k' },
+          { label: 'Để lại SĐT', value: 'Số điện thoại của mình là 0901234567' },
+        ],
+      };
+    }
   }
 }

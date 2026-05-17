@@ -59,7 +59,6 @@ export function useAdminNotifications() {
     enableSound,
     disableSound,
     playNewOrderSound,
-    testSound,
   } = useAdminNotificationSound();
 
   const listQuery = useQuery({
@@ -199,7 +198,6 @@ export function useAdminNotifications() {
     soundNeedsInteraction: needsInteraction,
     enableSound,
     disableSound,
-    testSound,
     markAsRead: (notificationId: string) =>
       markReadMutation.mutateAsync(notificationId),
     markAllAsRead: () => markAllReadMutation.mutateAsync(),

@@ -7,6 +7,10 @@ import { PaymentController } from '../../interface-adapter/controller';
 
 const logger = createLogger('PaymentAPI');
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
 export class PaymentAPI {
   readonly router = express.Router();
 
@@ -53,18 +57,19 @@ export class PaymentAPI {
       ? req.body.cartItemIds.filter((id: unknown) => typeof id === 'string' && id.trim().length > 0)
       : undefined;
 
-    const shippingRaw = (req.body as any)?.shipping;
+    const requestBody = req.body as Record<string, unknown>;
+    const shippingRaw = requestBody.shipping;
     const shippingValue =
-      shippingRaw && typeof shippingRaw === 'object'
+      isRecord(shippingRaw)
         ? {
-            recipient: (shippingRaw as any).recipient,
-            phone: (shippingRaw as any).phone,
-            addressLine: (shippingRaw as any).addressLine,
-            ward: (shippingRaw as any).ward,
+            recipient: shippingRaw.recipient,
+            phone: shippingRaw.phone,
+            addressLine: shippingRaw.addressLine,
+            ward: shippingRaw.ward,
             // Some clients may only send ward + city; default district to ward.
-            district: (shippingRaw as any).district ?? (shippingRaw as any).ward,
-            city: (shippingRaw as any).city,
-            addressId: (shippingRaw as any).addressId,
+            district: shippingRaw.district ?? shippingRaw.ward,
+            city: shippingRaw.city,
+            addressId: shippingRaw.addressId,
           }
         : undefined;
 
@@ -113,7 +118,7 @@ export class PaymentAPI {
             addressId:
               typeof shippingValue.addressId === 'string'
                 ? shippingValue.addressId.trim()
-                : (shippingValue.addressId ?? undefined),
+                : undefined,
           }
         : undefined,
     });
@@ -141,8 +146,8 @@ export class PaymentAPI {
       contentType: req.get('content-type'),
       bodyType: typeof req.body,
       hasBody: Boolean(req.body),
-      hasData: Boolean((req.body as any)?.data),
-      hasSignature: Boolean((req.body as any)?.signature),
+      hasData: isRecord(req.body) && Boolean(req.body.data),
+      hasSignature: isRecord(req.body) && Boolean(req.body.signature),
     });
 
     try {
@@ -166,12 +171,17 @@ export class PaymentAPI {
   }
 
   private async getPaymentStatus(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
     const { orderCode } = req.params;
     if (!orderCode || typeof orderCode !== 'string') {
       throw new BadRequestError('orderCode is required');
     }
 
-    const result = await this.paymentController.getPaymentStatus(orderCode);
+    const result = await this.paymentController.getPaymentStatus(orderCode, userId);
     res.status(200).json(ResponseFormatter.success(result));
   }
 }

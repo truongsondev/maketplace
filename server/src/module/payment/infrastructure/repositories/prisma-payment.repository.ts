@@ -206,6 +206,45 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     };
   }
 
+  async findByOrderCodeForUser(
+    orderCode: string,
+    userId: string,
+  ): Promise<PaymentTransactionRecord | null> {
+    const payment = await this.prisma.paymentTransaction.findFirst({
+      where: {
+        orderCode,
+        order: {
+          userId,
+        },
+      },
+      select: {
+        orderId: true,
+        orderCode: true,
+        amount: true,
+        status: true,
+        bankCode: true,
+        gatewayReference: true,
+        gatewayCode: true,
+        paidAt: true,
+      },
+    });
+
+    if (!payment) {
+      return null;
+    }
+
+    return {
+      orderId: payment.orderId,
+      orderCode: payment.orderCode,
+      amount: Number(payment.amount),
+      status: payment.status,
+      bankCode: payment.bankCode,
+      gatewayReference: payment.gatewayReference,
+      gatewayCode: payment.gatewayCode,
+      paidAt: payment.paidAt,
+    };
+  }
+
   async setCheckoutReference(orderCode: string, paymentLinkId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.paymentTransaction.findUnique({
@@ -633,8 +672,15 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       return;
     }
 
-    const raw = paymentRawPayload as any;
-    const cartItemIds: unknown = raw?.checkout?.cartItemIds;
+    const raw =
+      paymentRawPayload && typeof paymentRawPayload === 'object' && !Array.isArray(paymentRawPayload)
+        ? (paymentRawPayload as Record<string, unknown>)
+        : null;
+    const checkout =
+      raw?.checkout && typeof raw.checkout === 'object' && !Array.isArray(raw.checkout)
+        ? (raw.checkout as Record<string, unknown>)
+        : null;
+    const cartItemIds = checkout?.cartItemIds;
 
     if (!Array.isArray(cartItemIds) || cartItemIds.length === 0) {
       return;

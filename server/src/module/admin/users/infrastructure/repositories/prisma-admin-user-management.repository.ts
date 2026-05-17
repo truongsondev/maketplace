@@ -33,6 +33,35 @@ function parseAuditMetadata(value: Prisma.JsonValue | null): Record<string, unkn
   return value as Record<string, unknown>;
 }
 
+const userRolesWithRole = {
+  include: {
+    role: true,
+  },
+} as const;
+
+const latestRefreshTokenSelect = {
+  select: {
+    createdAt: true,
+  },
+  orderBy: {
+    createdAt: 'desc' as const,
+  },
+  take: 1,
+} as const;
+
+const adminUserSummarySelect = {
+  id: true,
+  email: true,
+  phone: true,
+  status: true,
+  emailVerified: true,
+  lastLogin: true,
+  createdAt: true,
+  updatedAt: true,
+  userRoles: userRolesWithRole,
+  refreshTokens: latestRefreshTokenSelect,
+} as const;
+
 export class PrismaAdminUserManagementRepository implements IAdminUserManagementRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
@@ -69,22 +98,7 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
           skip,
           take: params.limit,
           orderBy,
-          include: {
-            userRoles: {
-              include: {
-                role: true,
-              },
-            },
-            refreshTokens: {
-              select: {
-                createdAt: true,
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-              take: 1,
-            },
-          },
+          select: adminUserSummarySelect,
         }),
         this.prisma.user.count({ where }),
         this.prisma.user.count({ where: { ...baseWhere, status: 'ACTIVE' } }),
@@ -127,22 +141,7 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
   async getUserById(userId: string): Promise<AdminUserDetail | null> {
     const row = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        refreshTokens: {
-          select: {
-            createdAt: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 1,
-        },
-      },
+      select: adminUserSummarySelect,
     });
 
     if (!row) {
@@ -186,22 +185,7 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
   }): Promise<AdminUserSummary> {
     const existing = await this.prisma.user.findUnique({
       where: { id: params.userId },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-          },
-        },
-        refreshTokens: {
-          select: {
-            createdAt: true,
-          },
-          orderBy: {
-            createdAt: 'desc',
-          },
-          take: 1,
-        },
-      },
+      select: adminUserSummarySelect,
     });
 
     if (!existing) {
@@ -214,22 +198,7 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
       const user = await tx.user.update({
         where: { id: params.userId },
         data: { status: params.status },
-        include: {
-          userRoles: {
-            include: {
-              role: true,
-            },
-          },
-          refreshTokens: {
-            select: {
-              createdAt: true,
-            },
-            orderBy: {
-              createdAt: 'desc',
-            },
-            take: 1,
-          },
-        },
+        select: adminUserSummarySelect,
       });
 
       if (params.status !== 'ACTIVE') {
@@ -267,13 +236,7 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
     const [target, adminRole, buyerRole] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: params.userId },
-        include: {
-          userRoles: {
-            include: {
-              role: true,
-            },
-          },
-        },
+        select: adminUserSummarySelect,
       }),
       this.prisma.role.findUnique({ where: { code: 'ADMIN' } }),
       this.prisma.role.findUnique({ where: { code: 'BUYER' } }),
@@ -343,13 +306,7 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
 
       return tx.user.findUnique({
         where: { id: params.userId },
-        include: {
-          userRoles: {
-            include: {
-              role: true,
-            },
-          },
-        },
+        select: adminUserSummarySelect,
       });
     });
 

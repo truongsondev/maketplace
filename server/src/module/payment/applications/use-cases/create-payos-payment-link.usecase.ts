@@ -95,7 +95,7 @@ export class CreatePayosPaymentLinkUseCase {
       ];
 
       for (const field of fields) {
-        const value = (command.shipping as any)[field];
+        const value = command.shipping[field];
         if (typeof value !== 'string' || value.trim() === '') {
           throw new BadRequestError(`shipping.${String(field)} is required`);
         }

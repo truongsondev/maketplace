@@ -1,5 +1,48 @@
 # Chatbot Sales Context
 
+# Gemini LLM Tool Calling Chatbot Context
+
+- Ngày 2026-05-17 đã nâng cấp chatbot AURA Phase 1 theo `GEMINI_FREE_PLAN_FOR_AURA_CHATBOT.md`.
+- Backend vẫn giữ API public hiện có, không đổi contract frontend:
+  - `POST /api/chatbot/sessions`
+  - `GET /api/chatbot/sessions/:sessionId`
+  - `POST /api/chatbot/sessions/:sessionId/messages`
+- Các file mới:
+  - `server/src/module/chatbot/applications/ports/output/chatbot-llm-client.ts`
+  - `server/src/module/chatbot/applications/tools/search-products.tool.ts`
+  - `server/src/module/chatbot/applications/services/chatbot-llm-orchestrator.service.ts`
+  - `server/src/module/chatbot/infrastructure/llm/gemini-chat.client.ts`
+  - `server/doc-api/chatbot-llm-gemini.md`
+- `SendChatMessageUseCase` giờ ưu tiên `ChatbotLLMOrchestratorService` khi:
+  - `CHATBOT_LLM_ENABLED=true`
+  - `CHATBOT_LLM_PROVIDER=gemini`
+- Fallback rule-based vẫn dùng `ChatbotSalesAssistantService` khi Gemini lỗi, timeout, hết quota hoặc thiếu key, trừ khi `CHATBOT_LLM_FALLBACK_TO_RULE_BASED=false`.
+- Env chatbot LLM:
+  - `GEMINI_API_KEY`
+  - `GEMINI_MODEL=gemini-2.5-flash`
+  - `CHATBOT_LLM_PROVIDER=gemini`
+  - `CHATBOT_LLM_ENABLED=true`
+  - `CHATBOT_LLM_MAX_TOOL_CALLS=3`
+  - `CHATBOT_LLM_TIMEOUT_MS=15000`
+  - `CHATBOT_LLM_FALLBACK_TO_RULE_BASED=true`
+- Tool `searchProducts` dùng `IChatbotProductCatalog`, giới hạn tối đa 4 sản phẩm để tiết kiệm quota và tránh câu trả lời dài.
+- Gemini chỉ nên nói về sản phẩm lấy được từ tool, không bịa giá/tồn kho/khuyến mãi.
+- Typecheck toàn server hiện vẫn fail bởi lỗi sẵn có ngoài phạm vi chatbot: mismatch Prisma generated client/node_modules client ở nhiều DI module và một số test mock cũ. Lọc lỗi theo `chatbot` chỉ còn lỗi Prisma DI dòng tạo `PrismaProductRepository(prisma)`, vốn là lỗi nền giống các module khác.
+
+# Product Organization Assessment For AI Chatbox
+
+- Hiện tại đủ để chatbot tận dụng ở Phase 1:
+  - product catalog có category, color, size, usage occasion, price range và search.
+  - adapter đã trả ảnh chính, giá thấp nhất, link sản phẩm, category slugs, usage occasions.
+  - category hierarchy và `usage_occasions` phù hợp với website thời trang, không phải marketplace đa ngành.
+- Còn thiếu để AI tư vấn tốt hơn:
+  - metadata benefit/style chuẩn hóa: tôn dáng, co giãn, mát, ít nhăn, minimal, street, smart casual, feminine.
+  - body-fit guidance: phù hợp dáng người, chiều cao, form rộng/ôm/regular rõ ràng.
+  - seasonal/context tags: nắng nóng, mưa, du lịch, công sở, tiệc tối.
+  - ranking signal riêng cho chatbot: impression/click/add-to-cart/conversion từ product cards trong chat.
+  - admin lead inbox cho session `CONTACT_CAPTURED`, hiện mới lưu lead trong chat session.
+  - tool chi tiết tiếp theo: `getProductDetail`, `suggestOutfit`, `getRelatedProducts`.
+
 # Admin Operational Intelligence Refactor Context
 
 - Current request: refactor `client-seller` admin from CRUD/table management into an “Operational Intelligence Dashboard” / ecommerce command center.
@@ -259,7 +302,7 @@
   - frontend hook: `client-seller/src/hooks/use-admin-notifications.ts`
 - Loại event mới:
   - SSE event name: `new_order`
-  - payload có thêm metadata như `type`, `orderId`, `orderCode`, `customerName`, `totalAmount`, `createdAt`
+  - payload có thêm metadata như `type`, `orderId`, `orderCode`, `customerName`, `totalAmount`, `paidAt`
 - Backend processor mới:
   - file `server/src/module/admin/notifications/infrastructure/services/admin-new-order-notification.processor.ts`
   - chỉ gửi cho user có role `ADMIN`
@@ -272,9 +315,49 @@
 - Frontend admin sound:
   - hook mới `client-seller/src/hooks/use-admin-notification-sound.ts`
   - setting lưu `localStorage` key `aura-admin:new-order-sound-enabled`
-  - phát âm thanh bằng Web Audio API, không cần asset mp3
+  - phát âm thanh bằng file asset `/notification-sounds/universfield-new-notification-036-485897.mp3`
   - nếu browser chặn autoplay thì UI trong dropdown thông báo sẽ yêu cầu user bấm `Bật âm thanh`
 - Header admin đã hỗ trợ:
   - toggle bật/tắt âm thanh
   - gợi ý bật âm thanh khi autoplay bị chặn
   - điều hướng notification `NEW_ORDER` về trang orders
+
+# DB Cleanup Context
+
+- Đợt cleanup DB ngày 2026-05-17 đã xóa 3 cột không còn dùng trong runtime:
+  - `users.phone_verified`
+  - `user_roles.assigned_at`
+  - `discount_usages.used_at`
+- Migration tương ứng: `server/prisma/migrations/20260517143000_remove_unused_columns/migration.sql`
+- `npx prisma validate --schema prisma/schema.prisma` đã pass sau khi cập nhật schema.
+
+- Đợt cleanup DB tiếp theo ngày 2026-05-17 đã xóa thêm 3 cột ở `products`:
+  - `products.min_price`
+  - `products.max_price`
+  - `products.is_new`
+- Migration tương ứng: `server/prisma/migrations/20260517150000_remove_unused_product_price_flags/migration.sql`
+- Sau khi xóa:
+  - API vẫn trả `minPrice` nhưng tính động từ variant thấp nhất hoặc `basePrice`
+  - API vẫn giữ field `isNew` để không vỡ FE, nhưng hiện trả cố định `false`
+  - recommendation/chatbot/public product repo đã bỏ mọi query trực tiếp vào `min_price` và `is_new`
+
+# Chatbot AI Intent Router Context
+
+- Refactor theo `traing.md`: nhánh LLM chatbot dùng Gemini intent classifier làm nguồn quyết định intent chính.
+- Intent chính: `product_search`, `shop_question`, `fashion_advice`, `greeting`, `thanks`, `out_of_scope`.
+- Port LLM mới có `classifyIntent()` trong `server/src/module/chatbot/applications/ports/output/chatbot-llm-client.ts`.
+- Gemini REST client gọi classifier với JSON response trong `server/src/module/chatbot/infrastructure/llm/gemini-chat.client.ts`.
+- Orchestrator mới ở `server/src/module/chatbot/applications/services/chatbot-llm-orchestrator.service.ts`:
+  - classify intent trước
+  - `product_search` dùng filters từ classifier để query `SearchProductsTool`
+  - chỉ đưa sản phẩm thật từ DB vào prompt trả lời cuối
+  - `shop_question` load markdown từ `server/src/module/chatbot/shop-knowledge`
+  - classifier fail fallback về `out_of_scope` confidence 0, không crash
+- Knowledge shop đã thêm:
+  - `server/src/module/chatbot/shop-knowledge/policy.md`
+  - `server/src/module/chatbot/shop-knowledge/shipping.md`
+  - `server/src/module/chatbot/shop-knowledge/payment.md`
+- Khi LLM router bật, `SendChatMessageUseCase` không fallback về rule-based keyword nữa; lỗi LLM ngoài dự kiến trả safe out-of-scope.
+- Đã verify:
+  - `npx tsc --noEmit`
+  - chatbot tests: orchestrator, sales assistant fallback mode, chat session access

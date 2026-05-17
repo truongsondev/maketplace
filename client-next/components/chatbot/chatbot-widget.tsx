@@ -81,6 +81,22 @@ function getLastAssistantQuickReplies(
   return [];
 }
 
+function createOptimisticUserMessage(content: string): ChatbotMessage {
+  const id =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? `optimistic_${crypto.randomUUID()}`
+      : `optimistic_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  return {
+    id,
+    role: "USER",
+    content,
+    createdAt: new Date().toISOString(),
+    suggestedProducts: [],
+    quickReplies: [],
+  };
+}
+
 export function ChatbotWidget() {
   const userId = useAuthStore((state) => state.user?.id);
   const chatOwnerKey = userId ? `user:${userId}` : "guest";
@@ -106,14 +122,15 @@ export function ChatbotWidget() {
       );
 
       try {
+        const guestToken = ensureGuestToken(chatOwnerKey);
         const storedSessionId =
           typeof window !== "undefined"
             ? window.localStorage.getItem(sessionStorageKey)
             : null;
 
         const payload = storedSessionId
-          ? await chatbotService.getSession(storedSessionId)
-          : await chatbotService.startSession(ensureGuestToken(chatOwnerKey));
+          ? await chatbotService.getSession(storedSessionId, guestToken)
+          : await chatbotService.startSession(guestToken);
 
         if (cancelled) return;
 
@@ -123,9 +140,7 @@ export function ChatbotWidget() {
         if (cancelled) return;
 
         try {
-          const payload = await chatbotService.startSession(
-            ensureGuestToken(chatOwnerKey),
-          );
+          const payload = await chatbotService.startSession(ensureGuestToken(chatOwnerKey));
           if (cancelled) return;
           setSession(payload);
           window.localStorage.setItem(sessionStorageKey, payload.session.id);
@@ -169,14 +184,29 @@ export function ChatbotWidget() {
 
     setIsSending(true);
     setErrorMessage(null);
+    setMessage("");
+
+    const optimisticMessage = createOptimisticUserMessage(trimmed);
+    setSession((prev) =>
+      prev && prev.session.id === session.session.id
+        ? {
+            ...prev,
+            session: {
+              ...prev.session,
+              lastMessageAt: optimisticMessage.createdAt,
+            },
+            messages: [...prev.messages, optimisticMessage],
+          }
+        : prev,
+    );
 
     try {
       const payload = await chatbotService.sendMessage(
         session.session.id,
         trimmed,
+        ensureGuestToken(chatOwnerKey),
       );
       setSession(payload);
-      setMessage("");
       window.localStorage.setItem(
         getScopedStorageKey(SESSION_STORAGE_KEY, chatOwnerKey),
         payload.session.id,
@@ -342,6 +372,11 @@ export function ChatbotWidget() {
               <textarea
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.shiftKey) return;
+                  event.preventDefault();
+                  void send(message);
+                }}
                 rows={1}
                 placeholder="Ví dụ: mình cần đồ đi làm dưới 700k"
                 className="max-h-28 min-h-12 flex-1 resize-none rounded-2xl border border-[#ddd4ca] bg-[#fbfaf8] px-4 py-3 text-sm outline-none transition-colors focus:border-[#7a4b30]"

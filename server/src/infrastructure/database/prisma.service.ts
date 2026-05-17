@@ -1,5 +1,5 @@
-import prismaPkg from '@prisma/client';
-import type { PrismaClient as PrismaClientType } from '@prisma/client';
+import { PrismaClient } from '@/generated/prisma/client';
+import type { PrismaClient as PrismaClientType } from '@/generated/prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import dotenv from 'dotenv';
 
@@ -16,7 +16,6 @@ class PrismaService {
     });
     if (!PrismaService.instance) {
       const adapter = new PrismaMariaDb(process.env.DATABASE_URL!);
-      const { PrismaClient } = prismaPkg;
       PrismaService.instance = new PrismaClient({ adapter });
     }
     return PrismaService.instance;
