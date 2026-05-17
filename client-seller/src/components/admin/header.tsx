@@ -1,6 +1,5 @@
 import {
   Bell,
-  Command,
   LogOut,
   Search,
   Volume2,
