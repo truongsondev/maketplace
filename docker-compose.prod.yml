@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Nginx Reverse Proxy
   nginx:
@@ -110,6 +108,7 @@ services:
 
   # Backend API
   backend:
+    image: maketplace-server:prod
     build:
       context: ./server
       dockerfile: Dockerfile
@@ -170,9 +169,7 @@ services:
 
   # PayOS Reconcile Worker (periodic safety-net)
   payos-reconcile-worker:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    image: maketplace-server:prod
     container_name: prod-payos-reconcile-worker
     restart: always
     environment:
