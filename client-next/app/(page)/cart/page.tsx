@@ -158,8 +158,7 @@ export default function CartPage() {
       .reduce((sum, item) => sum + item.subtotal, 0);
   }, [cart, selectedItemIds]);
 
-  const cartBaseTotal = cart?.totalAmount ?? 0;
-  const effectiveTotal = hasSelection ? selectedTotal : cartBaseTotal;
+  const effectiveTotal = selectedTotal;
 
   const discountAmount = voucherResult?.pricing.discountAmount ?? 0;
   const discountedTotal = voucherResult?.pricing.finalTotal ?? effectiveTotal;
@@ -236,12 +235,16 @@ export default function CartPage() {
       toast.error("Vui lòng nhập mã voucher");
       return false;
     }
+    if (!hasSelection) {
+      toast.error("Vui lòng chọn sản phẩm trước khi áp dụng voucher");
+      return false;
+    }
 
     try {
       setIsApplyingVoucher(true);
       const payload = {
         code: normalizedCode,
-        cartItemIds: hasSelection ? selectedItemIds : undefined,
+        cartItemIds: selectedItemIds,
       };
       const result = await voucherService.applyVoucher(payload);
       setVoucherCode(result.voucher.code);
@@ -261,8 +264,8 @@ export default function CartPage() {
   };
 
   const handleCheckout = () => {
-    if (discountedTotal <= 0) {
-      toast.error("Số tiền thanh toán không hợp lệ");
+    if (!hasSelection || discountedTotal <= 0) {
+      toast.error("Vui lòng chọn sản phẩm để checkout");
       return;
     }
 
@@ -439,7 +442,7 @@ export default function CartPage() {
                 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-neutral-900 hover:underline dark:text-white"
               >
                 <Ticket className="size-4" />
-                Private offer
+                Lấy mã ngay
               </button>
 
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -530,8 +533,7 @@ export default function CartPage() {
               </div>
 
               <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
-                Tổng cộng ({hasSelection ? selectedCount : cart.totalItems} sản
-                phẩm):
+                Tổng cộng ({selectedCount} sản phẩm):
                 <span className="ml-1 text-xl font-semibold text-black dark:text-white sm:text-2xl">
                   {formatPrice(discountedTotal)}
                 </span>
@@ -540,7 +542,12 @@ export default function CartPage() {
 
             <button
               onClick={handleCheckout}
-              disabled={updateMutation.isPending || removeMutation.isPending}
+              disabled={
+                !hasSelection ||
+                discountedTotal <= 0 ||
+                updateMutation.isPending ||
+                removeMutation.isPending
+              }
               className="luxury-button h-11 shrink-0 px-4 py-0 sm:px-6"
             >
               Tiếp tục checkout

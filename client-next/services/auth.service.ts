@@ -30,6 +30,23 @@ export interface VerifyEmailResponse {
   message: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
 export interface LogoutRequest {
   refreshToken: string | null;
   accessToken: string | null;
@@ -79,6 +96,36 @@ export const authService = {
 
     if (response.success) {
       return (response as ApiSuccessResponse<VerifyEmailResponse>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async forgotPassword(
+    payload: ForgotPasswordRequest,
+  ): Promise<ForgotPasswordResponse> {
+    const response = await apiClient.post<ForgotPasswordResponse>(
+      "api/auth/forgot-password",
+      payload,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<ForgotPasswordResponse>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async resetPassword(
+    payload: ResetPasswordRequest,
+  ): Promise<ResetPasswordResponse> {
+    const response = await apiClient.post<ResetPasswordResponse>(
+      "api/auth/reset-password",
+      payload,
+    );
+
+    if (response.success) {
+      return (response as ApiSuccessResponse<ResetPasswordResponse>).data;
     }
 
     throw response as ApiErrorResponse;

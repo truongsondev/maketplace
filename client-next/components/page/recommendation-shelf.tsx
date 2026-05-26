@@ -109,11 +109,6 @@ export function RecommendationShelf({
             Gợi ý cho bạn
           </h2>
         </div>
-        {feed?.strategy ? (
-          <p className="hidden max-w-xs text-right text-xs uppercase tracking-[0.18em] text-neutral-500 md:block">
-            {feed.strategy.replaceAll("_", " ")}
-          </p>
-        ) : null}
       </div>
 
       <div className="mx-auto mt-8 w-full max-w-330 px-4 md:px-6 lg:px-8">

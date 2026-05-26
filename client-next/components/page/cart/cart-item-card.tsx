@@ -154,7 +154,7 @@ export function CartItemCard({
                 Đang cập nhật
               </span>
             ) : (
-              "Gỡ khỏi bag"
+              "Gỡ khỏi giỏ hàng"
             )}
           </button>
 

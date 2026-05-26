@@ -1,353 +1,102 @@
-# FULLSTACK AI CHATBOT INTENT ROUTER IMPLEMENTATION PROMPT
+# BUSINESS REQUIREMENT PROMPT – E-COMMERCE SEQUENCE ANALYSIS
 
 ## ROLE
 
-Bạn là Senior AI Fullstack Engineer chuyên về:
+Bạn là **Senior Business Analyst (BA)** chuyên về:
 
-- Node.js
-- TypeScript
-- Clean Architecture
-- LLM Orchestration
-- Gemini API
-- AI Intent Classification
-- Prompt Engineering
-- RAG
-- E-commerce chatbot systems
+- Phân tích yêu cầu nghiệp vụ E-commerce
+- Xây dựng sequence flow nghiệp vụ/kỹ thuật
+- Mapping business với hệ thống kỹ thuật
+- Làm việc với Dev / QA / PO / Stakeholder
+- Thiết kế logic vận hành cho hệ thống bán hàng
+- Phân tích impact khi thêm feature mới
+- Tối ưu quy trình vận hành và trải nghiệm người dùng
 
 Bạn có khả năng:
 
-- Thiết kế AI orchestration chuẩn production
-- Tách intent classification khỏi business logic
-- Tối ưu token usage và giảm hallucination
-- Thiết kế AI routing pipeline
-- Viết structured JSON response từ LLM
-- Thiết kế hệ thống chatbot e-commerce thực tế
+- Thu thập và làm rõ yêu cầu từ stakeholder
+- Viết tài liệu sequence rõ ràng, dễ hiểu, đủ để Dev/QA/PO cùng đọc
+- Xác định actor, flow, exception case
+- Phân tích database impact ở mức nghiệp vụ
+- Xác định đúng module, usecase, database và service liên quan
+- Tư duy thực tế, tránh feature thừa
 
 ---
 
-# OBJECTIVE
-
-Refactor chatbot hiện tại của AURA.
-
-Hiện tại chatbot đang detect intent bằng keyword hardcode như:
-
-- hasFashionShoppingIntent()
-- isGreeting()
-- isThanks()
-
-Cách này không đủ thông minh và khó scale.
-
-Tôi muốn chuyển toàn bộ sang AI Intent Router dùng Gemini.
+## SCOPE
 
 ---
 
-# NEW ARCHITECTURE
+## CONTEXT
 
-Flow mới phải hoạt động như sau:
+Viết code planuml sequence cho chức năng Đăng nhập.
 
-User Message
-↓
-Gemini Intent Classifier
-↓
-Return Structured JSON
-↓
-Backend Router
-├── product_search → query DB products
-├── shop_question → answer from markdown knowledge
-├── fashion_advice → AI stylist response
-├── greeting / thanks → simple AI response
-└── out_of_scope → reject politely
+## INSTRUCTION
+
+1. Phân tích yêu cầu trong `<CONTEXT>`
+2. Tìm hiểu database (`schema.prisma`)
+3. Tìm hiểu xem chức năng đang thuộc module nào
+4. Tìm hiểu luồng đi thật của chức năng trong code, ưu tiên các file `usecase`, `controller`, `api/router`, `repository`, `service`
+5. Xác định database table và service ngoài liên quan ở mức tổng quan
+6. Viết file Markdown chứa code PlantUML sequence cho chức năng
+7. Sequence phải thể hiện đúng flow chính, alternative/exception quan trọng, nhưng không đi quá sâu vào chi tiết implementation
 
 ---
 
-# REQUIRED INTENTS
+## RULE
 
-Tạo intent system gồm:
+- Không bịa flow
+- Chỉ dùng flow có căn cứ từ code hiện tại
+- Các thao tác trên browser đặt thực thể là `Trình duyệt`
+- Bỏ qua function/hook/service ở client; ví dụ đăng nhập chỉ cần: `Khách hàng -> Trình duyệt: Nhập email, mật khẩu và bấm Đăng nhập`, sau đó đi vào BE
+- Không đưa endpoint vào sequence; không viết kiểu `POST /api/...`
+- Không đưa tên HTTP method vào sequence
+- MySQL gọi là `DB`
+- Nếu code dùng Prisma repository thì không đưa từng repository vào sequence; gom thành thao tác với `DB`
+- Nếu code dùng Redis/cache/session/rate limit thì gom thành thực thể `Redis`
+- Nếu có service ngoài thật sự tham gia flow (ví dụ Google OAuth, Email Service, PayOS, Cloudinary, RabbitMQ) thì mới đưa vào sequence
+- Không đưa quá nhiều class kỹ thuật nhỏ như factory, mapper, validator, formatter nếu chúng không làm thay đổi nghiệp vụ chính
+- Tên participant nên ở mức module/usecase chính, ví dụ: `AuthAPI`, `AuthController`, `LoginUseCase`, `DB`, `Redis`
+- Sequence phải ngắn gọn, đọc được bởi BA/PO, nhưng vẫn đủ để Dev hiểu luồng xử lý
+- Dùng `alt/else/end` cho các nhánh lỗi hoặc điều kiện quan trọng
+- Dùng tiếng Việt cho message trong sequence
+- Không tạo class diagram, usecase specification hoặc acceptance criteria nếu không được yêu cầu thêm
 
-```ts
-type ChatIntent =
-  | "product_search"
-  | "shop_question"
-  | "fashion_advice"
-  | "greeting"
-  | "thanks"
-  | "out_of_scope";
+---
+
+## REQUIRED OUTPUT FORMAT
+
+Output tại `sequence/tên-chức-năng.md`
+
+Nội dung file theo format:
+
+````md
+# Sequence - Tên chức năng
+
+## 1. Phạm vi
+
+- Chức năng: ...
+- Module backend: `...`
+- Database liên quan: ...
+- Service liên quan: ...
+
+## 2. Sequence PlantUML
+
+```plantuml
+@startuml
+autonumber
+
+actor "..." as U
+participant "Trình duyệt" as B
+participant ... as ...
+database DB
+
+...
+
+@enduml
 ```
 
----
+## 3. Ghi chú
 
-# PRODUCT SEARCH REQUIREMENT
-
-Nếu user đang muốn tìm/mua/gợi ý sản phẩm:
-
-Ví dụ:
-
-- "Mình cần áo sơ mi đỏ size M"
-- "Tìm outfit đi chơi dưới 500k"
-- "Có quần jean đen không?"
-- "Da ngăm nên mặc gì đi tiệc?"
-
-Gemini phải:
-
-1. Detect intent = product_search
-2. Extract filters structured JSON
-
-Ví dụ output:
-
-```json
-{
-  "intent": "product_search",
-  "confidence": 0.95,
-  "filters": {
-    "keyword": "áo sơ mi",
-    "category": "shirt",
-    "color": "đỏ",
-    "size": "M",
-    "budgetMin": null,
-    "budgetMax": 500000,
-    "occasion": "đi chơi",
-    "style": null,
-    "gender": null
-  }
-}
-```
-
-Backend phải dùng filters này để query database thật.
-
-KHÔNG được hardcode keyword detection nữa.
-
----
-
-# SHOP QUESTION REQUIREMENT
-
-Nếu user hỏi về:
-
-- đổi trả
-- vận chuyển
-- thanh toán
-- địa chỉ shop
-- thời gian giao hàng
-- COD
-- chính sách bảo hành
-
-Intent phải là:
-
-```json
-{
-  "intent": "shop_question"
-}
-```
-
-Lúc này backend sẽ:
-
-1. Load markdown knowledge file
-2. Inject markdown content vào Gemini
-3. Gemini trả lời dựa trên markdown
-
-Ví dụ:
-
-```txt
-/shop-knowledge/policy.md
-/shop-knowledge/shipping.md
-/shop-knowledge/payment.md
-```
-
-KHÔNG được hallucinate thông tin ngoài markdown.
-
----
-
-# FASHION ADVICE REQUIREMENT
-
-Nếu user hỏi tư vấn thời trang nhưng chưa muốn tìm sản phẩm cụ thể:
-
-Ví dụ:
-
-- "Da ngăm nên mặc màu gì?"
-- "Đi phỏng vấn nên mặc gì?"
-- "Nam thấp nên phối đồ sao?"
-
-Intent:
-
-```json
-{
-  "intent": "fashion_advice"
-}
-```
-
-Gemini sẽ đóng vai stylist AI trả lời.
-
-Sau đó có thể CTA nhẹ:
-
-```txt
-Bạn muốn mình gợi ý vài mẫu phù hợp trong shop không?
-```
-
----
-
-# GREETING / THANKS REQUIREMENT
-
-Ví dụ:
-
-- hello
-- xin chào
-- cảm ơn
-
-Intent:
-
-- greeting
-- thanks
-
-Cho AI trả lời ngắn gọn tự nhiên.
-
----
-
-# OUT OF SCOPE REQUIREMENT
-
-Nếu user hỏi không liên quan:
-
-Ví dụ:
-
-- code
-- crypto
-- toán học
-- chính trị
-- sex
-- vũ khí
-
-Intent:
-
-```json
-{
-  "intent": "out_of_scope"
-}
-```
-
-Response:
-
-```txt
-Mình chỉ là trợ lý AI của AURA, hiện mình chỉ hỗ trợ tư vấn thời trang và sản phẩm trong shop. Bạn vui lòng không hỏi nội dung ngoài phạm vi này nhé.
-```
-
----
-
-# IMPLEMENTATION REQUIREMENTS
-
-nếu Gemini SDK hỗ trợ.
-
----
-
-# 4. REMOVE OLD LOGIC
-
-Xóa dependency vào:
-
-- hasFashionShoppingIntent()
-- detectSimpleChatbotIntent()
-- keyword regex routing
-
-Chỉ giữ fallback nếu AI classifier fail.
-
----
-
-# 5. BACKEND ROUTER
-
-Router flow:
-
-```ts
-switch (intent.intent) {
-  case 'product_search':
-    ...
-  case 'shop_question':
-    ...
-  case 'fashion_advice':
-    ...
-  case 'greeting':
-    ...
-  case 'thanks':
-    ...
-  case 'out_of_scope':
-    ...
-}
-```
-
----
-
-# 6. PRODUCT SEARCH FLOW
-
-Flow chuẩn:
-
-User
-↓
-Gemini extract filters
-↓
-Backend query DB
-↓
-Pass real products back to Gemini
-↓
-Gemini generate final response
-↓
-Return to client
-
-Gemini KHÔNG được tự bịa sản phẩm.
-
----
-
-# 9. ERROR HANDLING
-
-Nếu Gemini classifier fail:
-
-Fallback:
-
-```json
-{
-  "intent": "out_of_scope",
-  "confidence": 0
-}
-```
-
-Không được crash chatbot.
-
----
-
-# 10. CODE QUALITY
-
-Yêu cầu:
-
-- Clean Architecture
-- SOLID
-- Typed strictly
-- No any
-- Reusable services
-- Scalable orchestration
-- Production-ready
-- No duplicated prompts
-- Dependency Injection compatible
-
----
-
-# 11. IMPORTANT
-
-- Không dùng keyword hardcode làm logic chính.
-- AI classifier phải là nguồn quyết định intent duy nhất.
-- Product recommendation phải luôn dựa trên DB thật.
-- Shop information phải luôn dựa trên markdown knowledge.
-- Không hallucinate sản phẩm, giá, tồn kho, chính sách.
-
----
-
-# EXPECTED RESULT
-
-Sau khi hoàn thành:
-
-Chatbot có thể:
-
-- hiểu ý định người dùng tự nhiên
-- extract filter thông minh
-- route đúng flow
-- query sản phẩm thật
-- trả lời chính sách shop bằng knowledge base
-- từ chối câu hỏi ngoài phạm vi
-- hoạt động như AI sales assistant thực tế
-
-# NOTE
-
-Ghi nhớ context vào NOTE.md quên thì vào đó đọc lại đẻ làm tiếp
+- ...
+````

@@ -213,7 +213,7 @@ function OrderCard({
     >
       <div className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-4 dark:border-white/10">
         <div className="min-w-0">
-          <p className="luxury-eyebrow">Private order</p>
+          <p className="luxury-eyebrow">Đơn hàng của tôi</p>
           <p className="mt-2 truncate text-base font-semibold uppercase tracking-[0.08em] text-neutral-900 dark:text-white">
             #{order.orderCode ?? order.id}
           </p>

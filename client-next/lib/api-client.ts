@@ -13,7 +13,13 @@ const REFRESH_TOKEN_KEY = "refresh_token";
 const AUTH_SESSION_KEY = "auth-session";
 const REFRESH_ENDPOINT = "api/auth/refresh-token";
 const LOGIN_PATH = "/login";
-const AUTH_PAGE_PATHS = new Set(["/login", "/register", "/verify-email"]);
+const AUTH_PAGE_PATHS = new Set([
+  "/login",
+  "/register",
+  "/verify-email",
+  "/forgot-password",
+  "/auth/reset-password",
+]);
 
 const PROTECTED_PAGE_PREFIXES = [
   "/cart",
