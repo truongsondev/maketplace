@@ -19,7 +19,7 @@ export function Footer() {
                 Care
               </p>
               <p className="mt-2 text-lg font-semibold uppercase">
-                Bảo hành 365 ngày
+                Bảo hành 7 ngày
               </p>
             </div>
           </div>

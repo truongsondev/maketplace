@@ -95,7 +95,7 @@ function CartEmpty() {
       <div className="mx-auto grid max-w-6xl overflow-hidden bg-neutral-950 text-white md:grid-cols-[0.9fr_1.1fr]">
         <div className="flex flex-col justify-center px-6 py-12 text-left md:px-10">
           <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
-            Shopping bag
+            Giỏ hàng
           </p>
           <h1 className="mt-5 text-5xl font-semibold uppercase leading-[0.92] tracking-[-0.05em] md:text-7xl">
             Bộ sưu tập của bạn đang chờ được hoàn thiện
@@ -108,7 +108,7 @@ function CartEmpty() {
             Khám phá bản tuyển chọn
           </Link>
         </div>
-        <div className="relative min-h-[360px] bg-[#f7f3ec]">
+        <div className="relative min-h-90 bg-[#f7f3ec]">
           <div className="absolute inset-8 border border-white/30" />
           <div className="absolute inset-0 flex items-center justify-center">
             <ShoppingCart className="size-20 text-white/60" />
@@ -487,10 +487,7 @@ export default function CartPage() {
           </div>
 
           <div className="border-t border-black/10 px-4 py-3 text-sm text-neutral-600 dark:border-white/10 dark:text-neutral-300">
-            Giảm 500.000đ phí vận chuyển đơn tối thiểu 0đ
-            <button className="ml-2 text-black dark:text-white hover:underline">
-              Tìm hiểu thêm
-            </button>
+            Muan ngay để được freeship và nhiều ưu đãi hấp dẫn khác từ AURA nhé!
           </div>
         </section>
 
@@ -499,7 +496,7 @@ export default function CartPage() {
             <RecommendationShelf
               kind="cart"
               placement="cart_recommendations"
-              title="Gợi ý phối cùng shopping bag"
+              title="Gợi ý phối cùng giỏ hàng"
               enabled={Boolean(isAuthenticated)}
               emptyMessage="Thêm thêm vài tương tác nữa để AURA chọn phối đồ sát mood hơn."
             />
@@ -511,27 +508,6 @@ export default function CartPage() {
         <div className="luxury-container py-3">
           <div className="flex items-start gap-3 sm:items-center sm:gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-neutral-700 dark:text-neutral-200">
-                <button
-                  onClick={handleToggleSelectAll}
-                  className="hover:text-black dark:hover:text-white"
-                >
-                  {isAllSelected
-                    ? "Bỏ chọn tất cả"
-                    : `Chọn tất cả (${cart.totalItems})`}
-                </button>
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={
-                    selectedItemIds.length === 0 || removeMutation.isPending
-                  }
-                  className="hover:text-red-600 disabled:opacity-40"
-                >
-                  Gỡ
-                </button>
-                <button className="hover:underline">Giữ lại wishlist</button>
-              </div>
-
               <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
                 Tổng cộng ({selectedCount} sản phẩm):
                 <span className="ml-1 text-xl font-semibold text-black dark:text-white sm:text-2xl">
@@ -550,7 +526,7 @@ export default function CartPage() {
               }
               className="luxury-button h-11 shrink-0 px-4 py-0 sm:px-6"
             >
-              Tiếp tục checkout
+              Thanh toán
             </button>
           </div>
         </div>

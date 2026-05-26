@@ -11,7 +11,14 @@ import {
 } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import {
+  ChevronDown,
+  Loader2,
+  RotateCcw,
+  SearchX,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 import { Header } from "@/components/page/header";
 import { Footer } from "@/components/page/footer";
 import { ProductCard } from "@/components/page/product-card";
@@ -112,7 +119,11 @@ export default function CategoryCollectionPage() {
   ];
 
   const filterSelectClassName =
-    "border border-transparent bg-transparent px-2 py-1.5 text-sm text-neutral-700 transition-all duration-200 hover:border-black/15 hover:bg-white/65 focus:border-black/35 focus:bg-white/85 focus:outline-none dark:text-neutral-100 dark:hover:bg-white/10";
+    "h-full min-w-0 appearance-none bg-transparent py-0 pl-0 pr-7 text-sm font-semibold text-neutral-900 outline-none dark:text-neutral-50";
+  const filterControlClassName =
+    "inline-flex h-10 items-center gap-2 border border-black/10 bg-white/60 px-3 text-sm text-neutral-600 shadow-[0_10px_28px_rgba(0,0,0,0.035)] transition-colors hover:border-black/20 hover:bg-white/85 dark:border-white/10 dark:bg-white/8 dark:text-neutral-300 dark:hover:border-white/20 dark:hover:bg-white/12";
+  const filterChevronClassName =
+    "pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-neutral-500";
 
   const updateSearchParams = (
     nextParams: Record<string, string | undefined>,
@@ -285,95 +296,131 @@ export default function CategoryCollectionPage() {
             ))}
           </div>
 
-          <div className="mt-12 flex flex-wrap items-center gap-x-8 gap-y-4 border-y border-black/10 py-5 text-sm text-neutral-700 dark:border-white/10 dark:text-neutral-200">
-            <button
-              onClick={() =>
-                updateSearchParams({
-                  cl: undefined,
-                  uo: undefined,
-                  p: undefined,
-                })
-              }
-              className="inline-flex items-center gap-1 border border-transparent px-2 py-1.5 font-medium transition-all duration-200 hover:border-black/15 hover:bg-white/65 hover:text-black disabled:cursor-not-allowed disabled:text-neutral-400"
-              disabled={activeFiltersCount === 0}
-            >
-              Bộ lọc
-              {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ""}
-              <X className="size-3.5" />
-            </button>
-
-            <label className="inline-flex items-center gap-2 px-1 py-1 transition-colors duration-200 hover:bg-white/45">
-              <span>Mức giá</span>
-              <select
-                value={selectedPriceRange}
-                onChange={(event) =>
-                  updateSearchParams({ p: event.target.value || undefined })
-                }
-                className={filterSelectClassName}
-              >
-                {priceOptions.map((option) => (
-                  <option
-                    key={option.value || "all-price"}
-                    value={option.value}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="inline-flex items-center gap-2 px-1 py-1 transition-colors duration-200 hover:bg-white/45">
-              <span>Bộ sưu tập</span>
-              <select
-                value={slug}
-                onChange={(event) => handleCollectionChange(event.target.value)}
-                className={filterSelectClassName}
-              >
-                {categories.map((category) => (
-                  <option key={category.id} value={category.slug}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="inline-flex items-center gap-2 px-1 py-1 transition-colors duration-200 hover:bg-white/45">
-              <span>Màu sắc</span>
-              <select
-                value={selectedColor}
-                onChange={(event) =>
-                  updateSearchParams({ cl: event.target.value || undefined })
-                }
-                className={filterSelectClassName}
-              >
-                <option value="">Tất cả</option>
-                {(productsData?.aggregations?.colors ?? []).map((color) => (
-                  <option key={color.value} value={color.label}>
-                    {color.label} ({color.count})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="ml-auto inline-flex items-center gap-3">
-              <span className="text-neutral-500">Sắp xếp theo:</span>
-              <label className="inline-flex items-center gap-1 px-1 py-1 font-medium transition-colors duration-200 hover:bg-white/45">
-                <select
-                  value={selectedSort}
-                  onChange={(event) =>
+          <div className="mt-12 border-y border-black/10 py-5 dark:border-white/10">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
                     updateSearchParams({
-                      sort: event.target.value || "createdAt:desc",
+                      cl: undefined,
+                      uo: undefined,
+                      p: undefined,
                     })
                   }
-                  className={filterSelectClassName}
+                  className={`${filterControlClassName} font-semibold text-neutral-900 disabled:cursor-not-allowed disabled:opacity-45 dark:text-neutral-50`}
+                  disabled={activeFiltersCount === 0}
                 >
-                  <option value="createdAt:desc">Ngày (từ mới đến cũ)</option>
-                  <option value="createdAt:asc">Ngày (từ cũ đến mới)</option>
-                </select>
-                <ChevronDown className="size-4 text-neutral-500" />
-              </label>
-              <span className="text-neutral-500">
-                {productsData?.pagination?.total ?? 0} sản phẩm
-              </span>
+                  <SlidersHorizontal className="size-4" />
+                  Bộ lọc
+                  {activeFiltersCount > 0 ? (
+                    <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center bg-neutral-950 px-1.5 text-[11px] text-white dark:bg-white dark:text-neutral-950">
+                      {activeFiltersCount}
+                    </span>
+                  ) : null}
+                  <X className="size-3.5 text-neutral-500" />
+                </button>
+
+                <label className={filterControlClassName}>
+                  <span className="shrink-0 text-neutral-500">Mức giá</span>
+                  <span className="relative">
+                    <select
+                      value={selectedPriceRange}
+                      onChange={(event) =>
+                        updateSearchParams({
+                          p: event.target.value || undefined,
+                        })
+                      }
+                      className={`${filterSelectClassName} w-40`}
+                    >
+                      {priceOptions.map((option) => (
+                        <option
+                          key={option.value || "all-price"}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className={filterChevronClassName} />
+                  </span>
+                </label>
+
+                <label className={filterControlClassName}>
+                  <span className="shrink-0 text-neutral-500">Bộ sưu tập</span>
+                  <span className="relative">
+                    <select
+                      value={slug}
+                      onChange={(event) =>
+                        handleCollectionChange(event.target.value)
+                      }
+                      className={`${filterSelectClassName} w-36`}
+                    >
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.slug}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className={filterChevronClassName} />
+                  </span>
+                </label>
+
+                <label className={filterControlClassName}>
+                  <span className="shrink-0 text-neutral-500">Màu sắc</span>
+                  <span className="relative">
+                    <select
+                      value={selectedColor}
+                      onChange={(event) =>
+                        updateSearchParams({
+                          cl: event.target.value || undefined,
+                        })
+                      }
+                      className={`${filterSelectClassName} w-32`}
+                    >
+                      <option value="">Tất cả</option>
+                      {(productsData?.aggregations?.colors ?? []).map(
+                        (color) => (
+                          <option key={color.value} value={color.label}>
+                            {color.label} ({color.count})
+                          </option>
+                        ),
+                      )}
+                    </select>
+                    <ChevronDown className={filterChevronClassName} />
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <label className={filterControlClassName}>
+                  <span className="shrink-0 text-neutral-500">
+                    Sắp xếp theo
+                  </span>
+                  <span className="relative">
+                    <select
+                      value={selectedSort}
+                      onChange={(event) =>
+                        updateSearchParams({
+                          sort: event.target.value || "createdAt:desc",
+                        })
+                      }
+                      className={`${filterSelectClassName} w-48`}
+                    >
+                      <option value="createdAt:desc">
+                        Ngày (từ mới đến cũ)
+                      </option>
+                      <option value="createdAt:asc">
+                        Ngày (từ cũ đến mới)
+                      </option>
+                    </select>
+                    <ChevronDown className={filterChevronClassName} />
+                  </span>
+                </label>
+                <span className="inline-flex h-10 items-center border border-black/10 bg-white/35 px-3 font-semibold text-neutral-500 dark:border-white/10 dark:bg-white/5 dark:text-neutral-400">
+                  {productsData?.pagination?.total ?? 0} sản phẩm
+                </span>
+              </div>
             </div>
           </div>
 
@@ -385,16 +432,24 @@ export default function CategoryCollectionPage() {
           ) : (
             <>
               {(productsData?.products ?? []).length === 0 ? (
-                <div className="luxury-panel mt-8 p-10 text-center">
-                  <p className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
+                <div className="mt-8 flex min-h-56 flex-col items-center justify-center border border-black/10 bg-white/70 px-6 py-12 text-center shadow-[0_18px_60px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-white/5">
+                  <span className="mb-4 flex size-12 items-center justify-center border border-black/10 bg-[#f8f4ed] text-neutral-700 dark:border-white/10 dark:bg-neutral-900 dark:text-neutral-200">
+                    <SearchX className="size-5" />
+                  </span>
+                  <p className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
                     Chưa tìm thấy sản phẩm phù hợp với bộ lọc hiện tại.
                   </p>
                   <button
                     onClick={() =>
-                      updateSearchParams({ cl: undefined, p: undefined })
+                      updateSearchParams({
+                        cl: undefined,
+                        uo: undefined,
+                        p: undefined,
+                      })
                     }
-                    className="luxury-button-ghost mt-5"
+                    className="mt-6 inline-flex h-11 items-center gap-2 border border-black/15 bg-white px-5 text-xs font-bold uppercase tracking-[0.18em] text-neutral-950 transition-colors hover:border-black hover:bg-neutral-950 hover:text-white dark:border-white/15 dark:bg-transparent dark:text-white dark:hover:bg-white dark:hover:text-neutral-950"
                   >
+                    <RotateCcw className="size-4" />
                     Xóa bộ lọc và xem lại
                   </button>
                 </div>

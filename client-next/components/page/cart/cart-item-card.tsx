@@ -146,7 +146,7 @@ export function CartItemCard({
             onClick={() => onRemove(item)}
             disabled={isRemoving || isUpdating}
             className="luxury-muted-action disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Gỡ khỏi shopping bag"
+            aria-label="Gỡ khỏi giỏ hàng"
           >
             {isRemoving ? (
               <span className="inline-flex items-center gap-1">

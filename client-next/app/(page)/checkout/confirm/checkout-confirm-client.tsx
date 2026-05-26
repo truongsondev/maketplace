@@ -471,17 +471,19 @@ export function CheckoutConfirmClient() {
               thanh toán bảo mật và tóm tắt shopping bag luôn ở bên cạnh.
             </p>
             <div className="mt-7 grid gap-px bg-black/10 text-xs uppercase tracking-[0.18em] text-neutral-600 dark:bg-white/10 dark:text-neutral-300 sm:grid-cols-3">
-              {["Kiểm tra giỏ hàng", "Cập nhật giao hàng", "Thanh toán an toàn"].map(
-                (step, index) => (
-                  <div
-                    key={step}
-                    className="bg-[#f7f3ec] px-4 py-3 dark:bg-neutral-950"
-                  >
-                    <span className="mr-3 text-neutral-400">0{index + 1}</span>
-                    {step}
-                  </div>
-                ),
-              )}
+              {[
+                "Kiểm tra giỏ hàng",
+                "Cập nhật giao hàng",
+                "Thanh toán an toàn",
+              ].map((step, index) => (
+                <div
+                  key={step}
+                  className="bg-[#f7f3ec] px-4 py-3 dark:bg-neutral-950"
+                >
+                  <span className="mr-3 text-neutral-400">0{index + 1}</span>
+                  {step}
+                </div>
+              ))}
             </div>
           </header>
 
@@ -490,11 +492,11 @@ export function CheckoutConfirmClient() {
               <article className="border-y border-black/10 py-6 dark:border-white/10 sm:py-8">
                 <section className="space-y-4">
                   <h2 className="text-xl font-semibold uppercase tracking-[-0.02em] text-neutral-900 dark:text-white">
-                    Delivery details
+                    Địa chỉ giao hàng
                   </h2>
                   <p className="text-sm leading-6 text-neutral-500 dark:text-neutral-400">
                     Chọn địa chỉ quen thuộc hoặc nhập mới. Chúng tôi giữ phần
-                    checkout tối giản để bạn chỉ tập trung vào đơn hàng.
+                    thanh toán tối giản để bạn chỉ tập trung vào đơn hàng.
                   </p>
 
                   {addresses && addresses.length > 0 ? (
@@ -651,23 +653,6 @@ export function CheckoutConfirmClient() {
                         Chuyển hướng
                       </span>
                     </label>
-
-                    <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="payment"
-                          checked={paymentMethod === "MOMO"}
-                          onChange={() => setPaymentMethod("MOMO")}
-                        />
-                        <span className="font-semibold text-neutral-900 dark:text-white">
-                          MoMo
-                        </span>
-                      </span>
-                      <span className="text-neutral-500 dark:text-neutral-400">
-                        Sắp có
-                      </span>
-                    </label>
                   </div>
                 </section>
               </article>
@@ -676,7 +661,7 @@ export function CheckoutConfirmClient() {
             <aside className="lg:sticky lg:top-24 lg:self-start">
               <article className="border-y border-black/10 py-6 dark:border-white/10 sm:py-8">
                 <h2 className="text-xl font-semibold uppercase tracking-[-0.02em] text-neutral-900 dark:text-white">
-                  Boutique receipt
+                  Tổng kết đơn hàng
                 </h2>
 
                 <div className="mt-5 space-y-4">
@@ -761,6 +746,10 @@ export function CheckoutConfirmClient() {
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
+                    <span className="font-semibold">Phí giao hàng</span>
+                    <span className="font-semibold">{formatPrice(0)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
                     <span className="font-semibold">Giảm giá</span>
                     <span className="font-semibold">
                       -{formatPrice(discountAmount)}
@@ -798,7 +787,7 @@ export function CheckoutConfirmClient() {
 
                 <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                   <ShieldCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
-                  Thanh toán an toàn - mã hóa SSL - không lưu dữ liệu ngân hàng
+                  Thanh toán an toàn - không lưu dữ liệu ngân hàng
                 </div>
 
                 <div className="mt-6 flex items-center justify-between text-sm">

@@ -563,8 +563,8 @@ export function Header({
             </div>
 
             {activeRoot && activeGroups.length > 0 ? (
-              <div className="absolute left-1/2 top-full z-50 mt-4 w-[min(1120px,calc(100vw-32px))] -translate-x-1/2 overflow-hidden rounded-3xl border border-black/10 bg-[#f8f4ed]/95 text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 dark:text-white">
-                <div className="w-full px-6 py-6 lg:px-8">
+              <div className="absolute left-1/2 top-full z-50 w-[min(1120px,calc(100vw-32px))] -translate-x-1/2 pt-4">
+                <div className="w-full overflow-hidden rounded-3xl border border-black/10 bg-[#f8f4ed]/95 px-6 py-6 text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 dark:text-white lg:px-8">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-10 lg:grid-cols-4">
                     {activeGroups.map((group) => {
                       const items = childrenByParentId.get(group.id) ?? [];

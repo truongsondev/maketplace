@@ -1219,7 +1219,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                       ) : (
                         <>
                           <ShoppingBag className="w-5 h-5" />
-                          Thêm vào shopping bag
+                          Thêm vào giỏ hàng
                         </>
                       )}
                     </button>
@@ -1228,7 +1228,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                       href="/cart"
                       className="luxury-button-ghost h-12 px-10 py-0"
                     >
-                      Xem bag
+                      Xem giỏ hàng
                     </Link>
 
                     <button
