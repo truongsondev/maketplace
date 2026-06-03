@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -37,6 +37,7 @@ interface ProductDetailContentProps {
 }
 
 interface VariantOptionState {
+  key: string;
   value: string;
   disabled: boolean;
   outOfStock: boolean;
@@ -49,6 +50,64 @@ function parseSizeValues(rawSize?: string): string[] {
     .split(/[,/|]/g)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function normalizeAttributeKey(key: string): string {
+  return key
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase();
+}
+
+function toAttributeValues(raw: unknown, key?: string): string[] {
+  if (raw === null || raw === undefined) return [];
+
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  const value = String(raw).trim();
+  if (!value) return [];
+
+  const normalizedKey = normalizeAttributeKey(key ?? "");
+
+  if (normalizedKey.includes("size") || normalizedKey.includes("kich")) {
+    return parseSizeValues(value);
+  }
+
+  return [value];
+}
+
+function toAttributeLabel(key: string): string {
+  const labels: Record<string, string> = {
+    color: "Màu sắc",
+    mau: "Màu sắc",
+    mau_sac: "Màu sắc",
+    size: "Kích cỡ",
+    kich_co: "Kích cỡ",
+    kich_thuoc: "Kích cỡ",
+  };
+
+  return (
+    labels[normalizeAttributeKey(key)] ??
+    key
+      .replace(/[_-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^\w/, (char) => char.toUpperCase())
+  );
+}
+
+function isColorAttributeKey(key: string): boolean {
+  const normalizedKey = normalizeAttributeKey(key);
+  return ["color", "mau", "mau_sac"].includes(normalizedKey);
+}
+
+function isSizeAttributeKey(key: string): boolean {
+  const normalizedKey = normalizeAttributeKey(key);
+  return normalizedKey.includes("size") || normalizedKey.includes("kich");
 }
 
 function toDisplayLabels(
@@ -76,18 +135,57 @@ function toSingleText(value: unknown): string {
   return String(value).trim();
 }
 
+function decodeHtmlEntities(raw: string): string {
+  if (!raw) return "";
+
+  return raw.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity, body) => {
+    if (body[0] === "#") {
+      const isHex = body[1]?.toLowerCase() === "x";
+      const codePoint = Number.parseInt(
+        body.slice(isHex ? 2 : 1),
+        isHex ? 16 : 10,
+      );
+      return Number.isFinite(codePoint)
+        ? String.fromCodePoint(codePoint)
+        : entity;
+    }
+
+    const named: Record<string, string> = {
+      amp: "&",
+      apos: "'",
+      gt: ">",
+      lt: "<",
+      nbsp: " ",
+      quot: '"',
+    };
+
+    return named[body.toLowerCase()] ?? entity;
+  });
+}
+
 function sanitizeRichTextHtml(raw: string): string {
   if (!raw) return "";
 
-  return raw
+  return decodeHtmlEntities(raw)
     .replace(/<(?!\/?(b|strong|br|p|ul|ol|li)\b)[^>]*>/gi, "")
+    .replace(/\s[^>]*>/g, ">")
     .replace(/\s(on\w+|style)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+}
+
+function stripHtmlToText(raw: string): string {
+  return sanitizeRichTextHtml(raw)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|li)>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedSize, setSelectedSize] = useState("");
-  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(
+    {},
+  );
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -131,6 +229,16 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const productStoryHtml = useMemo(
     () => sanitizeRichTextHtml(productStory),
     [productStory],
+  );
+
+  const productDescriptionHtml = useMemo(
+    () => sanitizeRichTextHtml(product.description ?? ""),
+    [product.description],
+  );
+
+  const productDescriptionText = useMemo(
+    () => stripHtmlToText(product.description ?? ""),
+    [product.description],
   );
 
   const careInstruction = useMemo(
@@ -191,59 +299,136 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     toggleFavorite.isPending &&
     toggleFavorite.variables?.productId === product.id;
 
-  const availableSizes = useMemo(
-    () => [
+  const variantAxes = useMemo(() => {
+    const keys = [
       ...new Set(
-        product.variants.flatMap((v) => parseSizeValues(v.attributes.size)),
+        product.variants.flatMap((variant) =>
+          Object.entries(variant.attributes ?? {})
+            .filter(([, value]) => toAttributeValues(value).length > 0)
+            .map(([key]) => key),
+        ),
       ),
-    ],
-    [product.variants],
-  );
+    ];
 
-  const availableColors = useMemo(
+    return keys
+      .map((key) => ({
+        key,
+        label: toAttributeLabel(key),
+        values: [
+          ...new Set(
+            product.variants.flatMap((variant) =>
+              toAttributeValues(variant.attributes?.[key], key),
+            ),
+          ),
+        ],
+      }))
+      .filter((axis) => axis.values.length > 0);
+  }, [product.variants]);
+
+  const currentSelectedOptions = useMemo(
     () =>
-      [...new Set(product.variants.map((v) => v.attributes.color))].filter(
-        Boolean,
+      Object.fromEntries(
+        variantAxes.map((axis) => [
+          axis.key,
+          selectedOptions[axis.key] || axis.values[0] || "",
+        ]),
       ),
-    [product.variants],
+    [selectedOptions, variantAxes],
   );
 
-  const currentSelectedColor =
-    selectedColor || (availableColors.length > 0 ? availableColors[0] : "");
-
-  const availableSizesForCurrentColor = useMemo(
-    () => [
-      ...new Set(
-        product.variants
-          .filter((v) => v.attributes.color === currentSelectedColor)
-          .flatMap((v) => parseSizeValues(v.attributes.size)),
-      ),
-    ],
-    [product.variants, currentSelectedColor],
+  const variantMatchesSelection = useCallback(
+    (
+      variant: ProductDetail["variants"][number],
+      selection: Record<string, string>,
+    ) =>
+      variantAxes.every((axis) => {
+        const selected = selection[axis.key];
+        return (
+          !selected ||
+          toAttributeValues(variant.attributes?.[axis.key], axis.key).includes(
+            selected,
+          )
+        );
+      }),
+    [variantAxes],
   );
-
-  const currentSelectedSize =
-    selectedSize ||
-    (availableSizesForCurrentColor.length > 0
-      ? availableSizesForCurrentColor[0]
-      : "");
 
   const selectedVariant = useMemo(
     () =>
-      product.variants.find(
-        (v) =>
-          parseSizeValues(v.attributes.size).includes(currentSelectedSize) &&
-          v.attributes.color === currentSelectedColor,
-      ) ||
-      product.variants.find(
-        (v) => v.attributes.color === currentSelectedColor,
-      ) ||
-      product.variants.find((v) =>
-        parseSizeValues(v.attributes.size).includes(currentSelectedSize),
-      ) ||
-      product.variants[0],
-    [product.variants, currentSelectedSize, currentSelectedColor],
+      product.variants.find((variant) =>
+        variantMatchesSelection(variant, currentSelectedOptions),
+      ) || product.variants[0],
+    [product.variants, currentSelectedOptions, variantMatchesSelection],
   );
+
+  const colorAxis = useMemo(
+    () => variantAxes.find((axis) => isColorAttributeKey(axis.key)),
+    [variantAxes],
+  );
+
+  const currentSelectedColor = colorAxis
+    ? currentSelectedOptions[colorAxis.key]
+    : "";
+
+  const currentSelectedSize = useMemo(
+    () =>
+      variantAxes
+        .filter((axis) => isSizeAttributeKey(axis.key))
+        .map((axis) => currentSelectedOptions[axis.key])
+        .find(Boolean) ?? "",
+    [currentSelectedOptions, variantAxes],
+  );
+
+  const variantOptionsByAxis = useMemo(
+    () =>
+      Object.fromEntries(
+        variantAxes.map((axis) => [
+          axis.key,
+          axis.values.map((value) => {
+            const nextSelection = {
+              ...currentSelectedOptions,
+              [axis.key]: value,
+            };
+            const matchingVariants = product.variants.filter((variant) =>
+              variantMatchesSelection(variant, nextSelection),
+            );
+            const outOfStock =
+              matchingVariants.length > 0 &&
+              matchingVariants.every((variant) => variant.stockAvailable <= 0);
+
+            return {
+              key: axis.key,
+              value,
+              disabled: matchingVariants.length === 0 || outOfStock,
+              outOfStock,
+            };
+          }),
+        ]),
+      ) as Record<string, VariantOptionState[]>,
+    [
+      currentSelectedOptions,
+      product.variants,
+      variantAxes,
+      variantMatchesSelection,
+    ],
+  );
+
+  useEffect(() => {
+    setSelectedOptions((prev) => {
+      const next: Record<string, string> = {};
+      let changed = false;
+
+      for (const axis of variantAxes) {
+        const current = prev[axis.key];
+        next[axis.key] =
+          current && axis.values.includes(current) ? current : axis.values[0] || "";
+        changed ||= next[axis.key] !== current;
+      }
+
+      changed ||= Object.keys(prev).some((key) => !(key in next));
+      return changed ? next : prev;
+    });
+  }, [variantAxes]);
 
   const productImages = useMemo(() => {
     const uniqueImages: string[] = [];
@@ -257,7 +442,11 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
 
     const variantsForGallery = currentSelectedColor
       ? product.variants.filter(
-          (v) => v.attributes.color === currentSelectedColor,
+          (v) =>
+            colorAxis &&
+            toAttributeValues(v.attributes?.[colorAxis.key], colorAxis.key).includes(
+              currentSelectedColor,
+            ),
         )
       : product.variants;
 
@@ -286,7 +475,13 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     }
 
     return uniqueImages.length > 0 ? uniqueImages : [FALLBACK_IMAGE];
-  }, [product.variants, product.images, currentSelectedColor, selectedVariant]);
+  }, [
+    product.variants,
+    product.images,
+    currentSelectedColor,
+    selectedVariant,
+    colorAxis,
+  ]);
 
   const currentPrice = selectedVariant
     ? selectedVariant.price
@@ -294,17 +489,17 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const stockAvailable = selectedVariant ? selectedVariant.stockAvailable : 0;
   const canPurchase = stockAvailable > 0;
   const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
-  const requiresColorSelection = availableColors.length > 1;
-  const requiresSizeSelection = availableSizesForCurrentColor.length > 1;
-  const isColorSelected =
-    !requiresColorSelection || Boolean(currentSelectedColor);
-  const isSizeSelected = !requiresSizeSelection || Boolean(currentSelectedSize);
+  const requiredAxes = variantAxes.filter((axis) => axis.values.length > 1);
+  const hasRequiredOptionSelection = requiredAxes.every((axis) =>
+    Boolean(currentSelectedOptions[axis.key]),
+  );
   const styleNotes = [
     {
       title: "Style notes",
       copy:
         fitNote ||
-        productStory ||
+        stripHtmlToText(productStory) ||
+        productDescriptionText ||
         "Phom dáng được giữ gọn để dễ phối cùng những item nền tảng trong tủ đồ.",
     },
     {
@@ -330,59 +525,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     setQuantity((prev) => Math.min(maxQuantity, Math.max(1, prev + delta)));
   };
 
-  const handleColorChange = (color: string) => {
-    setSelectedColor(color);
-
-    const exactVariant = product.variants.find(
-      (v) =>
-        v.attributes.color === color &&
-        parseSizeValues(v.attributes.size).includes(currentSelectedSize),
-    );
-
-    if (!exactVariant || exactVariant.stockAvailable <= 0) {
-      const colorVariants = product.variants.filter(
-        (v) => v.attributes.color === color,
-      );
-      const inStockColorVariants = colorVariants.filter(
-        (v) => v.stockAvailable > 0,
-      );
-      const targetVariants =
-        inStockColorVariants.length > 0 ? inStockColorVariants : colorVariants;
-      const nextSize = parseSizeValues(targetVariants[0]?.attributes.size)[0];
-
-      if (nextSize) {
-        setSelectedSize(nextSize);
-      }
-    }
-
-    setSelectedImage(0);
-  };
-
-  const handleSizeChange = (size: string) => {
-    setSelectedSize(size);
-
-    const exactVariant = product.variants.find(
-      (v) =>
-        parseSizeValues(v.attributes.size).includes(size) &&
-        v.attributes.color === currentSelectedColor,
-    );
-
-    if (!exactVariant || exactVariant.stockAvailable <= 0) {
-      const fallbackBySize =
-        product.variants.find(
-          (v) =>
-            parseSizeValues(v.attributes.size).includes(size) &&
-            v.stockAvailable > 0,
-        ) ||
-        product.variants.find((v) =>
-          parseSizeValues(v.attributes.size).includes(size),
-        );
-
-      if (fallbackBySize?.attributes.color) {
-        setSelectedColor(fallbackBySize.attributes.color);
-      }
-    }
-
+  const handleOptionChange = (key: string, value: string) => {
+    setSelectedOptions((prev) => ({ ...prev, [key]: value }));
     setSelectedImage(0);
   };
 
@@ -407,7 +551,12 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     if (tabId === "description") {
       return (
         <div className="space-y-4">
-          <p className="whitespace-pre-line">{product.description}</p>
+          {productDescriptionHtml ? (
+            <div
+              className="whitespace-pre-line [&_li]:ml-5 [&_li]:list-disc"
+              dangerouslySetInnerHTML={{ __html: productDescriptionHtml }}
+            />
+          ) : null}
           {productStory ? (
             <div>
               <h4 className="text-sm font-semibold uppercase tracking-wide text-neutral-800 dark:text-neutral-100">
@@ -687,42 +836,6 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     },
   ];
 
-  const colorOptions: VariantOptionState[] = useMemo(() => {
-    return availableColors.map((color) => {
-      const variantsByColor = product.variants.filter(
-        (v) => v.attributes.color === color,
-      );
-      const outOfStock =
-        variantsByColor.length > 0 &&
-        variantsByColor.every((v) => v.stockAvailable <= 0);
-
-      return {
-        value: color,
-        disabled: outOfStock,
-        outOfStock,
-      };
-    });
-  }, [availableColors, product.variants]);
-
-  const sizeOptions: VariantOptionState[] = useMemo(() => {
-    return availableSizesForCurrentColor.map((size) => {
-      const variantsBySize = product.variants.filter(
-        (v) =>
-          v.attributes.color === currentSelectedColor &&
-          parseSizeValues(v.attributes.size).includes(size),
-      );
-      const outOfStock =
-        variantsBySize.length > 0 &&
-        variantsBySize.every((v) => v.stockAvailable <= 0);
-
-      return {
-        value: size,
-        disabled: outOfStock,
-        outOfStock,
-      };
-    });
-  }, [availableSizesForCurrentColor, product.variants, currentSelectedColor]);
-
   const fallbackVariant = product.variants[0];
   const variantSku = (selectedVariant || fallbackVariant)?.sku;
   const hasSellableVariant = product.variants.length > 0;
@@ -732,8 +845,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     isAddingToCart ||
     !hasSellableVariant ||
     !canPurchase ||
-    !isColorSelected ||
-    !isSizeSelected ||
+    !hasRequiredOptionSelection ||
     !selectedVariant?.id;
 
   const handleAddToCart = () => {
@@ -742,13 +854,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
       return;
     }
 
-    if (!isColorSelected) {
-      toast.warning("Vui lòng chọn màu sắc");
-      return;
-    }
-
-    if (!isSizeSelected) {
-      toast.warning("Vui lòng chọn kích cỡ");
+    if (!hasRequiredOptionSelection) {
+      toast.warning("Vui lòng chọn đủ phân loại sản phẩm");
       return;
     }
 
@@ -1100,51 +1207,30 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     </div>
                   </div>
 
-                  {availableColors.length > 0 && (
-                    <div className="flex items-start gap-4">
+                  {variantAxes.map((axis) => (
+                    <div key={axis.key} className="flex items-start gap-4">
                       <span className="w-24 shrink-0 text-sm text-neutral-500">
-                        Màu sắc
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {colorOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            onClick={() =>
-                              !option.disabled &&
-                              handleColorChange(option.value)
-                            }
-                            disabled={option.disabled}
-                            className={`border px-3 py-2 text-sm transition-colors ${currentSelectedColor === option.value ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-black/20 text-neutral-800 dark:border-white/20 dark:text-neutral-100"} ${option.disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                          >
-                            {option.value}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {availableSizes.length > 0 && (
-                    <div className="flex items-start gap-4">
-                      <span className="w-24 shrink-0 text-sm text-neutral-500">
-                        Kích cỡ
+                        {axis.label}
                       </span>
                       <div className="space-y-2">
                         <div className="flex flex-wrap gap-2">
-                          {sizeOptions.map((option) => (
-                            <button
-                              key={option.value}
-                              onClick={() =>
-                                !option.disabled &&
-                                handleSizeChange(option.value)
-                              }
-                              disabled={option.disabled}
-                              className={`min-w-12 border px-3 py-2 text-sm transition-colors ${currentSelectedSize === option.value ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-black/20 text-neutral-800 dark:border-white/20 dark:text-neutral-100"} ${option.disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                            >
-                              {option.value}
-                            </button>
-                          ))}
+                          {(variantOptionsByAxis[axis.key] ?? []).map(
+                            (option) => (
+                              <button
+                                key={option.value}
+                                onClick={() =>
+                                  !option.disabled &&
+                                  handleOptionChange(axis.key, option.value)
+                                }
+                                disabled={option.disabled}
+                                className={`min-w-12 border px-3 py-2 text-sm transition-colors ${currentSelectedOptions[axis.key] === option.value ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black" : "border-black/20 text-neutral-800 dark:border-white/20 dark:text-neutral-100"} ${option.disabled ? "cursor-not-allowed opacity-40" : ""}`}
+                              >
+                                {option.value}
+                              </button>
+                            ),
+                          )}
                         </div>
-                        {sizeGuideImageUrl ? (
+                        {isSizeAttributeKey(axis.key) && sizeGuideImageUrl ? (
                           <button
                             type="button"
                             onClick={() => {
@@ -1158,7 +1244,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                         ) : null}
                       </div>
                     </div>
-                  )}
+                  ))}
 
                   <div className="flex items-center gap-4">
                     <span className="w-24 shrink-0 text-sm text-neutral-500">

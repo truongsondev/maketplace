@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Cloud, Plus, Trash2, X } from "lucide-react";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 
@@ -92,6 +92,89 @@ interface ProductFormProps {
   ) => void;
   onAddVariant: () => void;
   onRemoveVariant: (variantId: string) => void;
+}
+
+interface CustomAttributeRowProps {
+  attributeKey: string;
+  value: string | number | boolean;
+  variant: ProductVariant;
+  reservedAttributeKeys: Set<string>;
+  onVariantChange: ProductFormProps["onVariantChange"];
+}
+
+function CustomAttributeRow({
+  attributeKey,
+  value,
+  variant,
+  reservedAttributeKeys,
+  onVariantChange,
+}: CustomAttributeRowProps) {
+  const [draftKey, setDraftKey] = useState(attributeKey);
+
+  useEffect(() => {
+    setDraftKey(attributeKey);
+  }, [attributeKey]);
+
+  const commitKey = () => {
+    const nextKey = draftKey.trim();
+
+    if (!nextKey || nextKey === attributeKey) {
+      setDraftKey(attributeKey);
+      return;
+    }
+
+    if (reservedAttributeKeys.has(nextKey) || nextKey in variant.attributes) {
+      setDraftKey(attributeKey);
+      return;
+    }
+
+    const nextAttributes = { ...variant.attributes };
+    delete nextAttributes[attributeKey];
+    nextAttributes[nextKey] = value;
+    onVariantChange(variant.id, "attributes", nextAttributes);
+  };
+
+  return (
+    <div className="flex gap-2">
+      <input
+        type="text"
+        placeholder="Key thuộc tính (vd: màu_sắc)"
+        value={draftKey}
+        onChange={(e) => setDraftKey(e.target.value)}
+        onBlur={commitKey}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.currentTarget.blur();
+          }
+        }}
+        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+      />
+      <input
+        type="text"
+        placeholder="Giá trị (vd: đỏ)"
+        value={String(value)}
+        onChange={(e) => {
+          onVariantChange(variant.id, "attributes", {
+            ...variant.attributes,
+            [attributeKey]: e.target.value,
+          });
+        }}
+        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+      />
+      <button
+        type="button"
+        onClick={() => {
+          const nextAttributes = { ...variant.attributes };
+          delete nextAttributes[attributeKey];
+          onVariantChange(variant.id, "attributes", nextAttributes);
+        }}
+        className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+        title="Xóa thuộc tính"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
 }
 
 export function ProductForm({
@@ -848,12 +931,12 @@ export function ProductForm({
                           onClick={() => {
                             const baseIndex =
                               Object.keys(variant.attributes).length + 1;
-                            let newKey = `thuoc_tinh_${baseIndex}`;
+                            let newKey = `ten_thuoc_tinh_${baseIndex}`;
                             while (
                               reservedAttributeKeys.has(newKey) ||
                               newKey in variant.attributes
                             ) {
-                              newKey = `thuoc_tinh_${Math.floor(Math.random() * 100000)}`;
+                              newKey = `ten_thuoc_tinh_${Math.floor(Math.random() * 100000)}`;
                             }
                             onVariantChange(variant.id, "attributes", {
                               ...variant.attributes,
@@ -870,80 +953,15 @@ export function ProductForm({
                       {/* Attribute Key-Value List (excluding color and size) */}
                       <div className="space-y-2">
                         {extraAttributes.length > 0 ? (
-                          extraAttributes.map(([key, value], attrIndex) => (
-                            <div
-                              key={`${variant.id}-attr-${attrIndex}`}
-                              className="flex gap-2"
-                            >
-                              <input
-                                type="text"
-                                placeholder="Tên thuộc tính (vd: màu_sắc)"
-                                value={key}
-                                onBlur={(e) => {
-                                  const newKey = e.target.value.trim();
-                                  if (newKey && newKey !== key) {
-                                    if (reservedAttributeKeys.has(newKey)) {
-                                      // Do not allow overriding reserved axis keys.
-                                      return;
-                                    }
-
-                                    if (newKey in variant.attributes) {
-                                      // Avoid clobbering another attribute.
-                                      return;
-                                    }
-
-                                    const newAttrs = { ...variant.attributes };
-                                    delete newAttrs[key];
-                                    newAttrs[newKey] = value;
-                                    onVariantChange(
-                                      variant.id,
-                                      "attributes",
-                                      newAttrs,
-                                    );
-                                  }
-                                }}
-                                onChange={(e) => {
-                                  // Chỉ update ngay lập tức value, không thay đổi key
-                                  const currentInput = e.target;
-                                  currentInput.dataset.pendingKey =
-                                    e.target.value;
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.currentTarget.blur();
-                                  }
-                                }}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Giá trị (vd: đỏ)"
-                                value={String(value)}
-                                onChange={(e) => {
-                                  onVariantChange(variant.id, "attributes", {
-                                    ...variant.attributes,
-                                    [key]: e.target.value,
-                                  });
-                                }}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newAttrs = { ...variant.attributes };
-                                  delete newAttrs[key];
-                                  onVariantChange(
-                                    variant.id,
-                                    "attributes",
-                                    newAttrs,
-                                  );
-                                }}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                                title="Xóa thuộc tính"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
+                          extraAttributes.map(([key, value]) => (
+                            <CustomAttributeRow
+                              key={`${variant.id}-attr-${key}`}
+                              attributeKey={key}
+                              value={value}
+                              variant={variant}
+                              reservedAttributeKeys={reservedAttributeKeys}
+                              onVariantChange={onVariantChange}
+                            />
                           ))
                         ) : (
                           <p className="text-sm text-gray-500 italic py-2">
