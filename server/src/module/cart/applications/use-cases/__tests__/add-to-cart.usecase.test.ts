@@ -54,4 +54,54 @@ describe('AddToCartUseCase', () => {
     expect(cartRepository.updateItemQuantity).not.toHaveBeenCalled();
     expect(cartRepository.addItem).not.toHaveBeenCalled();
   });
+
+  it('should use stockAvailable when stockOnHand is stale', async () => {
+    const cartRepository = {
+      findByUserId: jest.fn(async () => new Cart('cart-1', 'user-1', new Date(), [])),
+      create: jest.fn(),
+      findItem: jest.fn(async () => null),
+      findItemByIdForUser: jest.fn(),
+      addItem: jest.fn(),
+      updateItemQuantity: jest.fn(),
+      removeItem: jest.fn(),
+      getCartDetail: jest.fn(async () => new Cart('cart-1', 'user-1', new Date(), [])),
+    };
+
+    const variantRepository = {
+      findByIdWithProduct: jest.fn(async () => ({
+        id: 'variant-1',
+        sku: 'SOMI-HEAD-002',
+        attributes: {},
+        price: 50,
+        stockAvailable: 9,
+        stockOnHand: 0,
+        stockReserved: 0,
+        isDeleted: false,
+        product: {
+          id: 'product-1',
+          name: 'Product 1',
+          isDeleted: false,
+        },
+      })),
+    };
+
+    const imageRepository = {
+      findImageForVariant: jest.fn(async () => null),
+    };
+
+    const useCase = new AddToCartUseCase(
+      cartRepository as any,
+      variantRepository as any,
+      imageRepository as any,
+    );
+
+    await useCase.execute('user-1', { variantId: 'variant-1', quantity: 1 });
+
+    expect(cartRepository.addItem).toHaveBeenCalledWith({
+      cartId: 'cart-1',
+      productId: 'product-1',
+      variantId: 'variant-1',
+      quantity: 1,
+    });
+  });
 });

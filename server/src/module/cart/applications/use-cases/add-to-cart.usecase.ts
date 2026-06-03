@@ -54,7 +54,7 @@ export class AddToCartUseCase implements IAddToCartUseCase {
     const newQuantity = currentQuantity + command.quantity;
 
     // 5. Validate stock and max quantity
-    const availableStock = variantWithProduct.stockOnHand - variantWithProduct.stockReserved;
+    const availableStock = variantWithProduct.stockAvailable;
 
     if (availableStock < newQuantity) {
       throw new InsufficientStockError({

@@ -36,11 +36,11 @@ export class CartAPI {
     const userId = req.userId;
 
     if (!userId) {
-      throw new BadRequestError('User ID not found');
+      throw new BadRequestError('Không tìm thấy thông tin người dùng');
     }
 
     const result = await this.cartController.getCart(userId);
-    const response = ResponseFormatter.success(result, 'Cart retrieved successfully');
+    const response = ResponseFormatter.success(result, 'Lấy giỏ hàng thành công');
     res.status(200).json(response);
   }
 
@@ -48,11 +48,11 @@ export class CartAPI {
     const userId = req.userId;
 
     if (!userId) {
-      throw new BadRequestError('User ID not found');
+      throw new BadRequestError('Không tìm thấy thông tin người dùng');
     }
 
     const result = await this.cartController.getCartSummary(userId);
-    const response = ResponseFormatter.success(result, 'Cart summary retrieved successfully');
+    const response = ResponseFormatter.success(result, 'Lấy tóm tắt giỏ hàng thành công');
     res.status(200).json(response);
   }
 
@@ -61,22 +61,22 @@ export class CartAPI {
     const userId = req.userId;
 
     if (!userId) {
-      throw new BadRequestError('User ID not found');
+      throw new BadRequestError('Không tìm thấy thông tin người dùng');
     }
 
     HttpErrorHandler.validateRequired({ variantId, quantity }, 'variantId', 'quantity');
 
     if (typeof variantId !== 'string') {
-      throw new BadRequestError('variantId must be a string');
+      throw new BadRequestError('Mã phân loại sản phẩm không hợp lệ');
     }
 
     if (typeof quantity !== 'number' || !Number.isInteger(quantity)) {
-      throw new BadRequestError('quantity must be an integer');
+      throw new BadRequestError('Số lượng phải là số nguyên');
     }
 
     try {
       const result = await this.cartController.addToCart(userId, { variantId, quantity });
-      const response = ResponseFormatter.success(result, 'Product added to cart successfully');
+      const response = ResponseFormatter.success(result, 'Đã thêm sản phẩm vào giỏ hàng');
       res.status(200).json(response);
     } catch (error) {
       // Map domain errors to HTTP errors
@@ -108,26 +108,26 @@ export class CartAPI {
     const userId = req.userId;
 
     if (!userId) {
-      throw new BadRequestError('User ID not found');
+      throw new BadRequestError('Không tìm thấy thông tin người dùng');
     }
 
     if (!itemId || typeof itemId !== 'string') {
-      throw new BadRequestError('itemId is required');
+      throw new BadRequestError('Thiếu mã sản phẩm trong giỏ hàng');
     }
 
     HttpErrorHandler.validateRequired({ quantity }, 'quantity');
 
     if (typeof quantity !== 'number' || !Number.isInteger(quantity)) {
-      throw new BadRequestError('quantity must be an integer');
+      throw new BadRequestError('Số lượng phải là số nguyên');
     }
 
     if (quantity <= 0) {
-      throw new BadRequestError('quantity must be greater than 0');
+      throw new BadRequestError('Số lượng phải lớn hơn 0');
     }
 
     try {
       const result = await this.cartController.updateCartItem(userId, { itemId, quantity });
-      const response = ResponseFormatter.success(result, 'Cart item updated successfully');
+      const response = ResponseFormatter.success(result, 'Cập nhật giỏ hàng thành công');
       res.status(200).json(response);
     } catch (error) {
       if (error instanceof CartItemNotFoundError) {
@@ -151,16 +151,16 @@ export class CartAPI {
     const userId = req.userId;
 
     if (!userId) {
-      throw new BadRequestError('User ID not found');
+      throw new BadRequestError('Không tìm thấy thông tin người dùng');
     }
 
     if (!itemId || typeof itemId !== 'string') {
-      throw new BadRequestError('itemId is required');
+      throw new BadRequestError('Thiếu mã sản phẩm trong giỏ hàng');
     }
 
     try {
       const result = await this.cartController.removeCartItem(userId, itemId);
-      const response = ResponseFormatter.success(result, 'Cart item removed successfully');
+      const response = ResponseFormatter.success(result, 'Đã xoá sản phẩm khỏi giỏ hàng');
       res.status(200).json(response);
     } catch (error) {
       if (error instanceof CartItemNotFoundError) {

@@ -127,12 +127,12 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (error instanceof Error && error.message === "EMAIL_REQUIRED") {
-            toast.error("email is required");
+            toast.error("Email là bắt buộc");
             throw error;
           }
 
           if (error instanceof Error && error.message === "EMAIL_INVALID") {
-            toast.error("email must be a valid email");
+            toast.error("Email không hợp lệ");
             throw error;
           }
 
@@ -140,7 +140,7 @@ export const useAuthStore = create<AuthState>()(
             error instanceof Error &&
             error.message === "PASSWORD_TOO_SHORT"
           ) {
-            toast.error("password must be at least 6 characters");
+            toast.error("Mật khẩu phải có ít nhất 6 ký tự");
             throw error;
           }
 

@@ -45,7 +45,7 @@ export const reviewService = {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to upload image");
+      throw new Error("Tải ảnh thất bại");
     }
 
     const result = (await response.json()) as {
@@ -54,7 +54,7 @@ export const reviewService = {
     };
 
     if (!result.secure_url || !result.public_id) {
-      throw new Error("Cloudinary response missing secure_url/public_id");
+      throw new Error("Phản hồi Cloudinary thiếu đường dẫn ảnh hoặc mã ảnh");
     }
 
     return { url: result.secure_url, publicId: result.public_id };

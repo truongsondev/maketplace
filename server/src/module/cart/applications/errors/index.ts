@@ -1,6 +1,6 @@
 export class VariantRequiredError extends Error {
   constructor() {
-    super('Variant ID is required. Please select a product variant.');
+    super('Vui lòng chọn phân loại sản phẩm.');
     this.name = 'VariantRequiredError';
   }
 }
@@ -9,8 +9,8 @@ export class VariantNotFoundError extends Error {
   constructor(variantId?: string) {
     super(
       variantId
-        ? `Variant ${variantId} does not exist or has been deleted`
-        : 'Variant does not exist or has been deleted',
+        ? `Phân loại ${variantId} không tồn tại hoặc đã bị xoá.`
+        : 'Phân loại sản phẩm không tồn tại hoặc đã bị xoá.',
     );
     this.name = 'VariantNotFoundError';
   }
@@ -20,8 +20,8 @@ export class ProductNotFoundError extends Error {
   constructor(productId?: string) {
     super(
       productId
-        ? `Product ${productId} does not exist or has been deleted`
-        : 'Product does not exist or has been deleted',
+        ? `Sản phẩm ${productId} không tồn tại hoặc đã bị xoá.`
+        : 'Sản phẩm không tồn tại hoặc đã bị xoá.',
     );
     this.name = 'ProductNotFoundError';
   }
@@ -37,7 +37,7 @@ export class InsufficientStockError extends Error {
     },
   ) {
     super(
-      `Not enough stock available for variant ${details.sku}. Requested: ${details.requested}, Available: ${details.available}`,
+      `Không đủ tồn kho cho phân loại ${details.sku}. Yêu cầu: ${details.requested}, còn lại: ${details.available}.`,
     );
     this.name = 'InsufficientStockError';
   }
@@ -52,7 +52,7 @@ export class ExceedsMaxQuantityError extends Error {
     },
   ) {
     super(
-      `Cannot add more than ${details.maxQuantity} items of this variant to cart. Currently in cart: ${details.currentInCart}, Requested: ${details.requested}`,
+      `Không thể thêm quá ${details.maxQuantity} sản phẩm cho cùng một phân loại. Hiện có trong giỏ: ${details.currentInCart}, yêu cầu thêm: ${details.requested}.`,
     );
     this.name = 'ExceedsMaxQuantityError';
   }
@@ -60,14 +60,14 @@ export class ExceedsMaxQuantityError extends Error {
 
 export class InvalidQuantityError extends Error {
   constructor(quantity: number) {
-    super(`Quantity must be between 1 and 10. Received: ${quantity}`);
+    super(`Số lượng phải từ 1 đến 10. Giá trị nhận được: ${quantity}.`);
     this.name = 'InvalidQuantityError';
   }
 }
 
 export class CartItemNotFoundError extends Error {
   constructor(itemId?: string) {
-    super(itemId ? `Cart item ${itemId} not found` : 'Cart item not found');
+    super(itemId ? `Không tìm thấy sản phẩm ${itemId} trong giỏ hàng.` : 'Không tìm thấy sản phẩm trong giỏ hàng.');
     this.name = 'CartItemNotFoundError';
   }
 }

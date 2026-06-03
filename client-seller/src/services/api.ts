@@ -283,7 +283,7 @@ export const cloudinaryService = {
     );
 
     if (!response.ok) {
-      throw new Error("Failed to upload image");
+      throw new Error("Tải ảnh thất bại");
     }
 
     const result = await response.json();

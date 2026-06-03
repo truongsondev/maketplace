@@ -425,12 +425,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
         variantAxes.map((axis) => [
           axis.key,
           axis.values.map((value) => {
-            const nextSelection = {
-              ...currentSelectedOptions,
-              [axis.key]: value,
-            };
             const matchingVariants = product.variants.filter((variant) =>
-              variantMatchesSelection(variant, nextSelection),
+              getVariantAxisValues(variant, axis).includes(value),
             );
             const outOfStock =
               matchingVariants.length > 0 &&
@@ -445,12 +441,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
           }),
         ]),
       ) as Record<string, VariantOptionState[]>,
-    [
-      currentSelectedOptions,
-      product.variants,
-      variantAxes,
-      variantMatchesSelection,
-    ],
+    [product.variants, variantAxes],
   );
 
   useEffect(() => {
@@ -566,7 +557,43 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   };
 
   const handleOptionChange = (key: string, value: string) => {
-    setSelectedOptions((prev) => ({ ...prev, [key]: value }));
+    const preferredSelection = {
+      ...currentSelectedOptions,
+      [key]: value,
+    };
+
+    const exactMatch = product.variants.find(
+      (variant) =>
+        variant.stockAvailable > 0 &&
+        variantMatchesSelection(variant, preferredSelection),
+    );
+
+    const fallbackMatch = product.variants.find(
+      (variant) =>
+        variant.stockAvailable > 0 &&
+        variantAxes.some(
+          (axis) =>
+            axis.key === key && getVariantAxisValues(variant, axis).includes(value),
+        ),
+    );
+
+    const nextVariant = exactMatch ?? fallbackMatch;
+    if (!nextVariant) {
+      setSelectedOptions(preferredSelection);
+      setSelectedImage(0);
+      return;
+    }
+
+    setSelectedOptions(
+      Object.fromEntries(
+        variantAxes.map((axis) => [
+          axis.key,
+          getVariantAxisValues(nextVariant, axis)[0] ??
+            preferredSelection[axis.key] ??
+            "",
+        ]),
+      ),
+    );
     setSelectedImage(0);
   };
 
