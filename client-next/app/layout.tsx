@@ -28,7 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body
+        className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
+      >
         <QueryProvider>{children}</QueryProvider>
         <ChatbotWidget />
         <Toaster richColors position="top-right" />

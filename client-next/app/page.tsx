@@ -896,9 +896,7 @@ export default function Home() {
           >
             <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500">
-                  AURA edit {String(idx + 1).padStart(2, "0")}
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500"></p>
                 <h2 className="mt-3 text-4xl font-semibold uppercase leading-none tracking-[-0.04em] md:text-6xl">
                   {group.name}
                 </h2>

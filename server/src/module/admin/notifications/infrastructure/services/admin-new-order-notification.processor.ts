@@ -49,9 +49,9 @@ export class AdminNewOrderNotificationProcessor {
 
       const amountText = new Intl.NumberFormat('vi-VN').format(input.totalAmount);
       const customerText = input.customerName?.trim()
-        ? ` tu khach hang ${input.customerName.trim()}`
+        ? ` từ khách hàng ${input.customerName.trim()}`
         : '';
-      const content = `[NEW_ORDER|${input.orderId}] Don hang moi #${input.orderCode}${customerText} (${amountText} VND)`;
+      const content = `[NEW_ORDER|${input.orderId}] Đơn hàng mới #${input.orderCode}${customerText} (${amountText} VND)`;
 
       const createdRows = await this.prisma.$transaction(
         admins.map((admin) =>

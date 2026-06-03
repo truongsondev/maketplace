@@ -104,7 +104,7 @@ export class PrismaAdminNotificationsRepository implements IAdminNotificationsRe
       return [];
     }
 
-    const content = `Don hang #${input.orderCode} da thanh toan thanh cong (${new Intl.NumberFormat(
+    const content = `Đơn hàng #${input.orderCode} đã thanh toán thành công (${new Intl.NumberFormat(
       'vi-VN',
     ).format(input.amount)} VND)`;
 

@@ -47,7 +47,7 @@ export class AdminPaymentNotificationProcessor {
       }
 
       const amountText = new Intl.NumberFormat('vi-VN').format(input.amount);
-      const content = `Don hang #${input.orderCode} da thanh toan thanh cong (${amountText} VND)`;
+      const content = `Đơn hàng #${input.orderCode} đã thanh toán thành công (${amountText} VND)`;
 
       const createdRows = await this.prisma.$transaction(
         admins.map((admin) =>

@@ -103,7 +103,7 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
         await tx.notification.createMany({
           data: admins.map((admin) => ({
             userId: admin.userId,
-            content: `[ORDER_RETURN|${order.id}] Don hang #${orderLabel} co yeu cau tra hang/hoan tien moi.`,
+            content: `[ORDER_RETURN|${order.id}] Đơn hàng #${orderLabel} có yêu cầu trả hàng/hoàn tiền mới.`,
             isRead: false,
           })),
         });

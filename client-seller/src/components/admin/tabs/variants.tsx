@@ -1,8 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Edit2, Trash2, Package } from "lucide-react";
-import type { ProductDetail, ProductVariant } from "@/types/api";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Package,
+  Image as ImageIcon,
+  Upload,
+} from "lucide-react";
+import type { ProductDetail, ProductImage, ProductVariant } from "@/types/api";
 import type { UpdateProductVariantDto } from "@/types/api";
-import { productService } from "@/services/api";
+import { cloudinaryService, productService } from "@/services/api";
 import { toast } from "sonner";
 
 interface VariantsTabProps {
@@ -22,6 +29,12 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
   const [formAttributes, setFormAttributes] = useState<
     Array<{ key: string; value: string }>
   >([{ key: "", value: "" }]);
+  const [formImageFile, setFormImageFile] = useState<File | null>(null);
+  const [formImagePreviewUrl, setFormImagePreviewUrl] = useState<string | null>(
+    null,
+  );
+  const [editingVariantImage, setEditingVariantImage] =
+    useState<ProductImage | null>(null);
 
   const isInternalDefaultVariant = (variant: ProductVariant) => {
     const nonEmptyAttributes = Object.entries(variant.attributes ?? {}).filter(
@@ -76,12 +89,18 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
   );
 
   const resetModalState = () => {
+    if (formImagePreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(formImagePreviewUrl);
+    }
     setEditingVariantId(null);
     setFormSku("");
     setFormPrice(product.basePrice ?? 0);
     setFormStockAvailable(0);
     setFormMinStock(5);
     setFormAttributes([{ key: "", value: "" }]);
+    setFormImageFile(null);
+    setFormImagePreviewUrl(null);
+    setEditingVariantImage(null);
   };
 
   const openAddModal = () => {
@@ -95,6 +114,9 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
     setFormPrice(variant.price);
     setFormStockAvailable(variant.stockAvailable);
     setFormMinStock(variant.minStock);
+    setFormImageFile(null);
+    setFormImagePreviewUrl(null);
+    setEditingVariantImage(variant.images[0] ?? null);
 
     const attrs = Object.entries(variant.attributes ?? {})
       .map(([key, value]) => ({
@@ -120,6 +142,92 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
       return { label: "Sắp hết", color: "bg-yellow-100 text-yellow-700" };
     }
     return { label: "Còn hàng", color: "bg-green-100 text-green-700" };
+  };
+
+  const extractCloudinaryPublicId = (url: string): string | null => {
+    try {
+      const parsedUrl = new URL(url);
+      const uploadMarker = "/upload/";
+      const uploadIndex = parsedUrl.pathname.indexOf(uploadMarker);
+      if (uploadIndex === -1) return null;
+
+      const afterUpload = parsedUrl.pathname.slice(
+        uploadIndex + uploadMarker.length,
+      );
+      const parts = afterUpload.split("/").filter(Boolean);
+      const versionIndex = parts.findIndex((part) => /^v\d+$/.test(part));
+      const publicIdParts =
+        versionIndex >= 0 ? parts.slice(versionIndex + 1) : parts;
+      if (publicIdParts.length === 0) return null;
+
+      return publicIdParts
+        .join("/")
+        .replace(/\.[^/.]+$/, "")
+        .trim();
+    } catch {
+      return null;
+    }
+  };
+
+  const handleVariantImageChange = (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Vui lòng chọn file hình ảnh");
+      return;
+    }
+
+    if (formImagePreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(formImagePreviewUrl);
+    }
+
+    setFormImageFile(file);
+    setFormImagePreviewUrl(URL.createObjectURL(file));
+  };
+
+  const clearVariantImageSelection = () => {
+    if (formImagePreviewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(formImagePreviewUrl);
+    }
+    setFormImageFile(null);
+    setFormImagePreviewUrl(null);
+  };
+
+  const saveVariantImageReplacement = async (
+    variantId: string,
+    sku: string,
+    oldImage: ProductImage | null,
+  ) => {
+    if (!formImageFile) return;
+
+    const signatureResponse = await cloudinaryService.getSignature(product.id);
+    const uploaded = await cloudinaryService.uploadImageWithPublicId(
+      formImageFile,
+      signatureResponse.data,
+    );
+
+    await productService.saveProductImage(product.id, {
+      url: uploaded.url,
+      publicId: uploaded.publicId,
+      variantId,
+      altText: `Ảnh biến thể ${sku}`,
+      isPrimary: false,
+      sortOrder: 0,
+    });
+
+    if (!oldImage) return;
+
+    const oldPublicId = extractCloudinaryPublicId(oldImage.url);
+    if (!oldPublicId) {
+      console.warn("Không xác định được publicId ảnh cũ", oldImage.url);
+      return;
+    }
+
+    await productService.deleteProductImage(product.id, oldImage.id, oldPublicId);
   };
 
   const handleRemoveAllVariants = async () => {
@@ -218,18 +326,46 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
         )
       : [...currentVariants, nextVariant];
 
+    let variantSaved = false;
+
     try {
       setSaving(true);
       await productService.updateProduct(product.id, {
         variants: nextVariants,
       });
+      variantSaved = true;
+
+      if (formImageFile) {
+        let targetVariantId = editingVariantId;
+        let oldImage = editingVariantImage;
+
+        if (!targetVariantId) {
+          const refreshedProduct = await productService.getProduct(product.id);
+          const createdVariant = refreshedProduct.data.variants.find(
+            (variant) => variant.sku === sku,
+          );
+          targetVariantId = createdVariant?.id ?? null;
+          oldImage = createdVariant?.images[0] ?? null;
+        }
+
+        if (!targetVariantId) {
+          throw new Error("Không tìm thấy biến thể vừa lưu để gắn ảnh");
+        }
+
+        await saveVariantImageReplacement(targetVariantId, sku, oldImage);
+      }
+
       toast.success(
         editingVariantId ? "Đã cập nhật biến thể" : "Đã thêm biến thể",
       );
       closeModal();
       onUpdate();
     } catch (error) {
-      toast.error("Lưu biến thể thất bại");
+      toast.error(
+        variantSaved
+          ? "Đã lưu biến thể nhưng cập nhật ảnh thất bại"
+          : "Lưu biến thể thất bại",
+      );
       console.error(error);
     } finally {
       setSaving(false);
@@ -642,6 +778,65 @@ export function VariantsTab({ product, onUpdate }: VariantsTabProps) {
                 <p className="text-xs text-gray-500 mt-2">
                   Các khóa/giá trị trống sẽ bị bỏ qua.
                 </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-900 mb-2">
+                  Ảnh biến thể
+                </label>
+                <div className="flex flex-wrap items-start gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="h-28 w-28 overflow-hidden rounded-lg border border-gray-200 bg-white">
+                    {formImagePreviewUrl || editingVariantImage?.url ? (
+                      <img
+                        src={formImagePreviewUrl ?? editingVariantImage?.url}
+                        alt="Ảnh biến thể"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-gray-400">
+                        <ImageIcon className="h-6 w-6" />
+                        <span className="text-xs">Chưa có ảnh</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700">
+                        <Upload className="h-4 w-4" />
+                        Chọn ảnh
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleVariantImageChange}
+                        />
+                      </label>
+                      {formImageFile ? (
+                        <button
+                          type="button"
+                          onClick={clearVariantImageSelection}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-white"
+                        >
+                          Bỏ chọn
+                        </button>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Nếu chọn ảnh mới, ảnh cũ của biến thể sẽ được thay thế sau
+                      khi lưu.
+                    </p>
+                    {formImageFile ? (
+                      <p className="truncate text-xs font-medium text-gray-700">
+                        Ảnh mới: {formImageFile.name}
+                      </p>
+                    ) : editingVariantImage ? (
+                      <p className="text-xs text-gray-500">
+                        Đang dùng ảnh hiện tại của biến thể.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </div>
 

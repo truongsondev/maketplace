@@ -6,6 +6,7 @@ import type {
   CreateProductCommand,
   CreateProductResult,
   CloudinarySignature,
+  CloudinaryUploadResult,
   CloudinarySignatureResponse,
   ProductListResponse,
   ProductDetailResponse,
@@ -117,6 +118,30 @@ export const productService = {
   getProduct: async (id: string): Promise<ProductDetailResponse> => {
     const response = await apiClient.get(`/admin/products/${id}`);
     return response.data;
+  },
+
+  saveProductImage: async (
+    productId: string,
+    data: {
+      url: string;
+      publicId: string;
+      variantId?: string;
+      altText?: string;
+      isPrimary?: boolean;
+      sortOrder?: number;
+    },
+  ): Promise<void> => {
+    await apiClient.post(`/admin/products/${productId}/images`, data);
+  },
+
+  deleteProductImage: async (
+    productId: string,
+    imageId: string,
+    publicId: string,
+  ): Promise<void> => {
+    await apiClient.delete(`/admin/products/${productId}/images/${imageId}`, {
+      data: { publicId },
+    });
   },
 
   createProduct: async (
@@ -234,6 +259,14 @@ export const cloudinaryService = {
     file: File,
     signature: CloudinarySignature,
   ): Promise<string> => {
+    const result = await cloudinaryService.uploadImageWithPublicId(file, signature);
+    return result.url;
+  },
+
+  uploadImageWithPublicId: async (
+    file: File,
+    signature: CloudinarySignature,
+  ): Promise<CloudinaryUploadResult> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("api_key", signature.apiKey);
@@ -254,7 +287,10 @@ export const cloudinaryService = {
     }
 
     const result = await response.json();
-    return result.secure_url;
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+    };
   },
 };
 

@@ -202,7 +202,7 @@ export default function AddProductPage() {
         id: `size-guide-${Date.now()}`,
         file,
         url: previewUrl,
-        altText: `Bang huong dan chon size - ${formData.name || "san pham"}`,
+        altText: `Bảng hướng dẫn chọn size - ${formData.name || "sản phẩm"}`,
         sortOrder: 0,
         uploading: false,
       };
@@ -333,6 +333,14 @@ export default function AddProductPage() {
 
       if (!formData.categoryId) {
         toast.error("Vui lòng chọn danh mục sản phẩm");
+        return;
+      }
+
+      const hasMainProductImage = formData.productImages.some(
+        (image) => Boolean(image.file || image.url),
+      );
+      if (!hasMainProductImage) {
+        toast.error("Vui lòng chọn ảnh chính cho sản phẩm");
         return;
       }
 

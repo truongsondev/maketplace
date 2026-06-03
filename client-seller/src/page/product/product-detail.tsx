@@ -72,7 +72,7 @@ export default function ProductDetailPage() {
     {
       id: "images" as TabType,
       label: "Hình ảnh",
-      badge: product?.stats.totalImages,
+      badge: product?.images.length,
     },
     { id: "inventory" as TabType, label: "Tồn kho" },
   ];

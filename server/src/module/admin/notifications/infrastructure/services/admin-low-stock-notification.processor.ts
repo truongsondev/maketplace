@@ -53,7 +53,7 @@ export class AdminLowStockNotificationProcessor {
         return false;
       }
 
-      const content = `Canh bao ton kho thap: ${input.productName} (SKU: ${input.sku}) con ${input.stockOnHand}, nguong canh bao ${input.minStock}`;
+      const content = `Cảnh báo tồn kho thấp: ${input.productName} (SKU: ${input.sku}) còn ${input.stockOnHand}, ngưỡng cảnh báo ${input.minStock}`;
 
       const createdRows = await this.prisma.$transaction(
         admins.map((admin) =>

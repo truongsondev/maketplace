@@ -132,16 +132,16 @@ function buildOrderCancelledNotificationContent(input: {
   reason: string | null;
 }): string {
   const label = input.orderCode?.trim() || input.orderId;
-  const reasonSuffix = input.reason?.trim() ? ` Ly do: ${input.reason.trim()}.` : '';
-  return `[ORDER_CANCELLED|${input.orderId}] Don hang #${label} da bi huy.${reasonSuffix}`;
+  const reasonSuffix = input.reason?.trim() ? ` Lý do: ${input.reason.trim()}.` : '';
+  return `[ORDER_CANCELLED|${input.orderId}] Đơn hàng #${label} đã bị hủy.${reasonSuffix}`;
 }
 
 function mapCancelReasonCodeToText(code: string | null | undefined): string | null {
   if (!code) return null;
-  if (code === 'NO_LONGER_NEEDED') return 'Khong con nhu cau mua';
-  if (code === 'BUY_OTHER_ITEM') return 'Mua san pham khac';
-  if (code === 'FOUND_CHEAPER') return 'Tim duoc noi ban re hon';
-  if (code === 'OTHER') return 'Ly do khac';
+  if (code === 'NO_LONGER_NEEDED') return 'Không còn nhu cầu mua';
+  if (code === 'BUY_OTHER_ITEM') return 'Mua sản phẩm khác';
+  if (code === 'FOUND_CHEAPER') return 'Tìm được nơi bán rẻ hơn';
+  if (code === 'OTHER') return 'Lý do khác';
   return null;
 }
 

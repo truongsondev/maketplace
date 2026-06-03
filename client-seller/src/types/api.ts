@@ -126,6 +126,11 @@ export interface CloudinarySignatureResponse {
   timestamp: string;
 }
 
+export interface CloudinaryUploadResult {
+  url: string;
+  publicId: string;
+}
+
 export interface ProductImage {
   id: string;
   url: string;
@@ -326,6 +331,7 @@ export interface UpdateProductVariantDto {
   price: number;
   stockAvailable?: number;
   minStock?: number;
+  images?: UpdateProductImageDto[];
 }
 
 export interface UpdateProductImageDto {

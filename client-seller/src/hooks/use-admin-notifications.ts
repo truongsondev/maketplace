@@ -154,8 +154,8 @@ export function useAdminNotifications() {
 
         toast.success(payload.content, {
           description: needsInteraction
-            ? "Trinh duyet dang chan autoplay. Bam Bat am thanh de nghe thong bao don moi."
-            : "Don hang moi vua duoc tao.",
+            ? "Trình duyệt đang chặn autoplay. Bấm Bật âm thanh để nghe thông báo đơn mới."
+            : "Đơn hàng mới vừa được tạo.",
         });
       } catch {
         // Keep stream alive on malformed payload.

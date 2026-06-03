@@ -55,10 +55,10 @@ function safeAttributesToText(attributes: unknown): string {
 
 function mapCancelReasonCodeToText(code: CancelReason | null | undefined): string | null {
   if (!code) return null;
-  if (code === 'NO_LONGER_NEEDED') return 'Khong con nhu cau mua';
-  if (code === 'BUY_OTHER_ITEM') return 'Mua san pham khac';
-  if (code === 'FOUND_CHEAPER') return 'Tim duoc noi ban re hon';
-  if (code === 'OTHER') return 'Ly do khac';
+  if (code === 'NO_LONGER_NEEDED') return 'Không còn nhu cầu mua';
+  if (code === 'BUY_OTHER_ITEM') return 'Mua sản phẩm khác';
+  if (code === 'FOUND_CHEAPER') return 'Tìm được nơi bán rẻ hơn';
+  if (code === 'OTHER') return 'Lý do khác';
   return null;
 }
 
@@ -86,7 +86,7 @@ function buildAdminCancelRequestContent(input: {
 }): string {
   const label = input.orderCode?.trim() || input.orderId;
   const reason = input.reasonText?.trim() || String(input.reasonCode);
-  return `Yeu cau huy don hang #${label} da duoc gui. Ly do: ${reason}`;
+  return `Yêu cầu hủy đơn hàng #${label} đã được gửi. Lý do: ${reason}`;
 }
 
 function buildOrderReceivedNotificationContent(input: {
@@ -94,7 +94,7 @@ function buildOrderReceivedNotificationContent(input: {
   orderCode: string | null;
 }): string {
   const label = input.orderCode?.trim() || input.orderId;
-  return `[ORDER_RECEIVED|${input.orderId}] Don hang #${label} da duoc xac nhan nhan hang thanh cong.`;
+  return `[ORDER_RECEIVED|${input.orderId}] Đơn hàng #${label} đã được xác nhận nhận hàng thành công.`;
 }
 
 export class PrismaOrderRepository implements IOrderRepository {

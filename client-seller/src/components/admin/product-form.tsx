@@ -491,6 +491,7 @@ export function ProductForm({
               ⭐
             </span>
             Ảnh chính sản phẩm
+            <span className="text-red-500">*</span>
           </h3>
         </div>
 

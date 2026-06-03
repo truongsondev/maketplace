@@ -288,11 +288,7 @@ export default function BannersPage() {
                 </div>
               </OpsCard>
 
-              <OpsCard className="border-cyan-200 bg-gradient-to-br from-white to-cyan-50">
-                <SectionHeading
-                  title="Điều khiển chiến dịch"
-                  description="Các trạng thái vận hành cần nhìn trước form CRUD."
-                />
+              <OpsCard className="border-cyan-200 bg-linear-to-br from-white to-cyan-50">
                 <div className="grid gap-3 md:grid-cols-2">
                   <AlertItem
                     tone="good"

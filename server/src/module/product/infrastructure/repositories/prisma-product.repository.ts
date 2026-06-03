@@ -834,7 +834,7 @@ export class PrismaProductRepository implements IProductRepository {
     const category = product?.categories?.[0]?.category;
     return {
       slug: String(category?.slug ?? 'ao').trim() || 'ao',
-      name: String(category?.name ?? 'Bst Moi').trim() || 'Bst Moi',
+      name: String(category?.name ?? 'BST Mới').trim() || 'BST Mới',
     };
   }
 

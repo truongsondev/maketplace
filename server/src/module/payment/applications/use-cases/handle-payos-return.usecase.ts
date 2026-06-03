@@ -122,13 +122,13 @@ export class HandlePayosReturnUseCase {
   private resolveMessage(status: string): string {
     switch (status) {
       case 'PAID':
-        return 'Thanh toan thanh cong';
+        return 'Thanh toán thành công';
       case 'FAILED':
       case 'CANCELLED':
       case 'EXPIRED':
-        return 'Thanh toan that bai hoac da bi huy';
+        return 'Thanh toán thất bại hoặc đã bị hủy';
       default:
-        return 'Dang cho cap nhat trang thai thanh toan';
+        return 'Đang chờ cập nhật trạng thái thanh toán';
     }
   }
 }

@@ -128,7 +128,7 @@ export function Header() {
 
     const newOrderMatch = content.match(/\[NEW_ORDER\|([^\]]+)\]/i);
     if (newOrderMatch?.[1]) {
-      const orderCodeMatch = content.match(/Don hang moi\s*#(\d+)/i);
+      const orderCodeMatch = content.match(/(?:Đơn hàng mới|Don hang moi)\s*#(\d+)/i);
       if (orderCodeMatch?.[1]) {
         const search = new URLSearchParams({ search: orderCodeMatch[1] });
         return `/orders?${search.toString()}`;
@@ -139,14 +139,14 @@ export function Header() {
     }
 
     // Payment success notification: route to orders page and prefill search by order code.
-    const orderCodeMatch = content.match(/Don hang\s*#(\d+)/i);
+    const orderCodeMatch = content.match(/(?:Đơn hàng|Don hang)\s*#(\d+)/i);
     if (orderCodeMatch?.[1]) {
       const search = new URLSearchParams({ search: orderCodeMatch[1] });
       return `/orders?${search.toString()}`;
     }
 
     // Low-stock notification: route to products page, focus low stock list and prefill SKU search when present.
-    if (/Canh bao ton kho thap/i.test(content)) {
+    if (/(?:Cảnh báo tồn kho thấp|Canh bao ton kho thap)/i.test(content)) {
       const params = new URLSearchParams({ stockStatus: "low" });
       const skuMatch = content.match(/SKU:\s*([^\s)]+)/i);
       if (skuMatch?.[1]) {

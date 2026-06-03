@@ -585,12 +585,12 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       });
 
       if (!current || current.isDeleted || current.product.isDeleted) {
-        throw new BadRequestError('San pham khong ton tai hoac da bi xoa');
+        throw new BadRequestError('Sản phẩm không tồn tại hoặc đã bị xóa');
       }
 
       const availableStock = current.stockOnHand - current.stockReserved;
       if (availableStock < quantity || current.stockAvailable < quantity) {
-        throw new BadRequestError(`Khong du ton kho cho SKU ${current.sku}`);
+        throw new BadRequestError(`Không đủ tồn kho cho SKU ${current.sku}`);
       }
 
       await tx.productVariant.update({

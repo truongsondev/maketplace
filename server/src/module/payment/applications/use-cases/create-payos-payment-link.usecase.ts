@@ -74,7 +74,7 @@ export class CreatePayosPaymentLinkUseCase {
         orderCode,
         error instanceof Error ? error.message : 'Unknown error',
       );
-      throw new BadRequestError('Khong the tao link thanh toan PayOS');
+      throw new BadRequestError('Không thể tạo link thanh toán PayOS');
     }
   }
 
