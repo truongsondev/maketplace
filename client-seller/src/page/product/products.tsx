@@ -10,7 +10,6 @@ import {
   OpsCard,
   SectionHeading,
   SituationAssessmentPanel,
-  LivePill,
 } from "@/components/admin";
 import {
   Brain,
@@ -256,7 +255,6 @@ export default function ProductsPage() {
                     ? "Ẩn đánh giá tình hình"
                     : "Đánh giá tình hình"}
                 </button>
-                <LivePill label="Sức khỏe tồn kho trực tuyến" />
                 <button
                   onClick={handleExport}
                   className="flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-700 transition-colors hover:bg-slate-50"

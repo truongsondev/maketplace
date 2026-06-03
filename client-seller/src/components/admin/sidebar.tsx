@@ -39,10 +39,6 @@ export function Sidebar() {
             </p>
           </div>
         </div>
-        <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-semibold text-emerald-100">
-          <span className="mr-2 inline-flex size-2 rounded-full bg-emerald-300 shadow-[0_0_0_4px_rgba(110,231,183,0.12)]" />
-          Giám sát thời gian thực đang bật
-        </div>
       </div>
 
       <nav className="px-4 py-6">

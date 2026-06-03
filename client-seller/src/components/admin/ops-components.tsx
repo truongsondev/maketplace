@@ -1,5 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import { Activity, AlertTriangle, CheckCircle2, CircleAlert } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  CircleAlert,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 export type OpsTone = "neutral" | "good" | "warning" | "danger" | "info";
@@ -78,18 +83,6 @@ export function OpsCard({
     >
       {children}
     </section>
-  );
-}
-
-export function LivePill({ label = "Đang trực tuyến" }: { label?: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-      <span className="relative flex size-2">
-        <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-        <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-      </span>
-      {label}
-    </span>
   );
 }
 
@@ -196,7 +189,12 @@ export function AlertItem({
   onClick?: () => void;
 }) {
   const ResolvedIcon =
-    Icon ?? (tone === "danger" ? CircleAlert : tone === "warning" ? AlertTriangle : CheckCircle2);
+    Icon ??
+    (tone === "danger"
+      ? CircleAlert
+      : tone === "warning"
+        ? AlertTriangle
+        : CheckCircle2);
 
   return (
     <button
@@ -204,7 +202,9 @@ export function AlertItem({
       onClick={onClick}
       className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm motion-reduce:transition-none ${toneClasses[tone]}`}
     >
-      <span className={`mt-1 rounded-2xl p-2 text-white ${toneAccentClasses[tone]}`}>
+      <span
+        className={`mt-1 rounded-2xl p-2 text-white ${toneAccentClasses[tone]}`}
+      >
         <ResolvedIcon className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
@@ -212,7 +212,9 @@ export function AlertItem({
         <span className="mt-1 block text-sm leading-5 text-slate-600">
           {description}
         </span>
-        <span className={`mt-3 inline-flex text-xs font-bold ${toneTextClasses[tone]}`}>
+        <span
+          className={`mt-3 inline-flex text-xs font-bold ${toneTextClasses[tone]}`}
+        >
           {action}
         </span>
       </span>
@@ -258,7 +260,9 @@ export function InsightCard({
   return (
     <div className={`rounded-2xl border p-4 ${toneClasses[tone]}`}>
       <div className="flex items-center justify-between gap-3">
-        <span className={`text-xs font-bold uppercase tracking-[0.16em] ${toneTextClasses[tone]}`}>
+        <span
+          className={`text-xs font-bold uppercase tracking-[0.16em] ${toneTextClasses[tone]}`}
+        >
           {priority}
         </span>
         <span className="rounded-full bg-white/70 px-2.5 py-1 text-xs font-bold text-slate-700 ring-1 ring-slate-900/5">
@@ -290,7 +294,9 @@ export function MetricBar({
     <div>
       <div className="flex items-center justify-between gap-3 text-xs">
         <span className="truncate font-semibold text-slate-700">{label}</span>
-        <span className="whitespace-nowrap text-slate-500">{detail ?? value}</span>
+        <span className="whitespace-nowrap text-slate-500">
+          {detail ?? value}
+        </span>
       </div>
       <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
         <div
