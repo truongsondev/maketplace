@@ -1,9 +1,4 @@
-import {
-  DateRangeFilter,
-  Header,
-  LivePill,
-  Sidebar,
-} from "@/components/admin";
+import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
 import { logsService } from "@/services/api";
 import type { AdminLogItem, AuditActorType } from "@/types/api";
 import { useEffect, useMemo, useState } from "react";
@@ -172,7 +167,6 @@ export default function LogsPage() {
                     nổi bật, sticky và actionable.
                   </p>
                 </div>
-                <LivePill label="Luồng nhật ký" />
               </div>
             </section>
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-4">

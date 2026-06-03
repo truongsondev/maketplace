@@ -1,9 +1,4 @@
-import {
-  DateRangeFilter,
-  Header,
-  LivePill,
-  Sidebar,
-} from "@/components/admin";
+import { DateRangeFilter, Header, Sidebar } from "@/components/admin";
 import { refundService } from "@/services/api";
 import type {
   AdminRefundItem,
@@ -180,7 +175,6 @@ export default function RefundsPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <LivePill label="Giám sát hoàn tiền" />
                   <DateRangeFilter value={range} onChange={setRange} />
                 </div>
               </div>

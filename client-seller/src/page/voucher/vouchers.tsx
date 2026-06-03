@@ -4,7 +4,6 @@ import {
   AlertItem,
   Header,
   InsightCard,
-  LivePill,
   MetricBar,
   OpsCard,
   SectionHeading,
@@ -303,14 +302,29 @@ export default function VouchersPage() {
     await loadVouchers();
   };
 
-  const activeCount = items.filter((item) => getVoucherDisplayStatus(item) === "active").length;
-  const expiredCount = items.filter((item) => getVoucherDisplayStatus(item) === "expired").length;
-  const depletedCount = items.filter((item) => getVoucherDisplayStatus(item) === "depleted").length;
+  const activeCount = items.filter(
+    (item) => getVoucherDisplayStatus(item) === "active",
+  ).length;
+  const expiredCount = items.filter(
+    (item) => getVoucherDisplayStatus(item) === "expired",
+  ).length;
+  const depletedCount = items.filter(
+    (item) => getVoucherDisplayStatus(item) === "depleted",
+  ).length;
   const totalUsage = items.reduce((sum, item) => sum + item.usedCount, 0);
-  const maxUsageTotal = items.reduce((sum, item) => sum + (item.maxUsage ?? item.usedCount), 0);
-  const usageRate = maxUsageTotal ? Math.round((totalUsage / maxUsageTotal) * 100) : 0;
-  const mostUsedVoucher = [...items].sort((a, b) => b.usedCount - a.usedCount)[0];
-  const abuseRisk = items.filter((item) => item.userUsageLimit && item.userUsageLimit > 3).length;
+  const maxUsageTotal = items.reduce(
+    (sum, item) => sum + (item.maxUsage ?? item.usedCount),
+    0,
+  );
+  const usageRate = maxUsageTotal
+    ? Math.round((totalUsage / maxUsageTotal) * 100)
+    : 0;
+  const mostUsedVoucher = [...items].sort(
+    (a, b) => b.usedCount - a.usedCount,
+  )[0];
+  const abuseRisk = items.filter(
+    (item) => item.userUsageLimit && item.userUsageLimit > 3,
+  ).length;
 
   return (
     <div className="flex min-h-screen bg-slate-100">
@@ -329,10 +343,10 @@ export default function VouchersPage() {
                     Bảng hiệu suất khuyến mãi
                   </h1>
                   <p className="mt-2 text-sm text-slate-600">
-                    Đánh giá hiệu quả voucher theo usage, cost proxy, ROI risk và khả năng abuse trước khi chỉnh form.
+                    Đánh giá hiệu quả voucher theo usage, cost proxy, ROI risk
+                    và khả năng abuse trước khi chỉnh form.
                   </p>
                 </div>
-                  <LivePill label="Giám sát khuyến mãi" />
               </div>
             </section>
 
@@ -343,9 +357,27 @@ export default function VouchersPage() {
                   description="Tín hiệu business của promotion, không chỉ trạng thái bật/tắt."
                 />
                 <div className="space-y-4">
-                  <MetricBar label="Tỉ lệ sử dụng" value={usageRate} max={100} tone={usageRate > 85 ? "warning" : "info"} detail={`${usageRate}%`} />
-                  <MetricBar label="Voucher đang hoạt động" value={activeCount} max={Math.max(items.length, 1)} tone="good" detail={`${activeCount}/${items.length}`} />
-                  <MetricBar label="Hết hạn/hết lượt" value={expiredCount + depletedCount} max={Math.max(items.length, 1)} tone="neutral" detail={`${expiredCount + depletedCount}`} />
+                  <MetricBar
+                    label="Tỉ lệ sử dụng"
+                    value={usageRate}
+                    max={100}
+                    tone={usageRate > 85 ? "warning" : "info"}
+                    detail={`${usageRate}%`}
+                  />
+                  <MetricBar
+                    label="Voucher đang hoạt động"
+                    value={activeCount}
+                    max={Math.max(items.length, 1)}
+                    tone="good"
+                    detail={`${activeCount}/${items.length}`}
+                  />
+                  <MetricBar
+                    label="Hết hạn/hết lượt"
+                    value={expiredCount + depletedCount}
+                    max={Math.max(items.length, 1)}
+                    tone="neutral"
+                    detail={`${expiredCount + depletedCount}`}
+                  />
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
                   <InsightCard
@@ -353,7 +385,11 @@ export default function VouchersPage() {
                     priority="Hiệu quả nhất"
                     metric={mostUsedVoucher?.code ?? "—"}
                     title="Voucher hiệu quả nhất theo lượt dùng"
-                    description={mostUsedVoucher ? `${mostUsedVoucher.code} có ${mostUsedVoucher.usedCount} lượt dùng. Cần đối chiếu revenue generated và discount cost.` : "Chưa có voucher được dùng."}
+                    description={
+                      mostUsedVoucher
+                        ? `${mostUsedVoucher.code} có ${mostUsedVoucher.usedCount} lượt dùng. Cần đối chiếu revenue generated và discount cost.`
+                        : "Chưa có voucher được dùng."
+                    }
                   />
                   <InsightCard
                     tone="warning"

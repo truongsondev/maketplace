@@ -1,7 +1,6 @@
 import {
   DateRangeFilter,
   Header,
-  LivePill,
   SituationAssessmentPanel,
   Sidebar,
 } from "@/components/admin";
@@ -18,9 +17,7 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  Brain,
-} from "lucide-react";
+import { Brain } from "lucide-react";
 
 type RowActionItem = {
   key: string;
@@ -738,7 +735,6 @@ export default function OrdersPage() {
                         ? "Ẩn đánh giá tình hình"
                         : "Đánh giá tình hình"}
                     </button>
-                    <LivePill label="Hàng đợi trực tuyến" />
                     <DateRangeFilter value={range} onChange={setRange} />
                   </div>
                 </div>

@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Header,
-  LivePill,
-  Sidebar,
-} from "@/components/admin";
+import { Header, Sidebar } from "@/components/admin";
 import { userService } from "@/services/api";
 import type {
   AdminUserAuditItem,
@@ -288,7 +284,6 @@ export default function UsersPage() {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                  <LivePill label="Tín hiệu khách hàng" />
                   <button
                     onClick={handleExport}
                     className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-slate-700 hover:bg-slate-50"

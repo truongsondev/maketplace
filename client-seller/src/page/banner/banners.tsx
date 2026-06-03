@@ -4,7 +4,6 @@ import {
   AlertItem,
   Header,
   InsightCard,
-  LivePill,
   MetricBar,
   OpsCard,
   SectionHeading,
@@ -12,7 +11,12 @@ import {
 } from "@/components/admin";
 import { bannerService, cloudinaryService } from "@/services/api";
 import type { BannerItem, BannerUpsertCommand } from "@/types/api";
-import { CalendarClock, Eye, MousePointerClick, TrendingUp } from "lucide-react";
+import {
+  CalendarClock,
+  Eye,
+  MousePointerClick,
+  TrendingUp,
+} from "lucide-react";
 
 function createInitialForm(): BannerUpsertCommand {
   return {
@@ -237,10 +241,10 @@ export default function BannersPage() {
                     Hiệu suất biểu ngữ
                   </h1>
                   <p className="mt-2 text-sm text-slate-600">
-                    Quản lý hero/biểu ngữ như tài sản tăng trưởng: xem trước, lịch chạy, tỉ lệ nhấp, chuyển đổi và đóng góp doanh thu.
+                    Quản lý hero/biểu ngữ như tài sản tăng trưởng: xem trước,
+                    lịch chạy, tỉ lệ nhấp, chuyển đổi và đóng góp doanh thu.
                   </p>
                 </div>
-                <LivePill label="Góc nhìn chiến dịch" />
               </div>
             </section>
 
@@ -251,9 +255,27 @@ export default function BannersPage() {
                   description="Proxy analytics để định hướng placement trước khi có tracking endpoint riêng."
                 />
                 <div className="space-y-4">
-                  <MetricBar label="Biểu ngữ đang bật" value={activeCount} max={Math.max(items.length, 1)} tone="good" detail={`${activeCount}/${items.length}`} />
-                  <MetricBar label="Ước tính tỉ lệ nhấp" value={ctrProxy} max={12} tone="info" detail={`${ctrProxy.toFixed(1)}%`} />
-                  <MetricBar label="Ước tính chuyển đổi" value={conversionProxy} max={4} tone="warning" detail={`${conversionProxy.toFixed(1)}%`} />
+                  <MetricBar
+                    label="Biểu ngữ đang bật"
+                    value={activeCount}
+                    max={Math.max(items.length, 1)}
+                    tone="good"
+                    detail={`${activeCount}/${items.length}`}
+                  />
+                  <MetricBar
+                    label="Ước tính tỉ lệ nhấp"
+                    value={ctrProxy}
+                    max={12}
+                    tone="info"
+                    detail={`${ctrProxy.toFixed(1)}%`}
+                  />
+                  <MetricBar
+                    label="Ước tính chuyển đổi"
+                    value={conversionProxy}
+                    max={4}
+                    tone="warning"
+                    detail={`${conversionProxy.toFixed(1)}%`}
+                  />
                 </div>
                 <div className="mt-5">
                   <InsightCard
@@ -267,12 +289,39 @@ export default function BannersPage() {
               </OpsCard>
 
               <OpsCard className="border-cyan-200 bg-gradient-to-br from-white to-cyan-50">
-                <SectionHeading title="Điều khiển chiến dịch" description="Các trạng thái vận hành cần nhìn trước form CRUD." />
+                <SectionHeading
+                  title="Điều khiển chiến dịch"
+                  description="Các trạng thái vận hành cần nhìn trước form CRUD."
+                />
                 <div className="grid gap-3 md:grid-cols-2">
-                  <AlertItem tone="good" icon={Eye} title={`${activeCount} biểu ngữ đang hiển thị`} description="Biểu ngữ đang chạy cần xem trước đúng trạng thái máy tính/di động." action="Xem trước" />
-                  <AlertItem tone={inactiveCount > 0 ? "warning" : "info"} icon={CalendarClock} title={`${inactiveCount} banner tạm tắt`} description="Nên có scheduling để tránh bật/tắt thủ công." action="Review lịch chạy" />
-                  <AlertItem tone="info" icon={MousePointerClick} title="CTR cần tracking overlay" description="CTR/conversion giúp quyết định hero nào giữ, rotate hoặc dừng." action="Nối analytics" />
-                  <AlertItem tone="warning" icon={TrendingUp} title="Đóng góp doanh thu" description="Biểu ngữ phải nối được tới đơn hàng để thấy doanh thu đóng góp." action="Xem sâu đơn hàng" />
+                  <AlertItem
+                    tone="good"
+                    icon={Eye}
+                    title={`${activeCount} biểu ngữ đang hiển thị`}
+                    description="Biểu ngữ đang chạy cần xem trước đúng trạng thái máy tính/di động."
+                    action="Xem trước"
+                  />
+                  <AlertItem
+                    tone={inactiveCount > 0 ? "warning" : "info"}
+                    icon={CalendarClock}
+                    title={`${inactiveCount} banner tạm tắt`}
+                    description="Nên có scheduling để tránh bật/tắt thủ công."
+                    action="Review lịch chạy"
+                  />
+                  <AlertItem
+                    tone="info"
+                    icon={MousePointerClick}
+                    title="CTR cần tracking overlay"
+                    description="CTR/conversion giúp quyết định hero nào giữ, rotate hoặc dừng."
+                    action="Nối analytics"
+                  />
+                  <AlertItem
+                    tone="warning"
+                    icon={TrendingUp}
+                    title="Đóng góp doanh thu"
+                    description="Biểu ngữ phải nối được tới đơn hàng để thấy doanh thu đóng góp."
+                    action="Xem sâu đơn hàng"
+                  />
                 </div>
               </OpsCard>
             </section>

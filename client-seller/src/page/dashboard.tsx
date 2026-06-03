@@ -3,7 +3,6 @@ import {
   DateRangeFilter,
   Header,
   KpiCard,
-  LivePill,
   MetricBar,
   OpsCard,
   SectionHeading,
@@ -17,12 +16,7 @@ import type {
   DashboardTimeseriesPoint,
 } from "@/types/dashboard";
 import { useQuery } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  Brain,
-  ReceiptText,
-  TrendingUp,
-} from "lucide-react";
+import { AlertTriangle, Brain, ReceiptText, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -274,7 +268,6 @@ export default function Dashboard() {
                     ? "Ẩn đánh giá tình hình"
                     : "Đánh giá tình hình"}
                 </button>
-                <LivePill label="Đồng bộ mỗi 30 giây" />
                 <DateRangeFilter value={range} onChange={setRange} />
               </div>
             }
