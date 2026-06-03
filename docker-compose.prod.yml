@@ -170,6 +170,9 @@ services:
   # PayOS Reconcile Worker (periodic safety-net)
   payos-reconcile-worker:
     image: maketplace-server:prod
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: prod-payos-reconcile-worker
     restart: always
     environment:

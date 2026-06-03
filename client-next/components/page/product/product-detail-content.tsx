@@ -43,6 +43,13 @@ interface VariantOptionState {
   outOfStock: boolean;
 }
 
+interface VariantAxis {
+  key: string;
+  label: string;
+  sourceKeys: string[];
+  values: string[];
+}
+
 function parseSizeValues(rawSize?: string): string[] {
   if (!rawSize) return [];
 
@@ -108,6 +115,29 @@ function isColorAttributeKey(key: string): boolean {
 function isSizeAttributeKey(key: string): boolean {
   const normalizedKey = normalizeAttributeKey(key);
   return normalizedKey.includes("size") || normalizedKey.includes("kich");
+}
+
+function toCanonicalVariantKey(key: string): string {
+  if (isColorAttributeKey(key)) return "color";
+  if (isSizeAttributeKey(key)) return "size";
+  return normalizeAttributeKey(key).replace(/[^a-z0-9]+/g, "_");
+}
+
+function getVariantAxisValues(
+  variant: ProductDetail["variants"][number],
+  axis: Pick<VariantAxis, "sourceKeys">,
+): string[] {
+  const valueGroups = axis.sourceKeys
+    .map((key) => toAttributeValues(variant.attributes?.[key], key))
+    .filter((values) => values.length > 0);
+
+  if (valueGroups.length === 0) return [];
+
+  const singleValueGroups = valueGroups.filter((values) => values.length === 1);
+  const groupsToUse =
+    singleValueGroups.length > 0 ? singleValueGroups : valueGroups;
+
+  return [...new Set(groupsToUse.flat())];
 }
 
 function toDisplayLabels(
@@ -183,9 +213,9 @@ function stripHtmlToText(raw: string): string {
 
 export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [selectedImage, setSelectedImage] = useState(0);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(
-    {},
-  );
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >({});
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -299,29 +329,42 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     toggleFavorite.isPending &&
     toggleFavorite.variables?.productId === product.id;
 
-  const variantAxes = useMemo(() => {
-    const keys = [
-      ...new Set(
-        product.variants.flatMap((variant) =>
-          Object.entries(variant.attributes ?? {})
-            .filter(([, value]) => toAttributeValues(value).length > 0)
-            .map(([key]) => key),
-        ),
-      ),
-    ];
+  const variantAxes = useMemo<VariantAxis[]>(() => {
+    const sourceKeysByAxis = new Map<string, string[]>();
 
-    return keys
-      .map((key) => ({
-        key,
-        label: toAttributeLabel(key),
-        values: [
-          ...new Set(
-            product.variants.flatMap((variant) =>
-              toAttributeValues(variant.attributes?.[key], key),
+    product.variants.forEach((variant) => {
+      Object.entries(variant.attributes ?? {}).forEach(([key, value]) => {
+        if (toAttributeValues(value, key).length === 0) return;
+
+        const axisKey = toCanonicalVariantKey(key);
+        const sourceKeys = sourceKeysByAxis.get(axisKey) ?? [];
+        if (!sourceKeys.includes(key)) {
+          sourceKeys.push(key);
+          sourceKeysByAxis.set(axisKey, sourceKeys);
+        }
+      });
+    });
+
+    return Array.from(sourceKeysByAxis.entries())
+      .map(([key, sourceKeys]) => {
+        const labelSourceKey =
+          sourceKeys.find(
+            (sourceKey) => toCanonicalVariantKey(sourceKey) === key,
+          ) ?? sourceKeys[0];
+
+        return {
+          key,
+          label: toAttributeLabel(labelSourceKey),
+          sourceKeys,
+          values: [
+            ...new Set(
+              product.variants.flatMap((variant) =>
+                getVariantAxisValues(variant, { sourceKeys }),
+              ),
             ),
-          ),
-        ],
-      }))
+          ],
+        };
+      })
       .filter((axis) => axis.values.length > 0);
   }, [product.variants]);
 
@@ -344,10 +387,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
       variantAxes.every((axis) => {
         const selected = selection[axis.key];
         return (
-          !selected ||
-          toAttributeValues(variant.attributes?.[axis.key], axis.key).includes(
-            selected,
-          )
+          !selected || getVariantAxisValues(variant, axis).includes(selected)
         );
       }),
     [variantAxes],
@@ -421,7 +461,9 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
       for (const axis of variantAxes) {
         const current = prev[axis.key];
         next[axis.key] =
-          current && axis.values.includes(current) ? current : axis.values[0] || "";
+          current && axis.values.includes(current)
+            ? current
+            : axis.values[0] || "";
         changed ||= next[axis.key] !== current;
       }
 
@@ -444,9 +486,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
       ? product.variants.filter(
           (v) =>
             colorAxis &&
-            toAttributeValues(v.attributes?.[colorAxis.key], colorAxis.key).includes(
-              currentSelectedColor,
-            ),
+            getVariantAxisValues(v, colorAxis).includes(currentSelectedColor),
         )
       : product.variants;
 
@@ -1128,7 +1168,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                     {product.reviews.totalReviews} đánh giá
                   </span>
                   <span className="text-sm text-neutral-500">
-                    {Math.max(10, product.reviews.totalReviews * 3)} đã bán
+                    {Math.max(0, product.reviews.totalReviews * 3)} đã bán
                   </span>
                 </div>
 
@@ -1142,11 +1182,7 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                   {stockAvailable > 0 ? (
                     <span
                       className={`text-xs font-medium mb-1 ${isLowStock ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"}`}
-                    >
-                      {isLowStock
-                        ? `Sắp hết: ${stockAvailable}`
-                        : `Kho: ${stockAvailable}`}
-                    </span>
+                    ></span>
                   ) : (
                     <span className="text-xs text-red-600 dark:text-red-400 font-medium mb-1">
                       Tạm hết hàng
