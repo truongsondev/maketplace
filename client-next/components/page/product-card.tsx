@@ -170,6 +170,7 @@ export function ProductCard({
           <button
             onClick={handleViewDetail}
             className="line-clamp-2 text-left transition-colors hover:text-black dark:hover:text-white"
+            title={product.name}
           >
             {product.name}
           </button>

@@ -679,7 +679,10 @@ export function CheckoutConfirmClient() {
                         ) : null}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
+                        <p
+                          className="truncate text-sm font-semibold text-neutral-900 dark:text-white"
+                          title={item.productName}
+                        >
                           {item.productName}
                         </p>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400">

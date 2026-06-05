@@ -307,7 +307,10 @@ export function ThankYouClient() {
                             )}
 
                             <div className="min-w-0">
-                              <p className="truncate font-semibold text-neutral-900 dark:text-white">
+                              <p
+                                className="truncate font-semibold text-neutral-900 dark:text-white"
+                                title={item.productName}
+                              >
                                 {item.productName}
                               </p>
 

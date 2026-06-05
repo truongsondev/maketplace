@@ -503,34 +503,147 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
     productId: string,
     limit: number,
   ): Promise<RecommendationItem[]> {
-    const categories = await this.prisma.productCategory.findMany({
-      where: { productId },
-      select: { categoryId: true },
-    });
-
-    if (categories.length === 0) return [];
-
-    const products = await this.prisma.product.findMany({
-      where: {
-        id: { not: productId },
-        isDeleted: false,
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        productTypeId: true,
         categories: {
-          some: {
-            categoryId: { in: categories.map((item) => item.categoryId) },
+          select: {
+            categoryId: true,
+            category: {
+              select: {
+                id: true,
+                parentId: true,
+              },
+            },
           },
         },
       },
-      select: { id: true },
-      take: limit,
-      orderBy: [{ updatedAt: 'desc' }],
     });
 
-    return products.map((product, index) => ({
-      productId: product.id,
+    if (!product) return [];
+
+    const directCategoryIds = product.categories.map((item) => item.categoryId);
+    const parentCategoryIds = product.categories
+      .map((item) => item.category?.parentId)
+      .filter(Boolean) as string[];
+    const childCategories =
+      directCategoryIds.length > 0 || parentCategoryIds.length > 0
+        ? await this.prisma.category.findMany({
+            where: {
+              parentId: {
+                in: [...directCategoryIds, ...parentCategoryIds],
+              },
+              deletedAt: null,
+            },
+            select: { id: true },
+          })
+        : [];
+    const relatedCategoryIds = Array.from(
+      new Set([
+        ...directCategoryIds,
+        ...parentCategoryIds,
+        ...childCategories.map((category) => category.id),
+      ]),
+    );
+
+    const relatedByCategory = await this.prisma.product.findMany({
+      where: {
+        id: { not: productId },
+        isDeleted: false,
+        ...(relatedCategoryIds.length > 0
+          ? {
+              categories: {
+                some: {
+                  categoryId: { in: relatedCategoryIds },
+                },
+              },
+            }
+          : {
+              id: '__no_category_match__',
+            }),
+      },
+      select: { id: true },
+      take: limit,
+      orderBy: [{ isSale: 'desc' }, { updatedAt: 'desc' }],
+    });
+
+    const categoryItems = relatedByCategory.map((item, index) => ({
+      productId: item.id,
       score: Math.max(0.1, limit - index),
       reason: 'Cùng danh mục đang xem',
       source: 'category_fallback',
     }));
+
+    if (categoryItems.length >= limit || !product.productTypeId) {
+      return categoryItems;
+    }
+
+    const relatedByProductType = await this.prisma.product.findMany({
+      where: {
+        id: {
+          notIn: [productId, ...categoryItems.map((item) => item.productId)],
+        },
+        isDeleted: false,
+        productTypeId: product.productTypeId,
+      },
+      select: { id: true },
+      take: limit - categoryItems.length,
+      orderBy: [{ isSale: 'desc' }, { updatedAt: 'desc' }],
+    });
+
+    return [
+      ...categoryItems,
+      ...relatedByProductType.map((item, index) => ({
+        productId: item.id,
+        score: Math.max(0.1, limit - categoryItems.length - index),
+        reason: 'Cùng nhóm sản phẩm',
+        source: 'product_type_fallback',
+      })),
+    ];
+  }
+
+  private async getRelatedCategoryIdsForProducts(productIds: string[]): Promise<string[]> {
+    if (productIds.length === 0) return [];
+
+    const productCategories = await this.prisma.productCategory.findMany({
+      where: {
+        productId: { in: productIds },
+      },
+      select: {
+        categoryId: true,
+        category: {
+          select: {
+            parentId: true,
+          },
+        },
+      },
+    });
+
+    const directCategoryIds = productCategories.map((item) => item.categoryId);
+    const parentCategoryIds = productCategories
+      .map((item) => item.category?.parentId)
+      .filter(Boolean) as string[];
+    const childCategories =
+      directCategoryIds.length > 0 || parentCategoryIds.length > 0
+        ? await this.prisma.category.findMany({
+            where: {
+              parentId: {
+                in: [...directCategoryIds, ...parentCategoryIds],
+              },
+              deletedAt: null,
+            },
+            select: { id: true },
+          })
+        : [];
+
+    return Array.from(
+      new Set([
+        ...directCategoryIds,
+        ...parentCategoryIds,
+        ...childCategories.map((category) => category.id),
+      ]),
+    );
   }
 
   private async getSameCategoryFallbackForProducts(
@@ -539,15 +652,9 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
   ): Promise<RecommendationItem[]> {
     if (productIds.length === 0) return [];
 
-    const categories = await this.prisma.productCategory.findMany({
-      where: {
-        productId: { in: productIds },
-      },
-      select: { categoryId: true },
-      distinct: ['categoryId'],
-    });
+    const relatedCategoryIds = await this.getRelatedCategoryIdsForProducts(productIds);
 
-    if (categories.length === 0) return [];
+    if (relatedCategoryIds.length === 0) return [];
 
     const products = await this.prisma.product.findMany({
       where: {
@@ -555,13 +662,13 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         isDeleted: false,
         categories: {
           some: {
-            categoryId: { in: categories.map((item) => item.categoryId) },
+            categoryId: { in: relatedCategoryIds },
           },
         },
       },
       select: { id: true },
       take: limit,
-      orderBy: [{ updatedAt: 'desc' }],
+      orderBy: [{ isSale: 'desc' }, { updatedAt: 'desc' }],
     });
 
     return products.map((product, index) => ({

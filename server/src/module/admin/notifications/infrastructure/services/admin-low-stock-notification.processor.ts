@@ -7,7 +7,7 @@ const logger = createLogger('AdminLowStockNotificationProcessor');
 const LOW_STOCK_DEDUPE_TTL_SECONDS = Number(process.env.ADMIN_LOW_STOCK_DEDUPE_TTL_SEC || 86400);
 
 export interface AdminLowStockNotificationInput {
-  orderId: string;
+  orderId: string | null;
   orderCode: string | null;
   productId: string;
   productName: string;
@@ -53,7 +53,11 @@ export class AdminLowStockNotificationProcessor {
         return false;
       }
 
-      const content = `Cảnh báo tồn kho thấp: ${input.productName} (SKU: ${input.sku}) còn ${input.stockOnHand}, ngưỡng cảnh báo ${input.minStock}`;
+      const stockLabel =
+        input.stockOnHand === 0
+          ? 'đã hết hàng'
+          : `còn ${input.stockOnHand}, ngưỡng cảnh báo ${input.minStock}`;
+      const content = `Cảnh báo tồn kho: ${input.productName} (SKU: ${input.sku}) ${stockLabel}`;
 
       const createdRows = await this.prisma.$transaction(
         admins.map((admin) =>

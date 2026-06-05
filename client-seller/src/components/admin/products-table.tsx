@@ -213,8 +213,14 @@ export function ProductsTable({
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
+                      <div
+                        className="min-w-0"
+                        style={{ width: "min(58vw, 760px)" }}
+                      >
+                        <p
+                          className="truncate text-sm font-medium text-gray-900"
+                          title={product.name}
+                        >
                           {product.name}
                         </p>
                         <p className="text-xs text-gray-600">

@@ -2,6 +2,10 @@ import { PrismaClient, Prisma } from '../../../../../../generated/prisma/client'
 import { Product, ProductVariant, ProductImageProps } from '../../entities/product/product.entity';
 import { IProductRepository } from '../../applications/ports/output/product.repository';
 import { buildVariantOptionKeyFromAttributes } from '@/shared/util/variant-option-key';
+import {
+  AdminLowStockNotificationInput,
+  AdminLowStockNotificationProcessor,
+} from '../../../notifications/infrastructure/services/admin-low-stock-notification.processor';
 
 function normalizeOptionValue(raw: unknown): string | null {
   if (raw === null || raw === undefined) return null;
@@ -28,7 +32,88 @@ type ProductAttributeInput = {
 };
 
 export class PrismaProductRepository implements IProductRepository {
-  constructor(private readonly prisma: PrismaClient) {}
+  private readonly lowStockNotificationProcessor: AdminLowStockNotificationProcessor;
+
+  constructor(private readonly prisma: PrismaClient) {
+    this.lowStockNotificationProcessor = new AdminLowStockNotificationProcessor(prisma);
+  }
+
+  private shouldNotifyStockChange(
+    previousStockOnHand: number,
+    currentStockOnHand: number,
+    minStock: number,
+  ): boolean {
+    return (
+      currentStockOnHand === 0 ||
+      (previousStockOnHand > minStock && currentStockOnHand <= minStock) ||
+      (previousStockOnHand > 0 && currentStockOnHand === 0)
+    );
+  }
+
+  private async getStockStatusProductIds(productWhere: any): Promise<{
+    all: number;
+    low: number;
+    out: number;
+    lowProductIds: string[];
+    outProductIds: string[];
+  }> {
+    const products = await this.prisma.product.findMany({
+      where: productWhere,
+      select: {
+        id: true,
+        variants: {
+          where: { isDeleted: false },
+          select: {
+            stockAvailable: true,
+            minStock: true,
+          },
+        },
+      },
+    });
+
+    const lowProductIds: string[] = [];
+    const outProductIds: string[] = [];
+
+    for (const product of products) {
+      const hasOutStock = product.variants.some((variant) => variant.stockAvailable === 0);
+      const hasLowStock = product.variants.some(
+        (variant) => variant.stockAvailable > 0 && variant.stockAvailable < variant.minStock,
+      );
+
+      if (hasOutStock) {
+        outProductIds.push(product.id);
+      }
+
+      if (hasLowStock) {
+        lowProductIds.push(product.id);
+      }
+    }
+
+    return {
+      all: products.length,
+      low: lowProductIds.length,
+      out: outProductIds.length,
+      lowProductIds,
+      outProductIds,
+    };
+  }
+
+  private async dispatchStockNotifications(
+    inputs: AdminLowStockNotificationInput[],
+  ): Promise<void> {
+    for (const input of inputs) {
+      try {
+        await this.lowStockNotificationProcessor.process(input);
+      } catch (error) {
+        console.warn('Failed to process admin stock notification', {
+          productId: input.productId,
+          variantId: input.variantId,
+          sku: input.sku,
+          error,
+        });
+      }
+    }
+  }
 
   private parseBooleanValue(raw: unknown): boolean {
     if (typeof raw === 'boolean') return raw;
@@ -895,6 +980,19 @@ export class PrismaProductRepository implements IProductRepository {
       };
     }
 
+    const aggregationWhere = { ...where };
+    const stockStatus =
+      command.stockStatus === 'low' || command.stockStatus === 'out'
+        ? command.stockStatus
+        : undefined;
+    const stockStatusSummary = await this.getStockStatusProductIds(aggregationWhere);
+
+    if (stockStatus === 'low') {
+      where.id = { in: stockStatusSummary.lowProductIds };
+    } else if (stockStatus === 'out') {
+      where.id = { in: stockStatusSummary.outProductIds };
+    }
+
     // Get total count
     const total = await this.prisma.product.count({ where });
 
@@ -960,7 +1058,9 @@ export class PrismaProductRepository implements IProductRepository {
     const items = products.map((p) => {
       const primaryImage = p.images[0];
       const totalStock = p.variants.reduce((sum, v) => sum + v.stockAvailable, 0);
-      const lowStockCount = p.variants.filter((v) => v.stockAvailable < v.minStock).length;
+      const lowStockCount = p.variants.filter(
+        (v) => v.stockAvailable > 0 && v.stockAvailable < v.minStock,
+      ).length;
       const prices = p.variants.map((v) => Number(v.price));
 
       return {
@@ -1010,9 +1110,9 @@ export class PrismaProductRepository implements IProductRepository {
           deleted: deletedCount,
         },
         stockStatus: {
-          all: total,
-          low: 0, // TODO: Calculate
-          out: 0, // TODO: Calculate
+          all: stockStatusSummary.all,
+          low: stockStatusSummary.low,
+          out: stockStatusSummary.out,
         },
       },
     };
@@ -1027,6 +1127,8 @@ export class PrismaProductRepository implements IProductRepository {
     images?: ProductImageProps[],
     productAttributes?: ProductAttributeInput[],
   ): Promise<Product> {
+    const stockNotificationInputs: AdminLowStockNotificationInput[] = [];
+
     const result = await this.prisma.$transaction(async (tx) => {
       const nextProductData = { ...productData };
 
@@ -1128,6 +1230,16 @@ export class PrismaProductRepository implements IProductRepository {
         // Update or create variants
         for (const variant of variants) {
           if (variant.id) {
+            const previousVariant = await tx.productVariant.findUnique({
+              where: { id: variant.id },
+              select: {
+                stockOnHand: true,
+                stockAvailable: true,
+                minStock: true,
+                sku: true,
+              },
+            });
+
             // Update existing
             const updatedVariant = await tx.productVariant.update({
               where: { id: variant.id },
@@ -1141,6 +1253,27 @@ export class PrismaProductRepository implements IProductRepository {
                 minStock: variant.minStock,
               },
             });
+
+            const previousStockOnHand =
+              previousVariant?.stockOnHand ?? previousVariant?.stockAvailable ?? 0;
+            if (
+              this.shouldNotifyStockChange(
+                previousStockOnHand,
+                updatedVariant.stockOnHand,
+                updatedVariant.minStock,
+              )
+            ) {
+              stockNotificationInputs.push({
+                orderId: null,
+                orderCode: null,
+                productId,
+                productName: updated.name,
+                variantId: updatedVariant.id,
+                sku: updatedVariant.sku,
+                stockOnHand: updatedVariant.stockOnHand,
+                minStock: updatedVariant.minStock,
+              });
+            }
 
             await this.syncVariantAxisAttributes(
               tx,
@@ -1200,6 +1333,8 @@ export class PrismaProductRepository implements IProductRepository {
 
       return updated;
     });
+
+    await this.dispatchStockNotifications(stockNotificationInputs);
 
     return Product.fromPersistence({
       id: result.id,

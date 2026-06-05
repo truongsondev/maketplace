@@ -1050,10 +1050,13 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                   </Link>
                 </div>
               </li>
-              <li aria-current="page">
-                <div className="flex items-center">
+              <li aria-current="page" className="min-w-0">
+                <div className="flex min-w-0 items-center">
                   <ChevronRight className="text-neutral-400 w-4 h-4 mx-1" />
-                  <span className="text-sm font-medium text-neutral-900 dark:text-white">
+                  <span
+                    className="max-w-[42vw] truncate text-sm font-medium text-neutral-900 dark:text-white md:max-w-[520px]"
+                    title={product.name}
+                  >
                     {product.name}
                   </span>
                 </div>
@@ -1161,7 +1164,10 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
             <div className="flex flex-col gap-4 lg:col-span-5">
               <div className="sticky top-24 border-y border-black/10 bg-[#f7f3ec]/70 p-5 backdrop-blur-sm dark:border-white/10 dark:bg-neutral-950/75">
                 <p className="luxury-eyebrow mb-3">Product atelier</p>
-                <h1 className="mb-4 text-4xl font-semibold uppercase leading-[0.95] tracking-[-0.04em] text-neutral-900 dark:text-white md:text-5xl">
+                <h1
+                  className="mb-4 line-clamp-5 text-4xl font-semibold uppercase leading-[0.95] tracking-[-0.04em] text-neutral-900 dark:text-white md:text-5xl"
+                  title={product.name}
+                >
                   {product.name}
                 </h1>
 

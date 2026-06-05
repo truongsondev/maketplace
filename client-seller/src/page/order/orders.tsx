@@ -1203,7 +1203,10 @@ export default function OrdersPage() {
 
                                 <div className="flex-1 min-w-0">
                                   <div className="min-w-0">
-                                    <p className="truncate text-sm font-semibold text-slate-900">
+                                    <p
+                                      className="truncate text-sm font-semibold text-slate-900"
+                                      title={first?.name ?? "(Không có sản phẩm)"}
+                                    >
                                       {first?.name ?? "(Không có sản phẩm)"}
                                     </p>
                                     {first?.attributesText ? (
@@ -1595,7 +1598,10 @@ export default function OrdersPage() {
                               )}
                             </div>
                             <div>
-                              <p className="font-semibold text-slate-900">
+                              <p
+                                className="line-clamp-2 font-semibold text-slate-900"
+                                title={item.name}
+                              >
                                 {item.name}
                               </p>
                               {item.attributesText ? (

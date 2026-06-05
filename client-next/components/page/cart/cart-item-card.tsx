@@ -91,6 +91,7 @@ export function CartItemCard({
             <Link
               href={`/product/${item.productId}`}
               className="line-clamp-2 text-base font-medium uppercase tracking-[-0.01em] text-neutral-900 transition-opacity hover:opacity-65 dark:text-white"
+              title={item.productName}
             >
               {item.productName}
             </Link>

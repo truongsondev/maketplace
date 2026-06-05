@@ -308,7 +308,10 @@ export function ChatbotWidget() {
                             />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="line-clamp-2 text-sm font-semibold text-neutral-900">
+                            <p
+                              className="line-clamp-2 text-sm font-semibold text-neutral-900"
+                              title={product.name}
+                            >
                               {product.name}
                             </p>
                             <p className="mt-2 text-sm font-black text-[#7a4b30]">

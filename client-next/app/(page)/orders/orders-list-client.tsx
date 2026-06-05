@@ -251,7 +251,10 @@ function OrderCard({
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="line-clamp-2 text-sm font-semibold uppercase leading-6 tracking-[0.04em] text-neutral-900 dark:text-white">
+              <p
+                className="line-clamp-2 text-sm font-semibold uppercase leading-6 tracking-[0.04em] text-neutral-900 dark:text-white"
+                title={first?.name ?? "(Không có sản phẩm)"}
+              >
                 {first?.name ?? "(Không có sản phẩm)"}
               </p>
               {first?.attributesText ? (

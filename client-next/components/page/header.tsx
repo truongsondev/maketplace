@@ -572,7 +572,7 @@ export function Header({
                         <div key={group.id} className="min-w-0">
                           <Link
                             href={`/collection/${group.slug}`}
-                            className="block break-words text-sm font-bold uppercase tracking-wide text-neutral-900 hover:text-primary dark:text-neutral-50 dark:hover:text-primary"
+                            className="block wrap-break-word text-sm font-bold uppercase tracking-wide text-neutral-900 hover:text-primary dark:text-neutral-50 dark:hover:text-primary"
                           >
                             {group.name}
                           </Link>
@@ -583,7 +583,7 @@ export function Header({
                                 <Link
                                   key={item.id}
                                   href={`/collection/${item.slug}`}
-                                  className="block break-words text-sm text-neutral-700 hover:text-primary dark:text-neutral-200 dark:hover:text-primary"
+                                  className="block wrap-break-word text-sm text-neutral-700 hover:text-primary dark:text-neutral-200 dark:hover:text-primary"
                                 >
                                   {item.name}
                                 </Link>
@@ -1082,7 +1082,10 @@ export function Header({
                                 />
                               </div>
                               <div className="min-w-0 flex-1 pt-1">
-                                <p className="line-clamp-2 text-sm font-medium uppercase tracking-[0.08em] text-neutral-900 dark:text-white">
+                                <p
+                                  className="line-clamp-2 text-sm font-medium uppercase tracking-[0.08em] text-neutral-900 dark:text-white"
+                                  title={product.name}
+                                >
                                   {product.name}
                                 </p>
                                 <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">

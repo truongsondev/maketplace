@@ -1,11 +1,4 @@
-import {
-  Bell,
-  LogOut,
-  Search,
-  Volume2,
-  VolumeX,
-  X,
-} from "lucide-react";
+import { Bell, LogOut, Search, Volume2, VolumeX, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -128,7 +121,9 @@ export function Header() {
 
     const newOrderMatch = content.match(/\[NEW_ORDER\|([^\]]+)\]/i);
     if (newOrderMatch?.[1]) {
-      const orderCodeMatch = content.match(/(?:Đơn hàng mới|Don hang moi)\s*#(\d+)/i);
+      const orderCodeMatch = content.match(
+        /(?:Đơn hàng mới|Don hang moi)\s*#(\d+)/i,
+      );
       if (orderCodeMatch?.[1]) {
         const search = new URLSearchParams({ search: orderCodeMatch[1] });
         return `/orders?${search.toString()}`;
@@ -145,9 +140,12 @@ export function Header() {
       return `/orders?${search.toString()}`;
     }
 
-    // Low-stock notification: route to products page, focus low stock list and prefill SKU search when present.
-    if (/(?:Cảnh báo tồn kho thấp|Canh bao ton kho thap)/i.test(content)) {
-      const params = new URLSearchParams({ stockStatus: "low" });
+    // Stock notification: route to products page and prefill SKU search when present.
+    if (/(?:Cảnh báo tồn kho|Canh bao ton kho)/i.test(content)) {
+      const isOutOfStock = /(?:đã hết hàng|da het hang)/i.test(content);
+      const params = new URLSearchParams({
+        stockStatus: isOutOfStock ? "out" : "low",
+      });
       const skuMatch = content.match(/SKU:\s*([^\s)]+)/i);
       if (skuMatch?.[1]) {
         params.set("search", skuMatch[1]);

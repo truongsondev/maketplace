@@ -29,9 +29,7 @@ export function useLogin(redirectAfterLogin?: string) {
         },
       });
       queryClient.removeQueries({ queryKey: ["recommendations"] });
-      toast.success("Chào mừng trở lại!", {
-        description: `Đã đăng nhập với ${data.user.email}`,
-      });
+      toast.success("Chào mừng trở lại!");
       router.replace(resolvePostLoginPath(redirectAfterLogin));
     },
 

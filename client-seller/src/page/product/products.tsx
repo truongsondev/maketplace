@@ -405,7 +405,10 @@ export default function ProductsPage() {
                         return (
                           <div key={item.productId} className="space-y-1">
                             <div className="flex items-center justify-between gap-2 text-xs">
-                              <span className="truncate font-semibold text-gray-700">
+                              <span
+                                className="truncate font-semibold text-gray-700"
+                                title={item.name}
+                              >
                                 {item.name}
                               </span>
                               <span className="whitespace-nowrap text-gray-600">
@@ -462,7 +465,10 @@ export default function ProductsPage() {
                         return (
                           <div key={item.productId} className="space-y-1">
                             <div className="flex items-center justify-between gap-2 text-xs">
-                              <span className="truncate font-semibold text-gray-700">
+                              <span
+                                className="truncate font-semibold text-gray-700"
+                                title={item.name}
+                              >
                                 {item.name}
                               </span>
                               <span className="whitespace-nowrap text-gray-600">
@@ -519,7 +525,10 @@ export default function ProductsPage() {
                         return (
                           <div key={item.productId} className="space-y-1">
                             <div className="flex items-center justify-between gap-2 text-xs">
-                              <span className="truncate font-semibold text-gray-700">
+                              <span
+                                className="truncate font-semibold text-gray-700"
+                                title={item.name}
+                              >
                                 {item.name}
                               </span>
                               <span className="whitespace-nowrap text-gray-600">
