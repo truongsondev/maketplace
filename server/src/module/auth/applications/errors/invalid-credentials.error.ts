@@ -5,6 +5,6 @@ import { ApplicationError } from './application.error';
  */
 export class InvalidCredentialsError extends ApplicationError {
   constructor() {
-    super('INVALID_CREDENTIALS', 'Invalid email/phone or password');
+    super('INVALID_CREDENTIALS', 'Tài khoản hoặc mật khẩu không đúng');
   }
 }

@@ -1,0 +1,290 @@
+---
+config:
+  theme: base
+  er:
+    layoutDirection: LR
+    diagramPadding: 4
+    minEntityWidth: 90
+    minEntityHeight: 45
+    entityPadding: 6
+  themeVariables:
+    fontFamily: Arial
+    fontSize: 13px
+    primaryColor: "#BFE3FF"
+    primaryBorderColor: "#6EA8D7"
+    primaryTextColor: "#111827"
+    lineColor: "#1F2937"
+---
+erDiagram
+  users {
+    string id
+    string email
+    string phone
+    string password_hash
+    UserStatus status
+  }
+
+  refresh_tokens {
+    string id
+    string user_id
+    string token
+    datetime expires_at
+    boolean revoked
+  }
+
+  roles {
+    int id
+    string code
+    string name
+  }
+
+  user_roles {
+    string user_id
+    int role_id
+  }
+
+  user_addresses {
+    string id
+    string user_id
+    string recipient
+    string phone
+    boolean is_default
+  }
+
+  products {
+    string id
+    string product_type_id
+    string name
+    decimal base_price
+    ProductStatus status
+    boolean is_deleted
+  }
+
+  product_variants {
+    string id
+    string product_id
+    string sku
+    decimal price
+    int stock_available
+    int stock_reserved
+  }
+
+  product_images {
+    string id
+    string product_id
+    string variant_id
+    string url
+    boolean is_primary
+  }
+
+  categories {
+    string id
+    string parent_id
+    string name
+    string slug
+  }
+
+  product_categories {
+    string product_id
+    string category_id
+    boolean is_primary
+  }
+
+  product_types {
+    string id
+    string code
+    string name
+  }
+
+  attribute_definitions {
+    string id
+    string code
+    string name
+    AttributeScope scope
+    AttributeDataType data_type
+  }
+
+  attribute_options {
+    string id
+    string attribute_id
+    string value
+    string label
+  }
+
+  product_type_attributes {
+    string product_type_id
+    string attribute_id
+    boolean is_required
+    boolean is_variant_axis
+  }
+
+  product_attribute_values {
+    string id
+    string product_id
+    string attribute_id
+    string text_value
+    string option_id
+  }
+
+  product_attribute_value_options {
+    string product_attribute_value_id
+    string option_id
+  }
+
+  variant_attribute_values {
+    string id
+    string variant_id
+    string attribute_id
+    string text_value
+    string option_id
+  }
+
+  carts {
+    string id
+    string user_id
+    datetime created_at
+  }
+
+  cart_items {
+    string id
+    string cart_id
+    string product_id
+    string variant_id
+    int quantity
+  }
+
+  orders {
+    string id
+    string user_id
+    string discount_id
+    decimal total_price
+    OrderStatus status
+  }
+
+  order_items {
+    string id
+    string order_id
+    string product_id
+    string variant_id
+    int quantity
+    decimal price
+  }
+
+  payments {
+    string id
+    string order_id
+    decimal amount
+    string method
+    PaymentStatus status
+  }
+
+  payment_transactions {
+    string id
+    string order_id
+    string order_code
+    decimal amount
+    PaymentTransactionStatus status
+  }
+
+  order_status_history {
+    string id
+    string order_id
+    OrderStatus old_status
+    OrderStatus new_status
+    datetime changed_at
+  }
+
+  discounts {
+    string id
+    string code
+    DiscountType type
+    decimal value
+    datetime start_at
+    datetime end_at
+  }
+
+  discount_usages {
+    string id
+    string discount_id
+    string user_id
+    string order_id
+  }
+
+  inventory_logs {
+    string id
+    string variant_id
+    InventoryAction action
+    int quantity
+    string reference_id
+  }
+
+  returns {
+    string id
+    string order_item_id
+    int quantity
+    string reason_code
+    ReturnStatus status
+  }
+
+  refund_transactions {
+    string id
+    string order_id
+    RefundType type
+    decimal amount
+    RefundStatus status
+  }
+
+  order_cancel_requests {
+    string id
+    string order_id
+    CancelReason reason_code
+    CancelRequestStatus status
+    string requested_by_user_id
+  }
+
+  users ||--o{ refresh_tokens : ""
+  users ||--o{ user_addresses : ""
+  users ||--o{ user_roles : ""
+  roles ||--o{ user_roles : ""
+
+  users ||--o| carts : ""
+  carts ||--o{ cart_items : ""
+  products ||--o{ cart_items : ""
+  product_variants ||--o{ cart_items : ""
+
+  product_types ||--o{ products : ""
+  products ||--o{ product_variants : ""
+  products ||--o{ product_images : ""
+  product_variants ||--o{ product_images : ""
+  products ||--o{ product_categories : ""
+  categories ||--o{ product_categories : ""
+  categories ||--o{ categories : ""
+
+  product_types ||--o{ product_type_attributes : ""
+  attribute_definitions ||--o{ product_type_attributes : ""
+  attribute_definitions ||--o{ attribute_options : ""
+  products ||--o{ product_attribute_values : ""
+  attribute_definitions ||--o{ product_attribute_values : ""
+  attribute_options ||--o{ product_attribute_values : ""
+  product_attribute_values ||--o{ product_attribute_value_options : ""
+  attribute_options ||--o{ product_attribute_value_options : ""
+  product_variants ||--o{ variant_attribute_values : ""
+  attribute_definitions ||--o{ variant_attribute_values : ""
+  attribute_options ||--o{ variant_attribute_values : ""
+
+  users ||--o{ orders : ""
+  orders ||--|{ order_items : ""
+  products ||--o{ order_items : ""
+  product_variants ||--o{ order_items : ""
+  orders ||--o{ payments : ""
+  orders ||--o{ payment_transactions : ""
+  orders ||--o{ order_status_history : ""
+
+  discounts ||--o{ orders : ""
+  discounts ||--o{ discount_usages : ""
+  orders ||--o| discount_usages : ""
+
+  product_variants ||--o{ inventory_logs : ""
+  order_items ||--o{ returns : ""
+  orders ||--o{ refund_transactions : ""
+  orders ||--o| order_cancel_requests : ""

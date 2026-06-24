@@ -2,6 +2,45 @@
 
 Tài liệu này được sinh từ `server/prisma/schema.prisma`. Mỗi bảng bên dưới mô tả các cột dữ liệu chính theo cấu trúc: STT, Tên thuộc tính, Kiểu dữ liệu, Mô tả. Các field quan hệ Prisma dạng object/list được lược bỏ, nhưng các khóa ngoại dạng scalar vẫn được giữ lại.
 
+## Bảng chính, quan trọng và không thể thiếu
+
+**Tổng số bảng chính:** 30 bảng.
+
+> Gợi ý khi đưa vào Word: dùng font Times New Roman hoặc Arial, cỡ chữ 13-14, tiêu đề cỡ 16-18, bật căn giữa cho hàng tiêu đề và chọn AutoFit to Window để bảng dễ đọc.
+
+| STT | Nhóm nghiệp vụ | Model Prisma | Tên bảng trong DB | Vai trò chính |
+|---:|---|---|---|---|
+| 1 | Người dùng và phân quyền | `User` | `users` | Lưu tài khoản người dùng, thông tin đăng nhập và trạng thái tài khoản. |
+| 2 | Người dùng và phân quyền | `RefreshToken` | `refresh_tokens` | Quản lý phiên đăng nhập và làm mới token. |
+| 3 | Người dùng và phân quyền | `Role` | `roles` | Định nghĩa vai trò như khách hàng, quản trị viên. |
+| 4 | Người dùng và phân quyền | `UserRole` | `user_roles` | Gán vai trò cho từng người dùng. |
+| 5 | Người dùng và phân quyền | `UserAddress` | `user_addresses` | Lưu địa chỉ nhận hàng của người dùng. |
+| 6 | Sản phẩm và danh mục | `Product` | `products` | Lưu thông tin chính của sản phẩm. |
+| 7 | Sản phẩm và danh mục | `ProductVariant` | `product_variants` | Quản lý biến thể sản phẩm, SKU, giá và tồn kho. |
+| 8 | Sản phẩm và danh mục | `ProductImage` | `product_images` | Lưu ảnh sản phẩm và ảnh theo biến thể. |
+| 9 | Sản phẩm và danh mục | `Category` | `categories` | Quản lý danh mục sản phẩm. |
+| 10 | Sản phẩm và danh mục | `ProductCategory` | `product_categories` | Liên kết sản phẩm với danh mục. |
+| 11 | Thuộc tính sản phẩm | `ProductType` | `product_types` | Xác định loại sản phẩm và bộ thuộc tính phù hợp. |
+| 12 | Thuộc tính sản phẩm | `AttributeDefinition` | `attribute_definitions` | Định nghĩa thuộc tính như màu sắc, kích cỡ, chất liệu. |
+| 13 | Thuộc tính sản phẩm | `AttributeOption` | `attribute_options` | Lưu các lựa chọn của thuộc tính dạng chọn. |
+| 14 | Thuộc tính sản phẩm | `ProductTypeAttribute` | `product_type_attributes` | Gắn thuộc tính vào từng loại sản phẩm. |
+| 15 | Thuộc tính sản phẩm | `ProductAttributeValue` | `product_attribute_values` | Lưu giá trị thuộc tính ở cấp sản phẩm. |
+| 16 | Thuộc tính sản phẩm | `ProductAttributeValueOption` | `product_attribute_value_options` | Lưu lựa chọn thuộc tính nhiều giá trị của sản phẩm. |
+| 17 | Thuộc tính sản phẩm | `VariantAttributeValue` | `variant_attribute_values` | Lưu giá trị thuộc tính ở cấp biến thể. |
+| 18 | Giỏ hàng | `Cart` | `carts` | Lưu giỏ hàng của người dùng. |
+| 19 | Giỏ hàng | `CartItem` | `cart_items` | Lưu từng sản phẩm trong giỏ hàng. |
+| 20 | Đơn hàng và thanh toán | `Order` | `orders` | Lưu thông tin đơn hàng. |
+| 21 | Đơn hàng và thanh toán | `OrderItem` | `order_items` | Lưu từng sản phẩm trong đơn hàng. |
+| 22 | Đơn hàng và thanh toán | `Payment` | `payments` | Lưu trạng thái và phương thức thanh toán của đơn hàng. |
+| 23 | Đơn hàng và thanh toán | `PaymentTransaction` | `payment_transactions` | Lưu giao dịch thanh toán từ cổng thanh toán. |
+| 24 | Đơn hàng và thanh toán | `OrderStatusHistory` | `order_status_history` | Lưu lịch sử thay đổi trạng thái đơn hàng. |
+| 25 | Khuyến mãi | `Discount` | `discounts` | Lưu mã giảm giá, điều kiện áp dụng và thời gian hiệu lực. |
+| 26 | Khuyến mãi | `DiscountUsage` | `discount_usages` | Ghi nhận lượt sử dụng mã giảm giá. |
+| 27 | Tồn kho và hậu mãi | `InventoryLog` | `inventory_logs` | Ghi nhận lịch sử nhập, xuất và điều chỉnh tồn kho. |
+| 28 | Tồn kho và hậu mãi | `Return` | `returns` | Quản lý yêu cầu trả hàng. |
+| 29 | Tồn kho và hậu mãi | `RefundTransaction` | `refund_transactions` | Lưu giao dịch hoàn tiền. |
+| 30 | Tồn kho và hậu mãi | `OrderCancelRequest` | `order_cancel_requests` | Quản lý yêu cầu hủy đơn hàng đã đặt. |
+
 ## Danh sách enum
 
 - `UserStatus`: `ACTIVE`, `SUSPENDED`, `BANNED`.

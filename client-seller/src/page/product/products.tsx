@@ -241,7 +241,7 @@ export default function ProductsPage() {
         <main className="min-w-0 flex-1 p-6 lg:p-8">
           <AdminPageShell
             eyebrow="Thông tin tồn kho"
-            title="Tồn kho & sức khỏe sản phẩm"
+            title="Tổng quan sản phẩm"
             description="Theo dõi sức khỏe tồn kho, tốc độ bán, tín hiệu yêu thích và nhóm cần xử lý trước khi vào bảng sản phẩm."
             action={
               <div className="flex gap-3">

@@ -5,6 +5,6 @@ import { ApplicationError } from './application.error';
  */
 export class EmailAlreadyExistsError extends ApplicationError {
   constructor() {
-    super('EMAIL_ALREADY_EXISTS', 'Email already exists');
+    super('EMAIL_ALREADY_EXISTS', 'Email đã tồn tại. Vui lòng sử dụng email khác.');
   }
 }

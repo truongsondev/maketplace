@@ -10,7 +10,7 @@ export class ValidateVoucherUseCase implements IValidateVoucherUseCase {
   async execute(command: ValidateVoucherCommand): Promise<VoucherValidationResult> {
     const code = command.code.trim();
     if (!code) {
-      throw new BadRequestError('voucher code is required');
+      throw new BadRequestError('Mã voucher là bắt buộc');
     }
 
     const cartTotals = await this.voucherRepository.getCartTotals(
@@ -20,14 +20,14 @@ export class ValidateVoucherUseCase implements IValidateVoucherUseCase {
     const voucher = await this.voucherRepository.findByCode(code);
 
     if (!voucher) {
-      throw new BadRequestError('Voucher does not exist');
+      throw new BadRequestError('Voucher không áp dụng được cho đơn hàng này');
     }
 
     VoucherRulesService.ensureVoucherIsApplicable(voucher, cartTotals.subtotal);
 
     const userUsageCount = await this.voucherRepository.countUserUsage(voucher.id, command.userId);
     if (voucher.userUsageLimit !== null && userUsageCount >= voucher.userUsageLimit) {
-      throw new BadRequestError('Voucher usage limit per user exceeded');
+      throw new BadRequestError('Voucher đã đạt giới hạn sử dụng cho người dùng này');
     }
 
     return {

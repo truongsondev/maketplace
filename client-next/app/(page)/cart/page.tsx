@@ -559,7 +559,7 @@ export default function CartPage() {
                 <div className="flex items-center gap-2">
                   <Ticket className="size-4 text-neutral-700 dark:text-neutral-200" />
                   <h2 className="text-base font-semibold uppercase tracking-[0.18em] text-neutral-900 dark:text-white">
-                    Shop Voucher
+                    Mã giảm giá
                   </h2>
                 </div>
                 <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">

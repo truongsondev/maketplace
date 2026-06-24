@@ -1,0 +1,300 @@
+@startuml
+' Lược đồ lớp 30 bảng chính - chỉ hiển thị tên bảng DB và các trường chính.
+
+left to right direction
+hide circle
+skinparam dpi 180
+skinparam shadowing false
+skinparam linetype ortho
+skinparam roundcorner 4
+skinparam nodesep 28
+skinparam ranksep 34
+skinparam pageMargin 10
+scale max 1550 width
+
+skinparam defaultFontName Arial
+skinparam defaultFontSize 18
+skinparam classFontName Arial
+skinparam classFontSize 18
+skinparam classAttributeFontSize 17
+
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #8AA9C5
+  BorderThickness 1.4
+  HeaderBackgroundColor #D9ECFB
+  FontColor #1F2937
+  ArrowColor #334155
+}
+
+class "users" as User {
+  +id: String
+  +email: String?
+  +phone: String?
+  +password_hash: String?
+  +status: UserStatus
+}
+
+class "refresh_tokens" as RefreshToken {
+  +id: String
+  +user_id: String
+  +token: String
+  +expires_at: DateTime
+  +revoked: Boolean
+}
+
+class "roles" as Role {
+  +id: Int
+  +code: String
+  +name: String
+}
+
+class "user_roles" as UserRole {
+  +user_id: String
+  +role_id: Int
+}
+
+class "user_addresses" as UserAddress {
+  +id: String
+  +user_id: String
+  +recipient: String
+  +phone: String
+  +is_default: Boolean
+}
+
+class "products" as Product {
+  +id: String
+  +product_type_id: String?
+  +name: String
+  +base_price: Decimal
+  +status: ProductStatus
+  +is_deleted: Boolean
+}
+
+class "product_variants" as ProductVariant {
+  +id: String
+  +product_id: String
+  +sku: String
+  +price: Decimal
+  +stock_available: Int
+  +stock_reserved: Int
+}
+
+class "product_images" as ProductImage {
+  +id: String
+  +product_id: String
+  +variant_id: String?
+  +url: String
+  +is_primary: Boolean
+}
+
+class "categories" as Category {
+  +id: String
+  +parent_id: String?
+  +name: String
+  +slug: String
+}
+
+class "product_categories" as ProductCategory {
+  +product_id: String
+  +category_id: String
+  +is_primary: Boolean
+}
+
+class "product_types" as ProductType {
+  +id: String
+  +code: String
+  +name: String
+}
+
+class "attribute_definitions" as AttributeDefinition {
+  +id: String
+  +code: String
+  +name: String
+  +scope: AttributeScope
+  +data_type: AttributeDataType
+}
+
+class "attribute_options" as AttributeOption {
+  +id: String
+  +attribute_id: String
+  +value: String
+  +label: String
+}
+
+class "product_type_attributes" as ProductTypeAttribute {
+  +product_type_id: String
+  +attribute_id: String
+  +is_required: Boolean
+  +is_variant_axis: Boolean
+}
+
+class "product_attribute_values" as ProductAttributeValue {
+  +id: String
+  +product_id: String
+  +attribute_id: String
+  +text_value: String?
+  +option_id: String?
+}
+
+class "product_attribute_value_options" as ProductAttributeValueOption {
+  +product_attribute_value_id: String
+  +option_id: String
+}
+
+class "variant_attribute_values" as VariantAttributeValue {
+  +id: String
+  +variant_id: String
+  +attribute_id: String
+  +text_value: String?
+  +option_id: String?
+}
+
+class "carts" as Cart {
+  +id: String
+  +user_id: String
+  +created_at: DateTime
+}
+
+class "cart_items" as CartItem {
+  +id: String
+  +cart_id: String
+  +product_id: String
+  +variant_id: String?
+  +quantity: Int
+}
+
+class "orders" as Order {
+  +id: String
+  +user_id: String
+  +discount_id: String?
+  +total_price: Decimal
+  +status: OrderStatus
+}
+
+class "order_items" as OrderItem {
+  +id: String
+  +order_id: String
+  +product_id: String
+  +variant_id: String?
+  +quantity: Int
+  +price: Decimal
+}
+
+class "payments" as Payment {
+  +id: String
+  +order_id: String
+  +amount: Decimal
+  +method: String
+  +status: PaymentStatus
+}
+
+class "payment_transactions" as PaymentTransaction {
+  +id: String
+  +order_id: String
+  +order_code: String
+  +amount: Decimal
+  +status: PaymentTransactionStatus
+}
+
+class "order_status_history" as OrderStatusHistory {
+  +id: String
+  +order_id: String
+  +old_status: OrderStatus?
+  +new_status: OrderStatus
+  +changed_at: DateTime
+}
+
+class "discounts" as Discount {
+  +id: String
+  +code: String
+  +type: DiscountType
+  +value: Decimal
+  +start_at: DateTime
+  +end_at: DateTime
+}
+
+class "discount_usages" as DiscountUsage {
+  +id: String
+  +discount_id: String
+  +user_id: String
+  +order_id: String
+}
+
+class "inventory_logs" as InventoryLog {
+  +id: String
+  +variant_id: String
+  +action: InventoryAction
+  +quantity: Int
+  +reference_id: String?
+}
+
+class "returns" as Return {
+  +id: String
+  +order_item_id: String
+  +quantity: Int
+  +reason_code: String?
+  +status: ReturnStatus
+}
+
+class "refund_transactions" as RefundTransaction {
+  +id: String
+  +order_id: String
+  +type: RefundType
+  +amount: Decimal
+  +status: RefundStatus
+}
+
+class "order_cancel_requests" as OrderCancelRequest {
+  +id: String
+  +order_id: String
+  +reason_code: CancelReason
+  +status: CancelRequestStatus
+  +requested_by_user_id: String
+}
+
+User "1" -- "0..*" RefreshToken
+User "1" -- "0..*" UserAddress
+User "1" -- "0..*" UserRole
+Role "1" -- "0..*" UserRole
+
+User "1" -- "0..1" Cart
+Cart "1" *-- "0..*" CartItem
+CartItem "0..*" --> "1" Product
+CartItem "0..*" --> "0..1" ProductVariant
+
+ProductType "1" -- "0..*" Product
+Product "1" *-- "0..*" ProductVariant
+Product "1" *-- "0..*" ProductImage
+ProductVariant "1" -- "0..*" ProductImage
+Product "1" -- "0..*" ProductCategory
+Category "1" -- "0..*" ProductCategory
+Category "0..1" -- "0..*" Category
+
+ProductType "1" -- "0..*" ProductTypeAttribute
+AttributeDefinition "1" -- "0..*" ProductTypeAttribute
+AttributeDefinition "1" -- "0..*" AttributeOption
+Product "1" -- "0..*" ProductAttributeValue
+AttributeDefinition "1" -- "0..*" ProductAttributeValue
+ProductAttributeValue "1" -- "0..*" ProductAttributeValueOption
+AttributeOption "1" -- "0..*" ProductAttributeValueOption
+ProductVariant "1" -- "0..*" VariantAttributeValue
+AttributeDefinition "1" -- "0..*" VariantAttributeValue
+
+User "1" -- "0..*" Order
+Order "1" *-- "1..*" OrderItem
+OrderItem "0..*" --> "1" Product
+OrderItem "0..*" --> "0..1" ProductVariant
+Order "1" -- "0..*" Payment
+Order "1" -- "0..*" PaymentTransaction
+Order "1" -- "0..*" OrderStatusHistory
+
+Discount "1" -- "0..*" Order
+Discount "1" -- "0..*" DiscountUsage
+Order "1" -- "0..1" DiscountUsage
+
+ProductVariant "1" -- "0..*" InventoryLog
+OrderItem "1" -- "0..*" Return
+Order "1" -- "0..*" RefundTransaction
+Order "1" -- "0..1" OrderCancelRequest
+@enduml
