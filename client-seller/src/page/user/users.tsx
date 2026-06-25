@@ -3,12 +3,10 @@ import { Header, Sidebar } from "@/components/admin";
 import { userService } from "@/services/api";
 import type {
   AdminUserAuditItem,
-  AdminUserCustomerCohorts,
   AdminUserDetail,
   AdminUserListItem,
   AdminUserRole,
   AdminUserStatus,
-  AdminUserTopSpenders,
 } from "@/types/user";
 import { toast } from "sonner";
 
@@ -59,14 +57,6 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function formatUserLabel(input: {
-  email: string | null;
-  phone: string | null;
-  userId?: string;
-}) {
-  return input.email ?? input.phone ?? input.userId ?? "-";
-}
-
 export default function UsersPage() {
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<AdminUserListItem[]>([]);
@@ -88,20 +78,6 @@ export default function UsersPage() {
   const [audits, setAudits] = useState<AdminUserAuditItem[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
-
-  const analyticsDays = 30;
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-  const [cohorts, setCohorts] = useState<AdminUserCustomerCohorts | null>(null);
-  const [topSpenders, setTopSpenders] = useState<AdminUserTopSpenders | null>(
-    null,
-  );
-  const [hoveredCohort, setHoveredCohort] = useState<
-    { key: "new" | "returning"; value: number; pct: number } | undefined
-  >(undefined);
-  const [hoveredSpender, setHoveredSpender] = useState<
-    | { userId: string; label: string; totalSpent: number; ordersCount: number }
-    | undefined
-  >(undefined);
 
   const loadUsers = async () => {
     try {
@@ -145,29 +121,9 @@ export default function UsersPage() {
     }
   };
 
-  const loadAnalytics = async () => {
-    try {
-      setAnalyticsLoading(true);
-      const [cohortsRes, topRes] = await Promise.all([
-        userService.getCustomerCohorts({ days: analyticsDays }),
-        userService.getTopSpenders({ days: analyticsDays, limit: 5 }),
-      ]);
-      setCohorts(cohortsRes.data);
-      setTopSpenders(topRes.data);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
-
   useEffect(() => {
     loadUsers();
   }, [page, search, statusFilter, roleFilter, sortBy, sortOrder]);
-
-  useEffect(() => {
-    loadAnalytics();
-  }, []);
 
   const handleSearch = () => {
     setPage(1);

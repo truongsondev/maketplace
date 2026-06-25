@@ -3,10 +3,8 @@ import { toast } from "sonner";
 import {
   AlertItem,
   Header,
-  InsightCard,
   MetricBar,
   OpsCard,
-  SectionHeading,
   Sidebar,
 } from "@/components/admin";
 import { bannerService, cloudinaryService } from "@/services/api";
@@ -14,7 +12,6 @@ import type { BannerItem, BannerUpsertCommand } from "@/types/api";
 import {
   CalendarClock,
   Eye,
-  MousePointerClick,
   TrendingUp,
 } from "lucide-react";
 
@@ -220,7 +217,6 @@ export default function BannersPage() {
 
   const activeCount = items.filter((item) => item.isActive).length;
   const inactiveCount = items.length - activeCount;
-  const topBanner = [...items].sort((a, b) => a.sortOrder - b.sortOrder)[0];
   const ctrProxy = Math.min(12, Math.max(2, activeCount * 1.7));
   const conversionProxy = Math.max(0.4, ctrProxy / 3.6);
 
