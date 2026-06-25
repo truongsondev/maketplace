@@ -242,7 +242,7 @@ export default function ProductsPage() {
           <AdminPageShell
             eyebrow="Thông tin tồn kho"
             title="Tổng quan sản phẩm"
-            description="Theo dõi sức khỏe tồn kho, tốc độ bán, tín hiệu yêu thích và nhóm cần xử lý trước khi vào bảng sản phẩm."
+            description="Theo dõi tồn kho, tốc độ bán, tín hiệu yêu thích và nhóm cần xử lý trước khi vào bảng sản phẩm."
             action={
               <div className="flex gap-3">
                 <button

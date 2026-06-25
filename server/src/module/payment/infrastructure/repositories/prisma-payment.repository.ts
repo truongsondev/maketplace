@@ -521,20 +521,25 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         },
         data: {
           stockOnHand: { decrement: quantity },
-          stockAvailable: { decrement: quantity },
           stockReserved: { decrement: quantity },
         },
       });
 
       if (updated.count === 0) {
         nextStockOnHand = Math.max(0, current.stockOnHand - quantity);
+        const nextReserved = Math.max(0, current.stockReserved - quantity);
+        const unreservedQuantity = Math.max(0, quantity - current.stockReserved);
+        const nextAvailable = Math.min(
+          nextStockOnHand,
+          Math.max(0, current.stockAvailable - unreservedQuantity),
+        );
 
         await tx.productVariant.update({
           where: { id: variantId },
           data: {
             stockOnHand: nextStockOnHand,
-            stockAvailable: Math.max(0, current.stockAvailable - quantity),
-            stockReserved: Math.max(0, current.stockReserved - quantity),
+            stockAvailable: nextAvailable,
+            stockReserved: nextReserved,
           },
         });
       }

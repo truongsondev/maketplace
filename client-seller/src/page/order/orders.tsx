@@ -720,10 +720,6 @@ export default function OrdersPage() {
                   <h1 className="mt-2 text-3xl font-bold text-slate-900">
                     Quản lý đơn hàng
                   </h1>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Hàng đợi vận hành ưu tiên SLA, hủy/hoàn tiền, rủi ro thanh
-                    toán và đơn cần hành động ngay.
-                  </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button
                       type="button"
@@ -1205,7 +1201,9 @@ export default function OrdersPage() {
                                   <div className="min-w-0">
                                     <p
                                       className="truncate text-sm font-semibold text-slate-900"
-                                      title={first?.name ?? "(Không có sản phẩm)"}
+                                      title={
+                                        first?.name ?? "(Không có sản phẩm)"
+                                      }
                                     >
                                       {first?.name ?? "(Không có sản phẩm)"}
                                     </p>

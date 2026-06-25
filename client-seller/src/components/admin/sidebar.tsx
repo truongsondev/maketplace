@@ -33,9 +33,9 @@ export function Sidebar() {
             <Sparkles className="size-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">Aura Vận Hành</h1>
+            <h1 className="text-lg font-bold tracking-tight">Aura</h1>
             <p className="text-[11px] uppercase tracking-[0.2em] text-cyan-200">
-              Điều hành
+              Admin
             </p>
           </div>
         </div>

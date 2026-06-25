@@ -26,7 +26,7 @@ describe('PrismaPaymentRepository low-stock notification', () => {
       productVariant: {
         findUnique: jest.fn(async () => ({
           stockOnHand: params.previousStockOnHand,
-          stockAvailable: params.previousStockOnHand,
+          stockAvailable: Math.max(0, params.previousStockOnHand - 2),
           stockReserved: 2,
           minStock: params.minStock,
           sku: 'SKU-LOW-1',
@@ -67,11 +67,12 @@ describe('PrismaPaymentRepository low-stock notification', () => {
     return {
       repository,
       lowStockProcessor,
+      tx,
     };
   }
 
   it('calls low-stock processor when stock crosses threshold after PAID webhook', async () => {
-    const { repository, lowStockProcessor } = buildRepository({
+    const { repository, lowStockProcessor, tx } = buildRepository({
       previousStockOnHand: 8,
       minStock: 6,
     });
@@ -89,6 +90,14 @@ describe('PrismaPaymentRepository low-stock notification', () => {
 
     expect(updated).toBe(true);
     expect(lowStockProcessor.process).toHaveBeenCalledTimes(1);
+    expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          stockOnHand: { decrement: 2 },
+          stockReserved: { decrement: 2 },
+        },
+      }),
+    );
   });
 
   it('does not call low-stock processor when stock was already below threshold', async () => {

@@ -16,7 +16,7 @@ import type {
   DashboardTimeseriesPoint,
 } from "@/types/dashboard";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Brain, ReceiptText, TrendingUp } from "lucide-react";
+import { Brain } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -73,6 +73,33 @@ function deltaLabel(current: number, previous: number) {
   return `${pct >= 0 ? "+" : ""}${formatNumber(pct)}%`;
 }
 
+function shiftDateInput(
+  date: string | undefined,
+  days: number,
+): string | undefined {
+  if (!date) return undefined;
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  parsed.setDate(parsed.getDate() + days);
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildTimeseriesParams(rangeInfo: ReturnType<typeof resolveDateRange>) {
+  if (!rangeInfo.from || !rangeInfo.to) {
+    return { days: Math.min(rangeInfo.days || 30, 90) };
+  }
+
+  if (rangeInfo.days <= 90) {
+    return { from: rangeInfo.from, to: rangeInfo.to };
+  }
+
+  const from = shiftDateInput(rangeInfo.to, -89);
+  return from ? { from, to: rangeInfo.to } : { days: 90 };
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [showAssessment, setShowAssessment] = useState(false);
@@ -86,6 +113,7 @@ export default function Dashboard() {
   const overviewParams = isAllRange
     ? { days: rangeInfo.days }
     : { from: rangeInfo.from, to: rangeInfo.to };
+  const timeseriesParams = buildTimeseriesParams(rangeInfo);
   const recentOrdersParams = isAllRange
     ? { limit: 8 }
     : { limit: 8, from: rangeInfo.from, to: rangeInfo.to };
@@ -110,7 +138,7 @@ export default function Dashboard() {
       rangeInfo.from,
       rangeInfo.to,
     ],
-    queryFn: () => dashboardService.getTimeseries(overviewParams),
+    queryFn: () => dashboardService.getTimeseries(timeseriesParams),
     staleTime: 1000 * 30,
   });
 
@@ -203,6 +231,24 @@ export default function Dashboard() {
   }, [overview, points, recentOrders]);
 
   const maxRevenue = Math.max(...intelligence.revenueSeries, 1);
+  const revenueChartPoints = points.slice(-10);
+  const maxOrders = Math.max(
+    ...revenueChartPoints.map((point) => point.orders),
+    1,
+  );
+  const revenuePath =
+    revenueChartPoints.length > 1
+      ? revenueChartPoints
+          .map((point, index) => {
+            const x = ((index + 0.5) / revenueChartPoints.length) * 100;
+            const y = 100 - (point.revenue / maxRevenue) * 84;
+            return `${index === 0 ? "M" : "L"} ${x} ${Math.max(
+              8,
+              Math.min(92, y),
+            )}`;
+          })
+          .join(" ")
+      : "";
   const recentMax = Math.max(
     ...recentOrders.map((order) => order.totalPrice),
     1,
@@ -253,9 +299,9 @@ export default function Dashboard() {
         <Header />
         <main className="min-w-0 flex-1 p-6 lg:p-8">
           <AdminPageShell
-            eyebrow="Thông tin vận hành"
-            title="Trung tâm điều hành"
-            description="Ưu tiên cảnh báo, KPI xấu và xu hướng vận hành trước khi admin phải tự đào trong bảng dữ liệu."
+            eyebrow="Thông tin cửa hàng"
+            title="Thống kê tổng quan"
+            description=""
             action={
               <div className="flex flex-wrap items-center gap-3">
                 <button
@@ -371,53 +417,84 @@ export default function Dashboard() {
                     </button>
                   }
                 />
-                <div className="grid min-h-80 items-end gap-2 rounded-3xl border border-slate-100 bg-slate-50/80 p-4 sm:grid-cols-7 lg:grid-cols-10">
-                  {points.slice(-10).map((point, index) => {
-                    const height = Math.max(
-                      8,
-                      (point.revenue / maxRevenue) * 100,
-                    );
-                    const isAnomaly =
-                      index > 0 &&
-                      point.revenue >
-                        (points.slice(-10)[index - 1]?.revenue ??
-                          point.revenue) *
-                          1.6;
-                    return (
-                      <div
-                        key={point.date}
-                        className="group flex min-h-64 flex-col justify-end gap-2"
-                        title={`${point.date}: ${formatVnd(point.revenue)} / ${point.orders} đơn`}
-                      >
-                        <div className="relative flex flex-1 items-end">
-                          {isAnomaly ? (
-                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                              Tăng vọt
-                            </span>
-                          ) : null}
-                          <div
-                            className={`w-full rounded-t-2xl transition-all duration-300 group-hover:brightness-95 ${
-                              isAnomaly
-                                ? "bg-amber-500"
-                                : "bg-gradient-to-t from-slate-950 to-cyan-500"
-                            }`}
-                            style={{ height: `${height}%` }}
-                          />
+                <div className="relative min-h-80 rounded-3xl border border-slate-100 bg-slate-50/80 p-4">
+                  <div className="pointer-events-none absolute inset-x-4 top-4 bottom-14 grid grid-rows-4">
+                    {[0, 1, 2, 3].map((line) => (
+                      <span
+                        key={line}
+                        className="border-t border-dashed border-slate-200"
+                      />
+                    ))}
+                  </div>
+                  {revenuePath ? (
+                    <svg
+                      className="pointer-events-none absolute inset-x-4 top-4 bottom-14 h-[calc(100%-4.5rem)] w-[calc(100%-2rem)] overflow-visible"
+                      viewBox="0 0 100 100"
+                      preserveAspectRatio="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d={revenuePath}
+                        fill="none"
+                        stroke="#0f172a"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
+                  ) : null}
+                  <div className="relative grid min-h-72 items-end gap-2 sm:grid-cols-7 lg:grid-cols-10">
+                    {revenueChartPoints.map((point, index) => {
+                      const height = Math.max(
+                        14,
+                        (point.orders / maxOrders) * 100,
+                      );
+                      const isAnomaly =
+                        index > 0 &&
+                        point.revenue >
+                          (revenueChartPoints[index - 1]?.revenue ??
+                            point.revenue) *
+                            1.6;
+                      return (
+                        <div
+                          key={point.date}
+                          className="group flex min-h-64 flex-col justify-end gap-2"
+                          title={`${point.date}: ${formatVnd(point.revenue)} / ${point.orders} đơn`}
+                        >
+                          <div className="relative flex flex-1 items-end">
+                            {isAnomaly ? (
+                              <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                                Tăng vọt
+                              </span>
+                            ) : null}
+                            <div
+                              className={`w-full rounded-t-2xl transition-all duration-300 group-hover:brightness-95 ${
+                                isAnomaly
+                                  ? "bg-amber-500"
+                                  : "bg-gradient-to-t from-cyan-700 to-sky-300"
+                              }`}
+                              style={{ height: `${height}%` }}
+                            />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[11px] font-semibold text-slate-500">
+                              {new Date(point.date).toLocaleDateString(
+                                "vi-VN",
+                                {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                },
+                              )}
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              {point.orders} đơn
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p className="text-[11px] font-semibold text-slate-500">
-                            {new Date(point.date).toLocaleDateString("vi-VN", {
-                              day: "2-digit",
-                              month: "2-digit",
-                            })}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            {point.orders} đơn
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </OpsCard>
 
@@ -464,55 +541,6 @@ export default function Dashboard() {
                       </div>
                     </button>
                   ))}
-                </div>
-              </OpsCard>
-            </section>
-
-            <section className="grid gap-4 md:grid-cols-3">
-              <OpsCard>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-2xl bg-slate-950 p-3 text-white">
-                    <ReceiptText className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-950">
-                      Luồng quyết định
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      Cảnh báo đến hàng đợi, chi tiết rồi hành động.
-                    </p>
-                  </div>
-                </div>
-              </OpsCard>
-              <OpsCard>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-2xl bg-cyan-500 p-3 text-white">
-                    <TrendingUp className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-950">
-                      Sức khỏe kinh doanh
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      Doanh thu, giá trị đơn trung bình, khách quay lại và chất
-                      lượng thanh toán.
-                    </p>
-                  </div>
-                </div>
-              </OpsCard>
-              <OpsCard>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-2xl bg-amber-500 p-3 text-white">
-                    <AlertTriangle className="size-5" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-bold text-slate-950">
-                      Theo dõi bất thường
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      Rủi ro hoàn tiền, hủy đơn, tồn kho và khuyến mãi.
-                    </p>
-                  </div>
                 </div>
               </OpsCard>
             </section>

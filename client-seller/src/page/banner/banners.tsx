@@ -240,20 +240,12 @@ export default function BannersPage() {
                   <h1 className="mt-2 text-3xl font-bold text-slate-950">
                     Hiệu suất biểu ngữ
                   </h1>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Quản lý hero/biểu ngữ như tài sản tăng trưởng: xem trước,
-                    lịch chạy, tỉ lệ nhấp, chuyển đổi và đóng góp doanh thu.
-                  </p>
                 </div>
               </div>
             </section>
 
             <section className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
               <OpsCard>
-                <SectionHeading
-                  title="Lớp hiệu suất"
-                  description="Proxy analytics để định hướng placement trước khi có tracking endpoint riêng."
-                />
                 <div className="space-y-4">
                   <MetricBar
                     label="Biểu ngữ đang bật"
@@ -277,15 +269,6 @@ export default function BannersPage() {
                     detail={`${conversionProxy.toFixed(1)}%`}
                   />
                 </div>
-                <div className="mt-5">
-                  <InsightCard
-                    tone="info"
-                    priority="Vị trí nổi bật"
-                    metric={topBanner ? `#${topBanner.sortOrder}` : "—"}
-                    title={topBanner?.title ?? "Chưa có banner"}
-                    description="Biểu ngữ có thứ tự hiển thị thấp nhất đang chiếm vị trí quan trọng, cần theo dõi tỉ lệ nhấp và đóng góp doanh thu."
-                  />
-                </div>
               </OpsCard>
 
               <OpsCard className="border-cyan-200 bg-linear-to-br from-white to-cyan-50">
@@ -303,13 +286,6 @@ export default function BannersPage() {
                     title={`${inactiveCount} banner tạm tắt`}
                     description="Nên có scheduling để tránh bật/tắt thủ công."
                     action="Review lịch chạy"
-                  />
-                  <AlertItem
-                    tone="info"
-                    icon={MousePointerClick}
-                    title="CTR cần tracking overlay"
-                    description="CTR/conversion giúp quyết định hero nào giữ, rotate hoặc dừng."
-                    action="Nối analytics"
                   />
                   <AlertItem
                     tone="warning"

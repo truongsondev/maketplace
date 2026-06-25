@@ -278,10 +278,6 @@ export default function UsersPage() {
                   <h1 className="mt-2 text-3xl font-bold text-slate-950">
                     Thông tin khách hàng
                   </h1>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Phân khúc khách hàng, retention signal và hành vi mua để
-                    admin ưu tiên chăm sóc đúng nhóm.
-                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <button
@@ -388,7 +384,7 @@ export default function UsersPage() {
                   <option value="asc">Tăng dần</option>
                 </select>
               </div>
-
+              {/* 
               <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="relative rounded-xl border border-gray-200 bg-white p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -608,7 +604,7 @@ export default function UsersPage() {
                     </div>
                   ) : null}
                 </div>
-              </div>
+              </div> */}
 
               <div className="mt-6 overflow-x-auto">
                 <table className="w-full min-w-250 text-left text-sm">
