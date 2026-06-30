@@ -25,6 +25,11 @@ import { createPublicBannerModule } from './module/banner/di';
 import { createPublicLocationModule } from './module/location/di';
 import { createChatbotModule } from './module/chatbot/di';
 import { createRecommendationModule } from './module/recommendation/di';
+import { createUserProfileModule } from './module/user-profile/di';
+import {
+  createAdminVirtualTryOnModule,
+  createVirtualTryOnModule,
+} from './module/virtual-try-on/di';
 import { errorHandlingMiddleware } from './shared/server/error-middleware';
 import { metricsRegistry } from './shared/server/prometheus';
 import { createAuthMiddleware } from './infrastructure/middlewares/auth.middleware';
@@ -114,14 +119,17 @@ app.use('/api/admin/auth', createAdminAuthModule());
 app.use(createAuthMiddleware(new RedisSessionVerifier(redis)));
 app.use('/api/chatbot', createChatbotModule());
 app.use('/api', createRecommendationModule());
+app.use('/api/users', createUserProfileModule());
 app.use('/api/addresses', createAddressModule());
 app.use('/api/cart', createCartModule());
 app.use('/api/orders', createOrderModule());
 app.use('/api/reviews', createReviewModule());
+app.use('/api/virtual-try-on', createVirtualTryOnModule());
 app.use('/api/products', createProductModule());
 app.use('/api/payments', createPaymentModule());
 app.use('/api/vouchers', createVoucherModule());
 
+app.use('/api/admin/virtual-try-on', requireAdmin, createAdminVirtualTryOnModule());
 app.use('/api/admin', requireAdmin, createAdminModule());
 app.use('/api/admin/orders', requireAdmin, createAdminOrdersModule());
 app.use('/api/admin/dashboard', requireAdmin, createAdminDashboardModule());

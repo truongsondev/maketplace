@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
+import { BodyProfileModal } from "@/components/profile/body-profile-modal";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import "./globals.css";
@@ -31,7 +32,10 @@ export default function RootLayout({
       <body
         className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          {children}
+          <BodyProfileModal />
+        </QueryProvider>
         <ChatbotWidget />
         <Toaster richColors position="top-right" />
         <Analytics />

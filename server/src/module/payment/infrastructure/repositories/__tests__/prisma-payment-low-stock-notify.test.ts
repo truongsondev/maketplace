@@ -11,13 +11,13 @@ describe('PrismaPaymentRepository low-stock notification', () => {
           rawPayload: { checkout: { cartItemIds: [] } },
           order: { userId: 'user-1' },
         })),
-        updateMany: jest.fn(async () => ({ count: 1 })),
+        updateMany: jest.fn(async (..._args: any[]) => ({ count: 1 })),
       },
       payment: {
         update: jest.fn(async () => ({})),
       },
       order: {
-        updateMany: jest.fn(async () => ({ count: 1 })),
+        updateMany: jest.fn(async (..._args: any[]) => ({ count: 1 })),
         findUnique: jest.fn(async () => ({ userId: 'user-1' })),
       },
       orderItem: {
@@ -90,14 +90,14 @@ describe('PrismaPaymentRepository low-stock notification', () => {
 
     expect(updated).toBe(true);
     expect(lowStockProcessor.process).toHaveBeenCalledTimes(1);
-    expect(tx.productVariant.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          stockOnHand: { decrement: 2 },
-          stockReserved: { decrement: 2 },
-        },
-      }),
-    );
+    const updateManyMock = tx.productVariant.updateMany as unknown as {
+      mock: { calls: any[][] };
+    };
+    const firstUpdateManyCall = updateManyMock.mock.calls[0]?.[0] as any;
+    expect(firstUpdateManyCall.data).toEqual({
+      stockOnHand: { decrement: 2 },
+      stockReserved: { decrement: 2 },
+    });
   });
 
   it('does not call low-stock processor when stock was already below threshold', async () => {

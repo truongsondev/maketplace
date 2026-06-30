@@ -36,6 +36,10 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
+function canCheckoutItem(item: CartItem) {
+  return item.availableStock > 0 && item.quantity <= item.maxAllowedQuantity;
+}
+
 function CartBreadcrumb() {
   return (
     <nav aria-label="Breadcrumb" className="mb-5">
@@ -143,20 +147,35 @@ export default function CartPage() {
 
   const selectedCount = useMemo(
     () =>
-      cart?.items.filter((item) => selectedItemIds.includes(item.itemId))
-        .length ?? 0,
+      cart?.items.filter(
+        (item) =>
+          selectedItemIds.includes(item.itemId) && canCheckoutItem(item),
+      ).length ?? 0,
     [cart?.items, selectedItemIds],
   );
 
-  const hasSelection = selectedItemIds.length > 0;
-
-  const selectedTotal = useMemo(() => {
-    if (!cart || selectedItemIds.length === 0) return 0;
-
+  const selectedCheckoutItemIds = useMemo(() => {
+    if (!cart) return [];
     return cart.items
       .filter((item) => selectedItemIds.includes(item.itemId))
-      .reduce((sum, item) => sum + item.subtotal, 0);
+      .filter(canCheckoutItem)
+      .map((item) => item.itemId);
   }, [cart, selectedItemIds]);
+
+  const unavailableItems = useMemo(
+    () => cart?.items.filter((item) => !canCheckoutItem(item)) ?? [],
+    [cart?.items],
+  );
+
+  const hasSelection = selectedCheckoutItemIds.length > 0;
+
+  const selectedTotal = useMemo(() => {
+    if (!cart || selectedCheckoutItemIds.length === 0) return 0;
+
+    return cart.items
+      .filter((item) => selectedCheckoutItemIds.includes(item.itemId))
+      .reduce((sum, item) => sum + item.subtotal, 0);
+  }, [cart, selectedCheckoutItemIds]);
 
   const effectiveTotal = selectedTotal;
 
@@ -207,16 +226,22 @@ export default function CartPage() {
   useEffect(() => {
     if (!cart) return;
 
+    const checkoutableItemIds = cart.items
+      .filter(canCheckoutItem)
+      .map((item) => item.itemId);
     const allItemIds = cart.items.map((item) => item.itemId);
 
     if (initializedCartIdRef.current !== cart.cartId) {
       initializedCartIdRef.current = cart.cartId;
-      setSelectedItemIds(allItemIds);
+      setSelectedItemIds(checkoutableItemIds);
       return;
     }
 
     setSelectedItemIds((prev) =>
-      prev.filter((itemId) => allItemIds.includes(itemId)),
+      prev.filter(
+        (itemId) =>
+          allItemIds.includes(itemId) && checkoutableItemIds.includes(itemId),
+      ),
     );
   }, [cart]);
 
@@ -244,7 +269,7 @@ export default function CartPage() {
       setIsApplyingVoucher(true);
       const payload = {
         code: normalizedCode,
-        cartItemIds: selectedItemIds,
+        cartItemIds: selectedCheckoutItemIds,
       };
       const result = await voucherService.applyVoucher(payload);
       setVoucherCode(result.voucher.code);
@@ -271,7 +296,7 @@ export default function CartPage() {
 
     const params = new URLSearchParams();
     if (hasSelection) {
-      params.set("items", selectedItemIds.join(","));
+      params.set("items", selectedCheckoutItemIds.join(","));
     }
 
     if (voucherResult?.voucher.code) {
@@ -314,6 +339,16 @@ export default function CartPage() {
   };
 
   const handleToggleSelect = (item: CartItem) => {
+    if (!canCheckoutItem(item)) {
+      toast.error("Sản phẩm này hiện không thể thanh toán", {
+        description:
+          item.availableStock <= 0
+            ? "Sản phẩm đã hết hàng. Bạn có thể gỡ khỏi giỏ hoặc quay lại sau."
+            : `Hiện chỉ còn ${item.maxAllowedQuantity} sản phẩm. Vui lòng giảm số lượng trước khi chọn.`,
+      });
+      return;
+    }
+
     setSelectedItemIds((prev) =>
       prev.includes(item.itemId)
         ? prev.filter((id) => id !== item.itemId)
@@ -340,7 +375,8 @@ export default function CartPage() {
   };
 
   const isAllSelected =
-    cart.items.length > 0 && selectedCount === cart.items.length;
+    cart.items.some(canCheckoutItem) &&
+    selectedCount === cart.items.filter(canCheckoutItem).length;
 
   const handleToggleSelectAll = () => {
     if (isAllSelected) {
@@ -348,7 +384,9 @@ export default function CartPage() {
       return;
     }
 
-    setSelectedItemIds(cart.items.map((item) => item.itemId));
+    setSelectedItemIds(
+      cart.items.filter(canCheckoutItem).map((item) => item.itemId),
+    );
   };
 
   return (

@@ -117,6 +117,9 @@ services:
       RABBITMQ_RECOMMENDATION_DLX: recommendation.events.dlx
       AI_SERVICE_URL: http://ai-service:8000
       RECOMMENDATION_REFRESH_INTERVAL_MS: 900000
+      VIRTUAL_TRY_ON_COST_PER_RUN_USD: ${VIRTUAL_TRY_ON_COST_PER_RUN_USD:-0.025}
+      VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR: ${VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR:-10}
+      VIRTUAL_TRY_ON_TIMEOUT_MS: ${VIRTUAL_TRY_ON_TIMEOUT_MS:-120000}
     env_file:
       - ./server/.env.development
     ports:
@@ -148,8 +151,12 @@ services:
     restart: unless-stopped
     environment:
       VECTOR_DATABASE_URL: postgresql://postgres:postgres@vector-db:5432/recommendation
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      REPLICATE_IDM_VTON_MODEL: ${REPLICATE_IDM_VTON_MODEL:-cuuupid/idm-vton}
     ports:
       - "8000:8000"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
     depends_on:
       vector-db:
         condition: service_healthy
@@ -283,4 +290,5 @@ volumes:
   redis_dev_data:
   rabbitmq_dev_data:
   vector_dev_data:
+  huggingface_cache:
   grafana_dev_data:

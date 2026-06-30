@@ -397,7 +397,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
 
     if (cooccurrenceRows.length > 0) {
       const refreshedAt = new Date().toISOString();
-      const valuePlaceholders = cooccurrenceRows.map(() => '(?, ?, ?, ?, ?, ?, NOW())').join(', ');
+      const valuePlaceholders = cooccurrenceRows.map(() => '(?, ?, ?, ?, ?, ?, NOW(), NOW())').join(', ');
       const values = cooccurrenceRows.flatMap((row, index) => [
         row.productId,
         row.relatedProductId,
@@ -416,7 +416,8 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
             score,
             \`rank\`,
             metadata,
-            created_at
+            created_at,
+            updated_at
           )
           VALUES ${valuePlaceholders}
         `,
@@ -1037,6 +1038,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
 
     const startedAt = Date.now();
     try {
+      const bodyProfile = userId ? await this.getUserBodyProfileContext(userId) : null;
       const response = await fetch(`${AI_SERVICE_URL}/recommend/hybrid`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1044,6 +1046,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
           user_id: userId ?? null,
           context_product_ids: contextProductIds,
           candidate_product_ids: [],
+          user_profile: bodyProfile,
           limit,
         }),
       });
@@ -1068,6 +1071,25 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       logger.warn('AI vector recommendation fallback triggered', { feed, error });
       return [];
     }
+  }
+
+  private async getUserBodyProfileContext(userId: string): Promise<{
+    age: number;
+    height_cm: number;
+    weight_kg: number;
+  } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { age: true, heightCm: true, weightKg: true },
+    });
+
+    if (!user?.age || !user.heightCm || !user.weightKg) return null;
+
+    return {
+      age: Number(user.age),
+      height_cm: Number(user.heightCm),
+      weight_kg: Number(user.weightKg),
+    };
   }
 
   private async syncAiArtifacts(): Promise<void> {

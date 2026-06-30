@@ -23,8 +23,13 @@ export class HttpErrorHandler {
     if (error instanceof CustomError) {
       statusCode = error.statusCode;
       message = error.message;
+      if (error.code) {
+        errorCode = error.code as ErrorCodeType;
+      }
 
-      if (error.statusCode === 400) {
+      if (error.code) {
+        // Keep application-specific error code from the thrown CustomError.
+      } else if (error.statusCode === 400) {
         errorCode = ErrorCode.VALIDATION_ERROR;
       } else if (error.statusCode === 401) {
         errorCode = ErrorCode.UNAUTHORIZED;

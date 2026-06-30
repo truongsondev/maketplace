@@ -137,6 +137,9 @@ services:
       RABBITMQ_RECOMMENDATION_DLX: recommendation.events.dlx
       AI_SERVICE_URL: http://ai-service:8000
       RECOMMENDATION_REFRESH_INTERVAL_MS: ${RECOMMENDATION_REFRESH_INTERVAL_MS:-900000}
+      VIRTUAL_TRY_ON_COST_PER_RUN_USD: ${VIRTUAL_TRY_ON_COST_PER_RUN_USD:-0.025}
+      VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR: ${VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR:-10}
+      VIRTUAL_TRY_ON_TIMEOUT_MS: ${VIRTUAL_TRY_ON_TIMEOUT_MS:-120000}
       ENABLE_FILE_LOGGING: "true"
     env_file:
       - ./server/.env.prod
@@ -219,6 +222,8 @@ services:
     environment:
       VECTOR_DATABASE_URL: postgresql://${VECTOR_DB_USER:-postgres}:${VECTOR_DB_PASSWORD:-postgres}@vector-db:5432/${VECTOR_DB_NAME:-recommendation}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-384}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      REPLICATE_IDM_VTON_MODEL: ${REPLICATE_IDM_VTON_MODEL:-cuuupid/idm-vton}
     depends_on:
       vector-db:
         condition: service_healthy

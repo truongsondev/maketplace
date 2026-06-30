@@ -188,6 +188,15 @@ enum ChatSessionStatus {
   CLOSED
 }
 
+enum VirtualTryOnStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  TIMEOUT
+}
+
 // ============================================================================
 // AUTHENTICATION
 // ============================================================================
@@ -201,6 +210,10 @@ model User {
   emailVerified Boolean    @default(false) @map("email_verified")
   status        UserStatus @default(ACTIVE)
   lastLogin     DateTime?  @map("last_login")
+  age           Int?
+  heightCm      Decimal?   @map("height_cm") @db.Decimal(5, 2)
+  weightKg      Decimal?   @map("weight_kg") @db.Decimal(5, 2)
+  bodyProfileUpdatedAt DateTime? @map("body_profile_updated_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -222,6 +235,7 @@ model User {
   recommendationCaches       RecommendationCache[]
   userEmbeddings             UserEmbedding[]
   chatSessions               ChatSession[]
+  virtualTryOnRequests       VirtualTryOnRequest[]
 
   @@map("users")
 }
@@ -389,6 +403,7 @@ model Product {
   similarityTargets ProductSimilarity[]   @relation("ProductSimilarityTarget")
   recommendationCaches RecommendationCache[]
   productEmbeddings ProductEmbedding[]
+  virtualTryOnRequests VirtualTryOnRequest[]
 
   attributeValues  ProductAttributeValue[]
 
@@ -1110,7 +1125,7 @@ model ProductSimilarity {
   rank             Int      @default(0)
   metadata         Json?
 
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   createdAt DateTime @default(now()) @map("created_at")
 
   product        Product @relation("ProductSimilaritySource", fields: [productId], references: [id], onDelete: Cascade)
@@ -1208,6 +1223,45 @@ model RecommendationMetricSnapshot {
 
   @@index([metricDate, metricName])
   @@map("recommendation_metric_snapshots")
+}
+
+model VirtualTryOnRequest {
+  id              String             @id @default(uuid()) @db.VarChar(36)
+  userId          String             @map("user_id") @db.VarChar(36)
+  productId       String             @map("product_id") @db.VarChar(36)
+  productImageUrl String             @map("product_image_url") @db.VarChar(1000)
+  humanImageUrl   String             @map("human_image_url") @db.VarChar(1000)
+  outputImageUrl  String?            @map("output_image_url") @db.VarChar(1000)
+  outputPublicId  String?            @map("output_public_id") @db.VarChar(255)
+  provider        String             @default("replicate") @db.VarChar(80)
+  modelName       String             @default("cuuupid/idm-vton") @map("model_name") @db.VarChar(160)
+  providerJobId   String?            @map("provider_job_id") @db.VarChar(160)
+  status          VirtualTryOnStatus @default(PENDING)
+  category        String             @db.VarChar(40)
+  garmentDes      String             @map("garment_des") @db.VarChar(500)
+  crop            Boolean            @default(false)
+  forceDc         Boolean            @default(false) @map("force_dc")
+  maskOnly        Boolean            @default(false) @map("mask_only")
+  steps           Int                @default(30)
+  seed            Int?
+  latencyMs       Int?               @map("latency_ms")
+  estimatedCostUsd Decimal?          @map("estimated_cost_usd") @db.Decimal(10, 4)
+  errorCode       String?            @map("error_code") @db.VarChar(80)
+  errorMessage    String?            @map("error_message") @db.VarChar(500)
+  startedAt       DateTime?          @map("started_at")
+  completedAt     DateTime?          @map("completed_at")
+  deletedAt       DateTime?          @map("deleted_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@index([status])
+  @@index([providerJobId])
+  @@map("virtual_try_on_requests")
 }
 
 // ============================================================================

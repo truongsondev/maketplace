@@ -49,6 +49,10 @@ function normalizePhone(value: string): string {
   return value.replace(/\s+/g, "").trim();
 }
 
+function canCheckoutItem(item: CartItem) {
+  return item.availableStock > 0 && item.quantity <= item.maxAllowedQuantity;
+}
+
 export function CheckoutConfirmClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,11 +102,21 @@ export function CheckoutConfirmClient() {
     return raw?.trim() ? raw.trim() : "";
   }, [searchParams]);
 
-  const itemsToPay: CartItem[] = useMemo(() => {
+  const selectedCartItems: CartItem[] = useMemo(() => {
     if (!cart) return [];
     if (selectedItemIds.length === 0) return cart.items;
     return cart.items.filter((item) => selectedItemIds.includes(item.itemId));
   }, [cart, selectedItemIds]);
+
+  const unavailableItems = useMemo(
+    () => selectedCartItems.filter((item) => !canCheckoutItem(item)),
+    [selectedCartItems],
+  );
+
+  const itemsToPay: CartItem[] = useMemo(
+    () => selectedCartItems.filter(canCheckoutItem),
+    [selectedCartItems],
+  );
 
   const subtotalAmount = useMemo(() => {
     return itemsToPay.reduce((sum, item) => sum + item.subtotal, 0);
@@ -236,6 +250,14 @@ export function CheckoutConfirmClient() {
   }, [isCartError]);
 
   useEffect(() => {
+    if (unavailableItems.length === 0) return;
+    toast.warning("Một số sản phẩm không thể thanh toán", {
+      description:
+        "Sản phẩm đã hết hàng hoặc vượt tồn kho hiện tại đã được bỏ khỏi đơn thanh toán.",
+    });
+  }, [unavailableItems.length]);
+
+  useEffect(() => {
     setVoucherResult(null);
   }, [selectedItemIds, cart?.cartId]);
 
@@ -301,7 +323,17 @@ export function CheckoutConfirmClient() {
 
   const handleSubmit = () => {
     if (!canSubmit) {
-      toast.error("Không có sản phẩm để thanh toán");
+      toast.error("Không có sản phẩm đủ tồn kho để thanh toán", {
+        description: "Vui lòng quay lại giỏ hàng để cập nhật sản phẩm.",
+      });
+      return;
+    }
+
+    if (unavailableItems.length > 0) {
+      toast.error("Giỏ hàng có sản phẩm không thể mua", {
+        description:
+          "Vui lòng quay lại giỏ hàng, bỏ sản phẩm hết hàng hoặc giảm số lượng trước khi thanh toán.",
+      });
       return;
     }
 
@@ -664,6 +696,14 @@ export function CheckoutConfirmClient() {
                   Tổng kết đơn hàng
                 </h2>
 
+                {unavailableItems.length > 0 ? (
+                  <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
+                    Có {unavailableItems.length} sản phẩm đã hết hàng hoặc
+                    vượt tồn kho hiện tại. Vui lòng quay lại giỏ hàng để cập
+                    nhật trước khi thanh toán.
+                  </div>
+                ) : null}
+
                 <div className="mt-5 space-y-4">
                   {itemsToPay.map((item) => (
                     <div key={item.itemId} className="flex items-start gap-4">
@@ -775,7 +815,11 @@ export function CheckoutConfirmClient() {
 
                 <button
                   onClick={handleSubmit}
-                  disabled={!canSubmit || payosMutation.isPending}
+                  disabled={
+                    !canSubmit ||
+                    unavailableItems.length > 0 ||
+                    payosMutation.isPending
+                  }
                   className="luxury-button mt-5 h-12 w-full whitespace-nowrap px-6 py-0 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {payosMutation.isPending ? (

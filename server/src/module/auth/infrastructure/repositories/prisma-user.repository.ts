@@ -1,6 +1,5 @@
 import {
   PrismaClient,
-  User as PrismaUser,
   UserStatus as PrismaUserStatus,
 } from '@/generated/prisma/client';
 import { IUserRepository } from '../../applications/ports/output/user.repository';
@@ -118,7 +117,9 @@ export class PrismaUserRepository implements IUserRepository {
   /**
    * Map Prisma User to Domain User
    */
-  private toDomain(prismaUser: PrismaUser): User {
+  private toDomain(
+    prismaUser: NonNullable<Awaited<ReturnType<PrismaUserRepository['findRawById']>>>,
+  ): User {
     return User.fromPersistence({
       id: prismaUser.id,
       email: prismaUser.email ? new Email(prismaUser.email) : undefined,
@@ -127,6 +128,13 @@ export class PrismaUserRepository implements IUserRepository {
       status: prismaUser.status as UserStatus,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,
+    });
+  }
+
+  private async findRawById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: this.userSelect,
     });
   }
 }

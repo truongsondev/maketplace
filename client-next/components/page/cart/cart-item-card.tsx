@@ -34,24 +34,34 @@ export function CartItemCard({
   onIncrease,
   onRemove,
 }: CartItemCardProps) {
+  const isOutOfStock = item.availableStock <= 0 || item.maxAllowedQuantity <= 0;
+  const isQuantityUnavailable =
+    !isOutOfStock && item.quantity > item.maxAllowedQuantity;
+  const cannotPurchase = isOutOfStock || isQuantityUnavailable;
   const canDecrease = item.quantity > 1 && !isUpdating && !isRemoving;
   const canIncrease =
-    item.quantity < item.maxAllowedQuantity && !isUpdating && !isRemoving;
+    !cannotPurchase &&
+    item.quantity < item.maxAllowedQuantity &&
+    !isUpdating &&
+    !isRemoving;
   const reachedStockLimit =
     item.maxAllowedQuantity > 0 && item.quantity >= item.maxAllowedQuantity;
 
   return (
     <article
       className={`border-b border-black/10 px-4 py-5 transition-colors dark:border-white/10 ${
-        selected
-          ? "bg-white/62 dark:bg-white/8"
-          : "bg-transparent hover:bg-white/36 dark:hover:bg-white/5"
-      }`}
+        cannotPurchase
+          ? "bg-neutral-100/70 opacity-70 dark:bg-white/5"
+          : selected
+            ? "bg-white/62 dark:bg-white/8"
+            : "bg-transparent hover:bg-white/36 dark:hover:bg-white/5"
+      } ${selected ? "ring-1 ring-black/10 dark:ring-white/10" : ""}`}
     >
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.8fr_0.55fr_0.65fr_0.7fr_0.55fr] lg:items-center">
         <button
           onClick={() => onToggleSelect(item)}
           className="hidden"
+          disabled={cannotPurchase}
           aria-label={selected ? "Bỏ chọn sản phẩm" : "Chọn sản phẩm"}
         >
           {selected ? (
@@ -64,7 +74,8 @@ export function CartItemCard({
         <div className="min-w-0 flex gap-3">
           <button
             onClick={() => onToggleSelect(item)}
-            className="mt-1 flex size-6 shrink-0 items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors"
+            disabled={cannotPurchase}
+            className="mt-1 flex size-6 shrink-0 items-center justify-center text-neutral-400 transition-colors hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-neutral-200"
             aria-label={selected ? "Bỏ chọn sản phẩm" : "Chọn sản phẩm"}
           >
             {selected ? (
@@ -100,6 +111,16 @@ export function CartItemCard({
               {formatPrice(item.subtotal)}
             </p>
 
+            {cannotPurchase ? (
+              <p className="mt-2 w-fit border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+                {isOutOfStock ? "Sản phẩm đã hết hàng" : ``}
+              </p>
+            ) : reachedStockLimit ? (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-300">
+                Đã đạt giới hạn tồn kho hiện tại.
+              </p>
+            ) : null}
+
             <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs uppercase tracking-[0.12em] text-neutral-500 dark:text-neutral-300">
               {Object.entries(item.variantAttributes).map(([key, value]) => (
                 <span key={key}>
@@ -117,7 +138,7 @@ export function CartItemCard({
         <div className="flex items-center gap-2 lg:justify-center">
           <button
             onClick={() => onDecrease(item)}
-            disabled={!canDecrease}
+            disabled={!canDecrease || isOutOfStock}
             className="flex size-9 items-center justify-center border border-black/15 text-neutral-700 transition-colors hover:border-black hover:text-black disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/15 dark:text-neutral-100 dark:hover:border-white dark:hover:text-white"
             aria-label="Giảm số lượng"
           >

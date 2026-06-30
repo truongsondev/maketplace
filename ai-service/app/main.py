@@ -11,7 +11,10 @@ import numpy as np
 import psycopg
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
+
+from .virtual_try_on.routes import router as virtual_try_on_router
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -25,6 +28,7 @@ VECTOR_DB_URL = os.getenv(
 EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "384"))
 
 app = FastAPI(title="Aura AI Recommendation Service", version="1.1.0")
+app.include_router(virtual_try_on_router)
 
 
 class ProductDocument(BaseModel):
@@ -52,6 +56,7 @@ class HybridRecommendationRequest(BaseModel):
     session_id: str | None = None
     context_product_ids: list[str] = Field(default_factory=list)
     candidate_product_ids: list[str] = Field(default_factory=list)
+    user_profile: dict[str, Any] | None = None
     limit: int = 12
 
 
@@ -125,7 +130,7 @@ class VectorStore:
                             row["title"],
                             row["category"],
                             row["embedding"],
-                            row["metadata"],
+                            Jsonb(row["metadata"]),
                         ),
                     )
             connection.commit()
@@ -189,6 +194,7 @@ class InMemoryRecommendationStore:
         self.user_preferences: dict[str, Counter[str]] = defaultdict(Counter)
         self.popularity: Counter[str] = Counter()
         self.model_name = "hashing-baseline"
+        self.preferred_model_name = "sentence-transformers/all-MiniLM-L6-v2"
         self.encoder = None
 
     def initialize(self) -> None:
@@ -367,13 +373,15 @@ def startup() -> None:
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {
-        "status": "ok",
-        "service": "aura-ai-service",
-        "model_name": store.model_name,
-        "product_count": len(store.products),
-        "vector_db": "pgvector",
-    }
+        return {
+            "status": "ok",
+            "service": "aura-ai-service",
+            "model_name": store.model_name,
+            "preferred_model_name": store.preferred_model_name,
+            "model_loaded": store.encoder is not None,
+            "product_count": len(store.products),
+            "vector_db": "pgvector",
+        }
 
 
 @app.get("/metrics", response_class=PlainTextResponse)

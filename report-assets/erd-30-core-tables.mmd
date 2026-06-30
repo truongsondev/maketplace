@@ -1,290 +1,113 @@
----
-config:
-  theme: base
-  er:
-    layoutDirection: LR
-    diagramPadding: 4
-    minEntityWidth: 90
-    minEntityHeight: 45
-    entityPadding: 6
-  themeVariables:
-    fontFamily: Arial
-    fontSize: 13px
-    primaryColor: "#BFE3FF"
-    primaryBorderColor: "#6EA8D7"
-    primaryTextColor: "#111827"
-    lineColor: "#1F2937"
----
-erDiagram
-  users {
-    string id
-    string email
-    string phone
-    string password_hash
-    UserStatus status
+%%{init: {
+  "theme": "base",
+  "flowchart": {
+    "htmlLabels": true,
+    "curve": "basis",
+    "nodeSpacing": 18,
+    "rankSpacing": 24,
+    "diagramPadding": 4
+  },
+  "themeVariables": {
+    "fontFamily": "Arial",
+    "fontSize": "12px",
+    "primaryTextColor": "#111827",
+    "lineColor": "#374151",
+    "clusterBkg": "#F8FBFF",
+    "clusterBorder": "#A9C6E8"
   }
+}}%%
 
-  refresh_tokens {
-    string id
-    string user_id
-    string token
-    datetime expires_at
-    boolean revoked
-  }
+flowchart LR
+  subgraph G1["Người dùng & phân quyền"]
+    direction TB
+    users["<b>users</b><br/>id: string<br/>email: string<br/>phone: string<br/>status: UserStatus"]
+    roles["<b>roles</b><br/>id: int<br/>code: string<br/>name: string"]
+    refresh_tokens["<b>refresh_tokens</b><br/>id: string<br/>user_id: string<br/>token: string<br/>expires_at: datetime"]
+    user_addresses["<b>user_addresses</b><br/>id: string<br/>user_id: string<br/>recipient: string<br/>phone: string"]
+  end
 
-  roles {
-    int id
-    string code
-    string name
-  }
+  subgraph G2["Catalog sản phẩm"]
+    direction TB
+    product_types["<b>product_types</b><br/>id: string<br/>code: string<br/>name: string"]
+    products["<b>products</b><br/>id: string<br/>product_type_id: string<br/>name: string<br/>base_price: decimal<br/>status: ProductStatus"]
+    product_variants["<b>product_variants</b><br/>id: string<br/>product_id: string<br/>sku: string<br/>price: decimal<br/>stock_available: int"]
+    product_images["<b>product_images</b><br/>id: string<br/>product_id: string<br/>variant_id: string<br/>url: string"]
+    categories["<b>categories</b><br/>id: string<br/>parent_id: string<br/>name: string<br/>slug: string"]
+  end
 
-  user_roles {
-    string user_id
-    int role_id
-  }
+  subgraph G3["Thuộc tính sản phẩm"]
+    direction TB
+    attribute_definitions["<b>attribute_definitions</b><br/>id: string<br/>code: string<br/>name: string<br/>data_type: AttributeDataType"]
+    attribute_options["<b>attribute_options</b><br/>id: string<br/>attribute_id: string<br/>value: string<br/>label: string"]
+    product_attribute_values["<b>product_attribute_values</b><br/>id: string<br/>product_id: string<br/>attribute_id: string<br/>text_value: string"]
+    variant_attribute_values["<b>variant_attribute_values</b><br/>id: string<br/>variant_id: string<br/>attribute_id: string<br/>option_id: string"]
+  end
 
-  user_addresses {
-    string id
-    string user_id
-    string recipient
-    string phone
-    boolean is_default
-  }
+  subgraph G4["Giỏ hàng"]
+    direction TB
+    carts["<b>carts</b><br/>id: string<br/>user_id: string<br/>created_at: datetime"]
+    cart_items["<b>cart_items</b><br/>id: string<br/>cart_id: string<br/>product_id: string<br/>variant_id: string<br/>quantity: int"]
+  end
 
-  products {
-    string id
-    string product_type_id
-    string name
-    decimal base_price
-    ProductStatus status
-    boolean is_deleted
-  }
+  subgraph G5["Đơn hàng & thanh toán"]
+    direction TB
+    orders["<b>orders</b><br/>id: string<br/>user_id: string<br/>discount_id: string<br/>total_price: decimal<br/>status: OrderStatus"]
+    order_items["<b>order_items</b><br/>id: string<br/>order_id: string<br/>product_id: string<br/>variant_id: string<br/>quantity: int<br/>price: decimal"]
+    payments["<b>payments</b><br/>id: string<br/>order_id: string<br/>amount: decimal<br/>status: PaymentStatus"]
+    payment_transactions["<b>payment_transactions</b><br/>id: string<br/>order_id: string<br/>order_code: string<br/>status: PaymentTransactionStatus"]
+    order_status_history["<b>order_status_history</b><br/>id: string<br/>order_id: string<br/>old_status: OrderStatus<br/>new_status: OrderStatus"]
+  end
 
-  product_variants {
-    string id
-    string product_id
-    string sku
-    decimal price
-    int stock_available
-    int stock_reserved
-  }
+  subgraph G6["Khuyến mãi & hậu mãi"]
+    direction TB
+    discounts["<b>discounts</b><br/>id: string<br/>code: string<br/>type: DiscountType<br/>value: decimal"]
+    discount_usages["<b>discount_usages</b><br/>id: string<br/>discount_id: string<br/>user_id: string<br/>order_id: string"]
+    inventory_logs["<b>inventory_logs</b><br/>id: string<br/>variant_id: string<br/>action: InventoryAction<br/>quantity: int"]
+    returns["<b>returns</b><br/>id: string<br/>order_item_id: string<br/>quantity: int<br/>status: ReturnStatus"]
+    refund_transactions["<b>refund_transactions</b><br/>id: string<br/>order_id: string<br/>type: RefundType<br/>amount: decimal<br/>status: RefundStatus"]
+    order_cancel_requests["<b>order_cancel_requests</b><br/>id: string<br/>order_id: string<br/>reason_code: CancelReason<br/>status: CancelRequestStatus"]
+  end
 
-  product_images {
-    string id
-    string product_id
-    string variant_id
-    string url
-    boolean is_primary
-  }
+  users --- roles
+  users --> refresh_tokens
+  users --> user_addresses
+  users --> carts
+  users --> orders
 
-  categories {
-    string id
-    string parent_id
-    string name
-    string slug
-  }
+  product_types --> products
+  product_types --- attribute_definitions
+  products --> product_variants
+  products --- categories
+  products --> product_images
+  product_variants --> product_images
 
-  product_categories {
-    string product_id
-    string category_id
-    boolean is_primary
-  }
+  attribute_definitions --> attribute_options
+  products --> product_attribute_values
+  product_variants --> variant_attribute_values
+  attribute_definitions --> product_attribute_values
+  attribute_definitions --> variant_attribute_values
+  product_attribute_values --- attribute_options
 
-  product_types {
-    string id
-    string code
-    string name
-  }
+  carts --> cart_items
+  products --> cart_items
+  product_variants --> cart_items
 
-  attribute_definitions {
-    string id
-    string code
-    string name
-    AttributeScope scope
-    AttributeDataType data_type
-  }
+  orders --> order_items
+  orders --> payments
+  orders --> payment_transactions
+  orders --> order_status_history
+  products --> order_items
+  product_variants --> order_items
 
-  attribute_options {
-    string id
-    string attribute_id
-    string value
-    string label
-  }
+  discounts --> orders
+  discounts --> discount_usages
+  orders --> discount_usages
+  product_variants --> inventory_logs
+  order_items --> returns
+  orders --> refund_transactions
+  orders --> order_cancel_requests
 
-  product_type_attributes {
-    string product_type_id
-    string attribute_id
-    boolean is_required
-    boolean is_variant_axis
-  }
-
-  product_attribute_values {
-    string id
-    string product_id
-    string attribute_id
-    string text_value
-    string option_id
-  }
-
-  product_attribute_value_options {
-    string product_attribute_value_id
-    string option_id
-  }
-
-  variant_attribute_values {
-    string id
-    string variant_id
-    string attribute_id
-    string text_value
-    string option_id
-  }
-
-  carts {
-    string id
-    string user_id
-    datetime created_at
-  }
-
-  cart_items {
-    string id
-    string cart_id
-    string product_id
-    string variant_id
-    int quantity
-  }
-
-  orders {
-    string id
-    string user_id
-    string discount_id
-    decimal total_price
-    OrderStatus status
-  }
-
-  order_items {
-    string id
-    string order_id
-    string product_id
-    string variant_id
-    int quantity
-    decimal price
-  }
-
-  payments {
-    string id
-    string order_id
-    decimal amount
-    string method
-    PaymentStatus status
-  }
-
-  payment_transactions {
-    string id
-    string order_id
-    string order_code
-    decimal amount
-    PaymentTransactionStatus status
-  }
-
-  order_status_history {
-    string id
-    string order_id
-    OrderStatus old_status
-    OrderStatus new_status
-    datetime changed_at
-  }
-
-  discounts {
-    string id
-    string code
-    DiscountType type
-    decimal value
-    datetime start_at
-    datetime end_at
-  }
-
-  discount_usages {
-    string id
-    string discount_id
-    string user_id
-    string order_id
-  }
-
-  inventory_logs {
-    string id
-    string variant_id
-    InventoryAction action
-    int quantity
-    string reference_id
-  }
-
-  returns {
-    string id
-    string order_item_id
-    int quantity
-    string reason_code
-    ReturnStatus status
-  }
-
-  refund_transactions {
-    string id
-    string order_id
-    RefundType type
-    decimal amount
-    RefundStatus status
-  }
-
-  order_cancel_requests {
-    string id
-    string order_id
-    CancelReason reason_code
-    CancelRequestStatus status
-    string requested_by_user_id
-  }
-
-  users ||--o{ refresh_tokens : ""
-  users ||--o{ user_addresses : ""
-  users ||--o{ user_roles : ""
-  roles ||--o{ user_roles : ""
-
-  users ||--o| carts : ""
-  carts ||--o{ cart_items : ""
-  products ||--o{ cart_items : ""
-  product_variants ||--o{ cart_items : ""
-
-  product_types ||--o{ products : ""
-  products ||--o{ product_variants : ""
-  products ||--o{ product_images : ""
-  product_variants ||--o{ product_images : ""
-  products ||--o{ product_categories : ""
-  categories ||--o{ product_categories : ""
-  categories ||--o{ categories : ""
-
-  product_types ||--o{ product_type_attributes : ""
-  attribute_definitions ||--o{ product_type_attributes : ""
-  attribute_definitions ||--o{ attribute_options : ""
-  products ||--o{ product_attribute_values : ""
-  attribute_definitions ||--o{ product_attribute_values : ""
-  attribute_options ||--o{ product_attribute_values : ""
-  product_attribute_values ||--o{ product_attribute_value_options : ""
-  attribute_options ||--o{ product_attribute_value_options : ""
-  product_variants ||--o{ variant_attribute_values : ""
-  attribute_definitions ||--o{ variant_attribute_values : ""
-  attribute_options ||--o{ variant_attribute_values : ""
-
-  users ||--o{ orders : ""
-  orders ||--|{ order_items : ""
-  products ||--o{ order_items : ""
-  product_variants ||--o{ order_items : ""
-  orders ||--o{ payments : ""
-  orders ||--o{ payment_transactions : ""
-  orders ||--o{ order_status_history : ""
-
-  discounts ||--o{ orders : ""
-  discounts ||--o{ discount_usages : ""
-  orders ||--o| discount_usages : ""
-
-  product_variants ||--o{ inventory_logs : ""
-  order_items ||--o{ returns : ""
-  orders ||--o{ refund_transactions : ""
-  orders ||--o| order_cancel_requests : ""
+  classDef table fill:#FFFFFF,stroke:#6EA8D7,stroke-width:1.4px,color:#111827;
+  classDef core fill:#FFFFFF,stroke:#2563EB,stroke-width:2px,color:#111827;
+  class users,roles,refresh_tokens,user_addresses,product_types,products,product_variants,product_images,categories,attribute_definitions,attribute_options,product_attribute_values,variant_attribute_values,carts,cart_items,orders,order_items,payments,payment_transactions,order_status_history,discounts,discount_usages,inventory_logs,returns,refund_transactions,order_cancel_requests table;
+  class users,products,product_variants,orders,order_items core;

@@ -18,6 +18,7 @@ import {
   RotateCcw,
   MessageCircle,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ProductDetail } from "@/types/product";
@@ -28,6 +29,8 @@ import {
   useToggleFavorite,
 } from "@/hooks/use-product-favorites";
 import { RecommendationShelf } from "../recommendation-shelf";
+import { useAuthStore } from "@/stores/auth.store";
+import { VirtualTryOnModal } from "./virtual-try-on-modal";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400&h=600&fit=crop";
@@ -221,11 +224,13 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [isVirtualTryOnOpen, setIsVirtualTryOnOpen] = useState(false);
   const [imagePreviewSrc, setImagePreviewSrc] = useState<string | null>(null);
   const lastGestureWasSwipeRef = useRef(false);
   const { mutate: addToCart, isPending: isAddingToCart } = useAddToCart();
   const { favoriteIds } = useFavoriteIds();
   const toggleFavorite = useToggleFavorite();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const productAttributeByCode = useMemo(() => {
     const map = new Map<string, (typeof product.productAttributes)[number]>();
@@ -573,7 +578,8 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
         variant.stockAvailable > 0 &&
         variantAxes.some(
           (axis) =>
-            axis.key === key && getVariantAxisValues(variant, axis).includes(value),
+            axis.key === key &&
+            getVariantAxisValues(variant, axis).includes(value),
         ),
     );
 
@@ -595,6 +601,14 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
       ),
     );
     setSelectedImage(0);
+  };
+
+  const handleOpenVirtualTryOn = () => {
+    if (!isAuthenticated) {
+      toast.error("Vui lòng đăng nhập để sử dụng thử đồ.");
+      return;
+    }
+    setIsVirtualTryOnOpen(true);
   };
 
   const formatPrice = (price: number) => {
@@ -1398,6 +1412,15 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                         className={`w-5 h-5 ${isFavorite ? "fill-red-500 text-red-500" : ""}`}
                       />
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={handleOpenVirtualTryOn}
+                      className="inline-flex h-12 items-center justify-center gap-2 border border-black/20 px-5 text-sm font-semibold text-neutral-800 transition-colors hover:border-black hover:text-black dark:border-white/20 dark:text-neutral-100 dark:hover:border-white dark:hover:text-white"
+                    >
+                      <Sparkles className="size-5" />
+                      Thử ngay
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-neutral-500 pt-2">
@@ -1607,6 +1630,13 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
           </div>
         </div>
       ) : null}
+
+      <VirtualTryOnModal
+        product={product}
+        productImageUrl={productImages[safeSelectedImage]}
+        open={isVirtualTryOnOpen}
+        onClose={() => setIsVirtualTryOnOpen(false)}
+      />
     </>
   );
 }
