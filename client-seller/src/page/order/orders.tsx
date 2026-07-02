@@ -17,7 +17,7 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Brain } from "lucide-react";
+import { Brain, Printer } from "lucide-react";
 
 type RowActionItem = {
   key: string;
@@ -52,6 +52,27 @@ function formatDate(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatInvoiceDate(value?: string | null) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
+function getOrderCode(order: AdminOrderListItem) {
+  return order.payment.orderCode?.trim() || order.id;
+}
+
+function isOrderPaid(order: AdminOrderListItem) {
+  return ["PAID", "SUCCESS"].includes(
+    order.payment.status ?? order.payment.transactionStatus ?? "",
+  );
 }
 
 function statusBadge(status: string) {
@@ -187,6 +208,13 @@ function paymentStatusText(status?: string | null) {
   }
 }
 
+function invoiceStatusText(order: AdminOrderListItem) {
+  if (order.cancelRefund?.status === "SUCCESS") return "Đã hoàn tiền";
+  if (order.status === "CANCELLED") return "Đã hủy";
+  if (order.returnStatus === "COMPLETED") return "Đã hoàn tất trả hàng";
+  return paymentStatusText(order.payment.status ?? order.payment.transactionStatus);
+}
+
 function formatShippingAddress(order: AdminOrderListItem) {
   const shipping = order.shipping;
   if (!shipping) {
@@ -205,6 +233,304 @@ function formatShippingAddress(order: AdminOrderListItem) {
   return parts.length > 0
     ? parts.join(", ")
     : "Chưa có dữ liệu địa chỉ giao hàng";
+}
+
+function escapeHtml(value: string | number | null | undefined) {
+  return String(value ?? "—")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function buildInvoicePrintHtml(order: AdminOrderListItem) {
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + toMoneyNumber(item.price) * item.quantity,
+    0,
+  );
+  const shippingFee = 0;
+  const discount = Math.max(subtotal + shippingFee - toMoneyNumber(order.totalPrice), 0);
+  const paidAt = order.payment.paidAt ?? order.payment.transactionPaidAt;
+  const orderCode = getOrderCode(order);
+  const rows = order.items
+    .map((item) => {
+      const lineTotal = toMoneyNumber(item.price) * item.quantity;
+      return `
+        <tr>
+          <td class="product-cell">
+            <div class="product-name">${escapeHtml(item.name)}</div>
+            ${item.attributesText ? `<div class="muted small">${escapeHtml(item.attributesText)}</div>` : ""}
+          </td>
+          <td class="center">${escapeHtml(item.quantity)}</td>
+          <td class="right">${escapeHtml(formatMoney(item.price))}</td>
+          <td class="right strong">${escapeHtml(formatMoney(String(lineTotal)))}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  return `
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>invoice-${escapeHtml(orderCode)}</title>
+        <style>
+          @page { size: A4; margin: 12mm; }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            background: #fff;
+            color: #172033;
+            font-family: Arial, "Helvetica Neue", sans-serif;
+            font-size: 12.5px;
+            line-height: 1.5;
+          }
+          .page {
+            position: relative;
+            min-height: 100%;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 28px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #dbe5ee;
+            position: relative;
+          }
+          .header::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: -1px;
+            width: 128px;
+            height: 3px;
+            background: #0284a8;
+            border-radius: 999px;
+          }
+          h1 {
+            margin: 0 0 8px;
+            font-size: 34px;
+            line-height: 1;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+          }
+          .brand {
+            font-size: 30px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            margin: 0;
+            color: #061022;
+          }
+          .brand-subtitle { margin-top: 6px; }
+          .muted { color: #64748b; }
+          .small { font-size: 12px; }
+          .right { text-align: right; }
+          .center { text-align: center; }
+          .strong { font-weight: 800; }
+          .invoice-meta {
+            display: grid;
+            gap: 4px;
+            color: #64748b;
+          }
+          .status-pill {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #ecfeff;
+            color: #036980;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 24px;
+          }
+          .box {
+            border: 1px solid #dbe5ee;
+            border-radius: 6px;
+            padding: 16px;
+            break-inside: avoid;
+            background: #fbfdff;
+          }
+          .box-title {
+            margin: 0 0 8px;
+            color: #0284a8;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+          }
+          p { margin: 4px 0; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+            border: 1px solid #dbe5ee;
+            border-radius: 6px;
+            overflow: hidden;
+          }
+          th {
+            background: #f3f8fb;
+            color: #334155;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            padding: 11px 12px;
+            border-bottom: 1px solid #dbe5ee;
+          }
+          td {
+            padding: 12px;
+            border-bottom: 1px solid #edf2f7;
+            vertical-align: top;
+          }
+          tr:last-child td { border-bottom: 0; }
+          th { text-align: left; }
+          .product-name {
+            font-weight: 800;
+            color: #111827;
+          }
+          .totals {
+            margin-top: 22px;
+            margin-left: auto;
+            width: 340px;
+            break-inside: avoid;
+            border: 1px solid #dbe5ee;
+            border-radius: 6px;
+            padding: 14px 16px;
+            background: #fbfdff;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 5px 0;
+          }
+          .grand {
+            margin: 10px -16px -14px;
+            padding: 13px 16px;
+            border-top: 1px solid #dbe5ee;
+            background: #0284a8;
+            color: #fff;
+            font-size: 17px;
+            font-weight: 900;
+            border-radius: 0 0 6px 6px;
+          }
+          .note {
+            margin-top: 28px;
+            border-left: 4px solid #0284a8;
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 12px 14px;
+            color: #475569;
+            break-inside: avoid;
+          }
+        </style>
+      </head>
+      <body>
+        <main class="page">
+          <section class="header">
+            <div>
+              <p class="brand">AURA</p>
+              <p class="muted brand-subtitle">Hệ thống mua sắm trực tuyến</p>
+            </div>
+            <div class="right">
+              <h1>Hóa đơn</h1>
+              <div class="invoice-meta">
+                <span>Mã hóa đơn: INV-${escapeHtml(orderCode)}</span>
+                <span>Mã đơn hàng: ${escapeHtml(order.id)}</span>
+              </div>
+              <span class="status-pill">${escapeHtml(invoiceStatusText(order))}</span>
+            </div>
+          </section>
+
+          <section class="grid">
+            <div class="box">
+              <p class="box-title">Thông tin khách hàng</p>
+              <p class="strong">${escapeHtml(order.shipping?.recipient ?? order.user.label)}</p>
+              <p>SĐT: ${escapeHtml(order.shipping?.phone ?? order.user.phone)}</p>
+              <p>Email: ${escapeHtml(order.user.email)}</p>
+              <p>Địa chỉ: ${escapeHtml(formatShippingAddress(order))}</p>
+            </div>
+            <div class="box">
+              <p class="box-title">Thông tin thanh toán</p>
+              <p>Ngày đặt hàng: ${escapeHtml(formatInvoiceDate(order.createdAt))}</p>
+              <p>Ngày thanh toán: ${escapeHtml(formatInvoiceDate(paidAt))}</p>
+              <p>Phương thức: ${escapeHtml(order.payment.method)}</p>
+              <p>Mã giao dịch: ${escapeHtml(order.payment.orderCode)}</p>
+            </div>
+          </section>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Sản phẩm</th>
+                <th class="center">SL</th>
+                <th class="right">Đơn giá</th>
+                <th class="right">Thành tiền</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <section class="totals">
+            <div class="total-row"><span>Tạm tính</span><span>${escapeHtml(formatMoney(String(subtotal)))}</span></div>
+            <div class="total-row"><span>Phí vận chuyển</span><span>${escapeHtml(formatMoney(String(shippingFee)))}</span></div>
+            <div class="total-row"><span>Mã giảm giá</span><span>—</span></div>
+            <div class="total-row"><span>Tổng giảm giá</span><span>${escapeHtml(formatMoney(String(discount)))}</span></div>
+            <div class="total-row grand"><span>Tổng thanh toán</span><span>${escapeHtml(formatMoney(order.totalPrice))}</span></div>
+          </section>
+
+          <section class="note">
+            <p>Ghi chú: Hóa đơn được tạo từ hệ thống admin. Phí vận chuyển = 0.</p>
+            ${
+              order.status === "CANCELLED" || order.cancelRefund || order.returnStatus
+                ? `<p class="strong">Trạng thái chứng từ: ${escapeHtml(invoiceStatusText(order))}</p>`
+                : ""
+            }
+          </section>
+        </main>
+      </body>
+    </html>
+  `;
+}
+
+function createInvoicePrintFrame(order: AdminOrderListItem): Promise<HTMLIFrameElement> {
+  document.getElementById("invoice-print-frame")?.remove();
+
+  const frame = document.createElement("iframe");
+  frame.id = "invoice-print-frame";
+  frame.title = `invoice-${getOrderCode(order)}`;
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.position = "fixed";
+  frame.style.left = "0";
+  frame.style.top = "0";
+  frame.style.width = "1px";
+  frame.style.height = "1px";
+  frame.style.border = "0";
+  frame.style.opacity = "0";
+  frame.style.pointerEvents = "none";
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      frame.remove();
+      reject(new Error("Invoice print frame load timeout"));
+    }, 5000);
+
+    frame.onload = () => {
+      window.clearTimeout(timeoutId);
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve(frame)));
+    };
+
+    document.body.appendChild(frame);
+    frame.srcdoc = buildInvoicePrintHtml(order);
+  });
 }
 
 function RowActionsMenu({ actions }: { actions: RowActionItem[] }) {
@@ -538,6 +864,34 @@ export default function OrdersPage() {
       },
       { replace: true },
     );
+  };
+
+  const handlePrintInvoice = async (order: AdminOrderListItem) => {
+    if (!isOrderPaid(order)) {
+      toast.error("Chỉ có thể xuất hóa đơn cho đơn hàng đã thanh toán.");
+      return;
+    }
+
+    try {
+      const frame = await createInvoicePrintFrame(order);
+      const printWindow = frame.contentWindow;
+      if (!printWindow) {
+        frame.remove();
+        toast.error("Không thể tạo hóa đơn để in. Vui lòng thử lại.");
+        return;
+      }
+
+      printWindow.onafterprint = () => {
+        window.setTimeout(() => frame.remove(), 1000);
+      };
+      window.setTimeout(() => {
+        printWindow.focus();
+        printWindow.print();
+      }, 250);
+    } catch (e) {
+      toast.error("Không thể tạo hóa đơn để in. Vui lòng thử lại.");
+      console.error(e);
+    }
   };
 
   const handleCancel = async () => {
@@ -1470,7 +1824,7 @@ export default function OrdersPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <span
                   className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
                     detailModal.status,
@@ -1478,6 +1832,16 @@ export default function OrdersPage() {
                 >
                   {statusText(detailModal.status)}
                 </span>
+                {isOrderPaid(detailModal) ? (
+                  <button
+                    type="button"
+                    onClick={() => handlePrintInvoice(detailModal)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    <Printer className="size-4" />
+                    In hóa đơn
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={closeDetailModal}
