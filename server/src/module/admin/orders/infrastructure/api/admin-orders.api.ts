@@ -976,6 +976,12 @@ export class AdminOrdersAPI {
         id: true,
         status: true,
         userId: true,
+        totalPrice: true,
+        payment: {
+          select: {
+            status: true,
+          },
+        },
         paymentTransaction: {
           select: {
             orderCode: true,
@@ -1007,6 +1013,54 @@ export class AdminOrdersAPI {
         data: { status: 'CANCELLED' },
         select: { id: true, status: true },
       });
+
+      if (['PENDING', 'CONFIRMED'].includes(order.status)) {
+        await this.releaseReservedStockForOrder(tx, orderId);
+      }
+
+      await tx.paymentTransaction.updateMany({
+        where: { orderId, status: 'PENDING' },
+        data: {
+          status: 'FAILED',
+          gatewayCode: 'ORD_CANCEL',
+          gatewayStatus: 'CANCELLED',
+        },
+      });
+
+      await tx.payment.updateMany({
+        where: { orderId, status: 'PENDING' },
+        data: { status: 'FAILED' },
+      });
+
+      const isPaidOrder =
+        order.status === 'PAID' ||
+        order.payment?.status === 'PAID' ||
+        order.payment?.status === 'SUCCESS';
+      if (isPaidOrder) {
+        await tx.refundTransaction.upsert({
+          where: {
+            orderId_type: {
+              orderId,
+              type: 'CANCEL_REFUND',
+            },
+          },
+          create: {
+            orderId,
+            type: 'CANCEL_REFUND',
+            amount: order.totalPrice,
+            status: 'PENDING',
+            initiatedBy: 'ADMIN',
+            reason: cancelReason ?? 'Order cancelled by admin',
+            idempotencyKey: `cancel-${orderId}`,
+          },
+          update: {
+            status: 'PENDING',
+            failureReason: null,
+            reason: cancelReason ?? 'Order cancelled by admin',
+            initiatedBy: 'ADMIN',
+          },
+        });
+      }
 
       await tx.orderStatusHistory.create({
         data: {
@@ -1050,6 +1104,61 @@ export class AdminOrdersAPI {
     });
 
     res.status(200).json(ResponseFormatter.success(updated, 'Order cancelled'));
+  }
+
+  private async releaseReservedStockForOrder(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+  ): Promise<void> {
+    const items = await tx.orderItem.findMany({
+      where: { orderId },
+      select: { variantId: true, quantity: true },
+    });
+
+    const quantityByVariantId = new Map<string, number>();
+    for (const item of items) {
+      if (!item.variantId) continue;
+      quantityByVariantId.set(
+        item.variantId,
+        (quantityByVariantId.get(item.variantId) ?? 0) + item.quantity,
+      );
+    }
+
+    for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const updated = await tx.productVariant.updateMany({
+        where: {
+          id: variantId,
+          stockReserved: { gte: quantity },
+        },
+        data: {
+          stockReserved: { decrement: quantity },
+          stockAvailable: { increment: quantity },
+        },
+      });
+
+      if (updated.count === 0) {
+        const current = await tx.productVariant.findUnique({
+          where: { id: variantId },
+          select: { stockReserved: true, stockAvailable: true, stockOnHand: true },
+        });
+
+        if (!current) continue;
+
+        const nextReserved = Math.max(0, current.stockReserved - quantity);
+        const nextAvailable = Math.min(
+          current.stockOnHand,
+          Math.max(0, current.stockAvailable + quantity),
+        );
+
+        await tx.productVariant.update({
+          where: { id: variantId },
+          data: {
+            stockReserved: nextReserved,
+            stockAvailable: nextAvailable,
+          },
+        });
+      }
+    }
   }
 
   private async approveCancelRequest(req: Request, res: Response): Promise<void> {

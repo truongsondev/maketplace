@@ -161,6 +161,18 @@ export function createAuthMiddleware(sessionVerifier: ISessionVerifier) {
       return;
     }
 
+    if (user.status !== 'ACTIVE') {
+      res
+        .status(403)
+        .json(
+          ResponseFormatter.error(
+            ErrorCode.USER_NOT_ACTIVE,
+            'User account is not active. Please contact support.',
+          ),
+        );
+      return;
+    }
+
     (req as any).user = {
       id: user.id,
       email: user.email,

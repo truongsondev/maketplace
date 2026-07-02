@@ -23,6 +23,18 @@ const ROLE_OPTIONS: Array<{ label: string; value: AdminUserRole | "" }> = [
   { label: "Người mua", value: "BUYER" },
 ];
 
+type PendingUserAction =
+  | {
+      kind: "status";
+      user: AdminUserListItem;
+      nextStatus: AdminUserStatus;
+    }
+  | {
+      kind: "role";
+      user: AdminUserListItem;
+      nextRole: AdminUserRole;
+    };
+
 function toStatusBadgeClass(status: AdminUserStatus): string {
   switch (status) {
     case "ACTIVE":
@@ -78,6 +90,11 @@ export default function UsersPage() {
   const [audits, setAudits] = useState<AdminUserAuditItem[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingUserAction | null>(
+    null,
+  );
+  const [actionReason, setActionReason] = useState("");
+  const [actionSubmitting, setActionSubmitting] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -161,15 +178,19 @@ export default function UsersPage() {
       return;
     }
 
-    const reason = window.prompt("Nhập lý do thay đổi trạng thái:");
-    if (!reason || !reason.trim()) {
-      return;
-    }
+    setPendingAction({ kind: "status", user, nextStatus });
+    setActionReason("");
+  };
 
+  const submitStatusChange = async (
+    user: AdminUserListItem,
+    nextStatus: AdminUserStatus,
+    reason: string,
+  ) => {
     try {
       await userService.updateStatus(user.id, {
         status: nextStatus,
-        reason: reason.trim(),
+        reason,
       });
       toast.success("Cập nhật trạng thái thành công");
       await loadUsers();
@@ -190,15 +211,19 @@ export default function UsersPage() {
       return;
     }
 
-    const reason = window.prompt("Nhập lý do thay đổi vai trò:");
-    if (!reason || !reason.trim()) {
-      return;
-    }
+    setPendingAction({ kind: "role", user, nextRole });
+    setActionReason("");
+  };
 
+  const submitRoleChange = async (
+    user: AdminUserListItem,
+    nextRole: AdminUserRole,
+    reason: string,
+  ) => {
     try {
       await userService.updateRole(user.id, {
         role: nextRole,
-        reason: reason.trim(),
+        reason,
       });
       toast.success("Cập nhật vai trò thành công");
       await loadUsers();
@@ -211,12 +236,61 @@ export default function UsersPage() {
     }
   };
 
+  const closeActionModal = () => {
+    if (actionSubmitting) {
+      return;
+    }
+    setPendingAction(null);
+    setActionReason("");
+  };
+
+  const submitPendingAction = async () => {
+    if (!pendingAction) {
+      return;
+    }
+
+    const reason = actionReason.trim();
+    if (!reason) {
+      toast.error("Vui lòng nhập lý do thay đổi");
+      return;
+    }
+
+    try {
+      setActionSubmitting(true);
+      if (pendingAction.kind === "status") {
+        await submitStatusChange(
+          pendingAction.user,
+          pendingAction.nextStatus,
+          reason,
+        );
+      } else {
+        await submitRoleChange(pendingAction.user, pendingAction.nextRole, reason);
+      }
+      setPendingAction(null);
+      setActionReason("");
+    } finally {
+      setActionSubmitting(false);
+    }
+  };
+
   const canGoPrev = page > 1;
   const canGoNext = page < totalPages;
 
   const summaryText = useMemo(() => {
     return `Tổng ${totalUsers} người dùng`;
   }, [totalUsers]);
+
+  const actionModalTitle =
+    pendingAction?.kind === "status"
+      ? "Nhập lý do thay đổi trạng thái"
+      : "Nhập lý do thay đổi vai trò";
+
+  const actionModalDescription =
+    pendingAction?.kind === "status"
+      ? `Tài khoản sẽ được chuyển sang trạng thái ${pendingAction.nextStatus}.`
+      : pendingAction
+        ? `Tài khoản sẽ được chuyển sang vai trò ${pendingAction.nextRole}.`
+        : "";
 
   return (
     <div className="flex min-h-screen bg-slate-100">
@@ -791,6 +865,47 @@ export default function UsersPage() {
           </div>
         </main>
       </div>
+
+      {pendingAction ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">
+              {actionModalTitle}
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              {actionModalDescription}
+            </p>
+
+            <textarea
+              value={actionReason}
+              onChange={(e) => setActionReason(e.target.value)}
+              rows={4}
+              className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+              placeholder="Nhập lý do để lưu vào audit log..."
+              autoFocus
+            />
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeActionModal}
+                disabled={actionSubmitting}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={submitPendingAction}
+                disabled={actionSubmitting}
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionSubmitting ? "Đang lưu..." : "Xác nhận"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -94,11 +94,23 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
   async getOrderVoucher(
     orderId: string,
     tx: Prisma.TransactionClient,
-  ): Promise<{ discountId: string | null; userId: string } | null> {
-    return tx.order.findUnique({
+  ): Promise<{
+    discountId: string | null;
+    userId: string;
+    discount: VoucherSummary | null;
+  } | null> {
+    const row = await tx.order.findUnique({
       where: { id: orderId },
-      select: { discountId: true, userId: true },
+      select: { discountId: true, userId: true, discount: true },
     });
+
+    return row
+      ? {
+          discountId: row.discountId,
+          userId: row.userId,
+          discount: row.discount ? this.toSummary(row.discount) : null,
+        }
+      : null;
   }
 
   async hasDiscountUsage(orderId: string, tx: Prisma.TransactionClient): Promise<boolean> {
@@ -124,11 +136,23 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
     });
   }
 
-  async incrementUsedCount(discountId: string, tx: Prisma.TransactionClient): Promise<void> {
-    await tx.discount.update({
-      where: { id: discountId },
+  async incrementUsedCountIfAvailable(
+    discountId: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const now = new Date();
+    const updated = await tx.discount.updateMany({
+      where: {
+        id: discountId,
+        isActive: true,
+        startAt: { lte: now },
+        endAt: { gte: now },
+        OR: [{ maxUsage: null }, { usedCount: { lt: tx.discount.fields.maxUsage } }],
+      },
       data: { usedCount: { increment: 1 } },
     });
+
+    return updated.count > 0;
   }
 
   private toSummary(row: {

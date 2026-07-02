@@ -1,5 +1,9 @@
 import { apiClient } from "@/lib/api-client";
-import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/api.types";
+import type {
+  ApiErrorResponse,
+  ApiPaginatedResponse,
+  ApiSuccessResponse,
+} from "@/types/api.types";
 import type {
   CloudinarySignature,
   CreateVirtualTryOnPayload,
@@ -73,6 +77,25 @@ export const virtualTryOnService = {
 
     if (response.success) {
       return (response as ApiSuccessResponse<VirtualTryOnRequest>).data;
+    }
+
+    throw response as ApiErrorResponse;
+  },
+
+  async listHistory(params?: {
+    page?: number;
+    limit?: number;
+  }): Promise<ApiPaginatedResponse<VirtualTryOnRequest>> {
+    const searchParams = new URLSearchParams();
+    searchParams.set("page", String(params?.page ?? 1));
+    searchParams.set("limit", String(params?.limit ?? 12));
+
+    const response = await apiClient.get<VirtualTryOnRequest[]>(
+      `api/virtual-try-on/history?${searchParams.toString()}`,
+    );
+
+    if (response.success && "pagination" in response) {
+      return response as ApiPaginatedResponse<VirtualTryOnRequest>;
     }
 
     throw response as ApiErrorResponse;

@@ -206,6 +206,8 @@ export class PrismaAdminUserManagementRepository implements IAdminUserManagement
           where: { userId: params.userId, revoked: false },
           data: { revoked: true },
         });
+        // Access sessions are stored as session:<accessToken> -> userId without a user index,
+        // so auth.middleware.ts checks the latest DB status on every protected request.
       }
 
       await tx.userActivityLog.create({

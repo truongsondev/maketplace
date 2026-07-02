@@ -13,7 +13,7 @@ type WorkerConfig = {
   batchSize: number;
   concurrency: number;
   minAgeSeconds: number;
-  maxAgeHours: number;
+  pendingExpireMinutes: number;
   lockKey: string;
   lockTtlMs: number;
 };
@@ -31,7 +31,12 @@ function getConfig(): WorkerConfig {
     batchSize: clampInt(process.env.PAYOS_RECONCILE_BATCH_SIZE, 50, 1, 500),
     concurrency: clampInt(process.env.PAYOS_RECONCILE_CONCURRENCY, 6, 1, 25),
     minAgeSeconds: clampInt(process.env.PAYOS_RECONCILE_MIN_AGE_SECONDS, 30, 0, 60 * 10),
-    maxAgeHours: clampInt(process.env.PAYOS_RECONCILE_MAX_AGE_HOURS, 24, 1, 24 * 30),
+    pendingExpireMinutes: clampInt(
+      process.env.PAYOS_PENDING_EXPIRE_MINUTES,
+      30,
+      1,
+      24 * 60,
+    ),
     lockKey: process.env.PAYOS_RECONCILE_LOCK_KEY?.trim() || 'locks:payos-reconcile',
     lockTtlMs: clampInt(process.env.PAYOS_RECONCILE_LOCK_TTL_MS, 55_000, 5_000, 10 * 60_000),
   };
@@ -97,16 +102,15 @@ async function reconcileOnce(config: WorkerConfig): Promise<void> {
 
   try {
     const now = Date.now();
-    const minCreatedAt = new Date(now - config.maxAgeHours * 60 * 60 * 1000);
     const maxCreatedAt = new Date(now - config.minAgeSeconds * 1000);
+    const localExpireBefore = new Date(now - config.pendingExpireMinutes * 60 * 1000);
 
     const pending = await prisma.paymentTransaction.findMany({
       where: {
         status: 'PENDING',
-        // createdAt: {
-        //   gte: minCreatedAt,
-        //   lte: maxCreatedAt,
-        // },
+        createdAt: {
+          lte: maxCreatedAt,
+        },
       },
       select: {
         orderCode: true,
@@ -130,6 +134,7 @@ async function reconcileOnce(config: WorkerConfig): Promise<void> {
 
     let updatedCount = 0;
     let checkedCount = 0;
+    let localExpiredCount = 0;
 
     await mapWithConcurrency(pending, config.concurrency, async (tx) => {
       checkedCount += 1;
@@ -142,6 +147,30 @@ async function reconcileOnce(config: WorkerConfig): Promise<void> {
         const isExpired = paymentLink.status === 'EXPIRED';
         const isTerminalFailure = ['FAILED', 'CANCELLED', 'EXPIRED'].includes(paymentLink.status);
         if (!isPaid && !isTerminalFailure) {
+          if (tx.createdAt > localExpireBefore) {
+            return;
+          }
+
+          const locallyExpired = await paymentRepository.updateFromWebhookIfPending({
+            orderCode,
+            status: 'EXPIRED',
+            paymentLinkId: paymentLink.id ?? null,
+            gatewayReference: (paymentLink as any)?.reference ?? null,
+            gatewayCode: 'LOCAL_EXP',
+            bankCode: (paymentLink as any)?.counterAccountBankId ?? null,
+            paidAt: null,
+            rawPayload: {
+              source: 'cron-local-expiry',
+              reason: 'PENDING payment exceeded local reservation window',
+              pendingExpireMinutes: config.pendingExpireMinutes,
+              paymentLink,
+            },
+          });
+
+          if (locallyExpired) {
+            updatedCount += 1;
+            localExpiredCount += 1;
+          }
           return;
         }
 
@@ -203,8 +232,10 @@ async function reconcileOnce(config: WorkerConfig): Promise<void> {
     logger.info('Reconcile tick done', {
       checkedCount,
       updatedCount,
+      localExpiredCount,
       batchSize: config.batchSize,
       concurrency: config.concurrency,
+      pendingExpireMinutes: config.pendingExpireMinutes,
       tookMs: Date.now() - startedAt,
     });
   } finally {

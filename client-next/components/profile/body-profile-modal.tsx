@@ -37,7 +37,6 @@ export function BodyProfileModal() {
     const parsedHeight = toNumber(heightCm);
     const parsedWeight = toNumber(weightKg);
 
-    if (!age || !heightCm || !weightKg) return "Vui lòng nhập đủ 3 thông tin.";
     if (!Number.isInteger(parsedAge) || parsedAge < 13 || parsedAge > 100) {
       return "Tuổi phải là số nguyên từ 13 đến 100.";
     }

@@ -347,11 +347,16 @@ export default function OrdersPage() {
   const [cancelModal, setCancelModal] = useState<
     { orderId: string; status: string } | undefined
   >(undefined);
+  const [rejectCancelModal, setRejectCancelModal] = useState<
+    { orderId: string } | undefined
+  >(undefined);
   const [detailModal, setDetailModal] = useState<
     AdminOrderListItem | undefined
   >(undefined);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [rejectCancelReason, setRejectCancelReason] = useState("");
+  const [rejectCancelSubmitting, setRejectCancelSubmitting] = useState(false);
   const [showAssessment, setShowAssessment] = useState(false);
 
   const tabs = useMemo(
@@ -496,6 +501,19 @@ export default function OrdersPage() {
     setCancelReason("");
   };
 
+  const openRejectCancelModal = (orderId: string) => {
+    setRejectCancelModal({ orderId });
+    setRejectCancelReason("");
+  };
+
+  const closeRejectCancelModal = () => {
+    if (rejectCancelSubmitting) {
+      return;
+    }
+    setRejectCancelModal(undefined);
+    setRejectCancelReason("");
+  };
+
   const openDetailModal = (order: AdminOrderListItem) => {
     setDetailModal(order);
     const query = new URLSearchParams(location.search);
@@ -616,19 +634,29 @@ export default function OrdersPage() {
     }
   };
 
-  const handleRejectCancelRequest = async (orderId: string) => {
-    const reason = window.prompt("Nhập lý do từ chối yêu cầu hủy:")?.trim();
+  const handleRejectCancelRequest = async () => {
+    if (!rejectCancelModal) {
+      return;
+    }
+
+    const reason = rejectCancelReason.trim();
     if (!reason) {
+      toast.error("Vui lòng nhập lý do từ chối");
       return;
     }
 
     try {
-      await orderService.rejectCancelRequest(orderId, reason);
+      setRejectCancelSubmitting(true);
+      await orderService.rejectCancelRequest(rejectCancelModal.orderId, reason);
       toast.success("Đã từ chối yêu cầu hủy đơn");
+      setRejectCancelModal(undefined);
+      setRejectCancelReason("");
       fetchOrders();
     } catch (e) {
       toast.error("Từ chối yêu cầu hủy thất bại");
       console.error(e);
+    } finally {
+      setRejectCancelSubmitting(false);
     }
   };
 
@@ -1150,8 +1178,7 @@ export default function OrdersPage() {
                             {
                               key: `reject-cancel-${order.id}`,
                               label: "Từ chối hủy",
-                              onClick: () =>
-                                handleRejectCancelRequest(order.id),
+                              onClick: () => openRejectCancelModal(order.id),
                             },
                           );
                         }
@@ -1345,8 +1372,8 @@ export default function OrdersPage() {
             </h3>
             <p className="mt-1 text-sm text-slate-600">
               {cancelModal.status === "PAID"
-                ? "Đơn đã thanh toán, vui lòng nhập lý do hủy (bắt buộc)."
-                : "Nhập lý do hủy đơn (không bắt buộc)."}
+                ? "Đơn đã thanh toán, vui lòng nhập lý do hủy."
+                : "Nhập lý do hủy đơn."}
             </p>
 
             <textarea
@@ -1373,6 +1400,48 @@ export default function OrdersPage() {
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {cancelSubmitting ? "Đang xử lý..." : "Xác nhận hủy đơn"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {rejectCancelModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">
+              Từ chối yêu cầu hủy đơn
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Nhập lý do từ chối để khách hàng biết vì sao yêu cầu hủy không
+              được duyệt.
+            </p>
+
+            <textarea
+              value={rejectCancelReason}
+              onChange={(e) => setRejectCancelReason(e.target.value)}
+              rows={4}
+              className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+              placeholder="Ví dụ: Đơn hàng đã được bàn giao cho đơn vị vận chuyển..."
+              autoFocus
+            />
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeRejectCancelModal}
+                disabled={rejectCancelSubmitting}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectCancelRequest}
+                disabled={rejectCancelSubmitting}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {rejectCancelSubmitting ? "Đang xử lý..." : "Xác nhận từ chối"}
               </button>
             </div>
           </div>

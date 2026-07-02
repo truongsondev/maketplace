@@ -17,7 +17,11 @@ export interface IDiscountVoucherRepository {
   getOrderVoucher(
     orderId: string,
     tx: Prisma.TransactionClient,
-  ): Promise<{ discountId: string | null; userId: string } | null>;
+  ): Promise<{
+    discountId: string | null;
+    userId: string;
+    discount: VoucherSummary | null;
+  } | null>;
   hasDiscountUsage(orderId: string, tx: Prisma.TransactionClient): Promise<boolean>;
   createDiscountUsage(params: {
     discountId: string;
@@ -25,5 +29,5 @@ export interface IDiscountVoucherRepository {
     orderId: string;
     tx: Prisma.TransactionClient;
   }): Promise<void>;
-  incrementUsedCount(discountId: string, tx: Prisma.TransactionClient): Promise<void>;
+  incrementUsedCountIfAvailable(discountId: string, tx: Prisma.TransactionClient): Promise<boolean>;
 }

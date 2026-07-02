@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Download, Loader2, Sparkles, Upload, X } from "lucide-react";
+import { Download, History, Loader2, Sparkles, Upload, X } from "lucide-react";
 import { toast } from "sonner";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { virtualTryOnService } from "@/services/virtual-try-on.service";
 import type { ApiErrorResponse } from "@/types/api.types";
 import type { ProductDetail } from "@/types/product";
@@ -54,6 +54,7 @@ export function VirtualTryOnModal({
   open,
   onClose,
 }: VirtualTryOnModalProps) {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [request, setRequest] = useState<VirtualTryOnRequest | null>(null);
 
@@ -79,6 +80,20 @@ export function VirtualTryOnModal({
   });
 
   const currentRequest = statusQuery.data ?? request;
+
+  const historyQuery = useQuery({
+    queryKey: ["virtual-try-on-history"],
+    queryFn: () => virtualTryOnService.listHistory({ page: 1, limit: 12 }),
+    enabled: open,
+  });
+
+  const historyItems = useMemo(
+    () =>
+      (historyQuery.data?.data ?? []).filter(
+        (item) => item.status === "SUCCEEDED" && item.outputImageUrl,
+      ),
+    [historyQuery.data],
+  );
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -108,7 +123,7 @@ export function VirtualTryOnModal({
     },
     onSuccess: (data) => {
       setRequest(data);
-      toast.success("Đã gửi yêu cầu thử đồ AI.");
+      queryClient.invalidateQueries({ queryKey: ["virtual-try-on-history"] });
     },
     onError: (error) => {
       toast.error(apiErrorMessage(error, "Không tạo được ảnh thử đồ."));
@@ -211,8 +226,8 @@ export function VirtualTryOnModal({
             </button>
           </div>
 
-          <div className="min-h-[520px] p-5">
-            <div className="relative flex h-full min-h-[460px] items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+          <div className="flex min-h-[520px] flex-col gap-4 p-5">
+            <div className="relative flex min-h-[390px] flex-1 items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-900">
               {currentRequest?.status === "SUCCEEDED" &&
               currentRequest.outputImageUrl ? (
                 <>
@@ -249,6 +264,54 @@ export function VirtualTryOnModal({
                 </div>
               )}
             </div>
+
+            <section aria-label="Kết quả thử đồ trước đây">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-black dark:text-white">
+                  <History className="size-4" />
+                  Kết quả đã thử trước đây
+                </div>
+                {historyQuery.isFetching ? (
+                  <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                    Đang tải...
+                  </span>
+                ) : null}
+              </div>
+
+              {historyItems.length > 0 ? (
+                <div className="flex gap-3 overflow-x-auto pb-1">
+                  {historyItems.map((item) => {
+                    const isSelected = currentRequest?.id === item.id;
+
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setRequest(item)}
+                        className={`relative h-24 w-20 shrink-0 overflow-hidden border bg-white transition dark:bg-neutral-900 ${
+                          isSelected
+                            ? "border-black ring-2 ring-black/20 dark:border-white dark:ring-white/20"
+                            : "border-black/10 hover:border-black/40 dark:border-white/10 dark:hover:border-white/40"
+                        }`}
+                        aria-label="Xem lại kết quả thử đồ"
+                      >
+                        <Image
+                          src={item.outputImageUrl!}
+                          alt="Kết quả thử đồ trước đây"
+                          fill
+                          sizes="80px"
+                          className="object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex h-24 items-center justify-center border border-dashed border-black/10 bg-white/60 text-center text-sm text-neutral-500 dark:border-white/10 dark:bg-neutral-900/60 dark:text-neutral-400">
+                  Chưa có kết quả thử đồ trước đây.
+                </div>
+              )}
+            </section>
           </div>
         </div>
       </div>

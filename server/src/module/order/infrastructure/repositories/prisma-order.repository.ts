@@ -576,7 +576,7 @@ export class PrismaOrderRepository implements IOrderRepository {
           where: { orderId: order.id, status: 'PENDING' },
           data: {
             status: 'FAILED',
-            gatewayCode: 'ORDER_CANCELLED',
+            gatewayCode: 'ORD_CANCEL',
             gatewayStatus: 'CANCELLED',
           },
         });
@@ -622,7 +622,7 @@ export class PrismaOrderRepository implements IOrderRepository {
         where: { orderId, status: 'PENDING' },
         data: {
           status: 'FAILED',
-          gatewayCode: 'ORDER_CANCELLED',
+          gatewayCode: 'ORD_CANCEL',
           gatewayStatus: 'CANCELLED',
         },
       });

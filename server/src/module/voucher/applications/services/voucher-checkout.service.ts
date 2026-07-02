@@ -88,13 +88,45 @@ export class VoucherCheckoutService {
       return;
     }
 
+    if (!order.discount) {
+      throw new BadRequestError('Voucher does not exist');
+    }
+
+    const now = new Date();
+    if (!order.discount.isActive) {
+      throw new BadRequestError('Voucher is inactive');
+    }
+    if (now < order.discount.startAt || now > order.discount.endAt) {
+      throw new BadRequestError('Voucher is not in active time range');
+    }
+
+    // Increment first to lock the discount row during this transaction. If the
+    // later per-user check fails, the surrounding payment transaction rolls back.
+    const incremented = await this.voucherRepository.incrementUsedCountIfAvailable(
+      order.discountId,
+      tx,
+    );
+    if (!incremented) {
+      throw new BadRequestError('Voucher usage limit exceeded');
+    }
+
+    const userUsageCount = await this.voucherRepository.countUserUsage(
+      order.discountId,
+      order.userId,
+      tx,
+    );
+    if (
+      order.discount.userUsageLimit !== null &&
+      userUsageCount >= order.discount.userUsageLimit
+    ) {
+      throw new BadRequestError('Voucher usage limit per user exceeded');
+    }
+
     await this.voucherRepository.createDiscountUsage({
       discountId: order.discountId,
       userId: order.userId,
       orderId,
       tx,
     });
-
-    await this.voucherRepository.incrementUsedCount(order.discountId, tx);
   }
 }

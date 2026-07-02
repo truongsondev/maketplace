@@ -291,7 +291,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         where: { orderCode },
         data: {
           status: 'FAILED',
-          gatewayCode: 'CREATE_LINK_FAILED',
+          gatewayCode: 'LINK_FAIL',
           rawPayload: { reason },
         },
       });
