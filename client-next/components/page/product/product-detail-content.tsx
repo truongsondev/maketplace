@@ -199,10 +199,19 @@ function decodeHtmlEntities(raw: string): string {
 function sanitizeRichTextHtml(raw: string): string {
   if (!raw) return "";
 
+  const allowedTags = new Set(["b", "strong", "br", "p", "ul", "ol", "li", "div"]);
+
   return decodeHtmlEntities(raw)
-    .replace(/<(?!\/?(b|strong|br|p|ul|ol|li)\b)[^>]*>/gi, "")
-    .replace(/\s[^>]*>/g, ">")
-    .replace(/\s(on\w+|style)=("[^"]*"|'[^']*'|[^\s>]+)/gi, "");
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<\s*\/?\s*([a-z0-9-]+)\b[^>]*>/gi, (tag, tagName) => {
+      const normalizedTag = String(tagName).toLowerCase();
+      if (!allowedTags.has(normalizedTag)) return "";
+
+      if (normalizedTag === "br") return "<br>";
+
+      const isClosingTag = /^<\s*\//.test(tag);
+      return isClosingTag ? `</${normalizedTag}>` : `<${normalizedTag}>`;
+    });
 }
 
 function stripHtmlToText(raw: string): string {
