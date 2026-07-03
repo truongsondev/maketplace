@@ -13,6 +13,7 @@ import { SearchProductsToolInput } from '../../applications/tools/search-product
 
 export interface GeminiChatClientOptions {
   apiKey: string;
+  baseUrl: string;
   model: string;
   timeoutMs: number;
 }
@@ -80,6 +81,11 @@ function normalizeIntent(value: unknown): ChatIntent {
   return typeof value === 'string' && CHAT_INTENTS.includes(value as ChatIntent)
     ? (value as ChatIntent)
     : 'out_of_scope';
+}
+
+function buildGeminiGenerateContentUrl(baseUrl: string, model: string): string {
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, '');
+  return `${normalizedBaseUrl}/models/${encodeURIComponent(model)}:generateContent`;
 }
 
 function normalizeFilters(value: unknown): ChatbotIntentFilters {
@@ -272,9 +278,7 @@ export class GeminiChatClient implements IChatbotLLMClient {
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
 
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-        this.options.model,
-      )}:generateContent`;
+      const url = buildGeminiGenerateContentUrl(this.options.baseUrl, this.options.model);
 
       const response = await fetch(url, {
         method: 'POST',

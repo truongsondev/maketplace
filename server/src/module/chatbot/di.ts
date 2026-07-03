@@ -54,6 +54,7 @@ export function createChatbotModule(): Router {
 
   const geminiClient = new GeminiChatClient({
     apiKey: process.env.GEMINI_API_KEY ?? '',
+    baseUrl: process.env.GEMINI_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
     model: resolvedGeminiModel,
     timeoutMs: readPositiveIntEnv('CHATBOT_LLM_TIMEOUT_MS', 15_000),
   });

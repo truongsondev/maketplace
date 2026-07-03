@@ -69,13 +69,56 @@ function extractPhone(content: string): string | null {
   return digits.startsWith('84') ? `0${digits.slice(2)}` : digits;
 }
 
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getLastUserText(contents: ChatbotLLMContent[]): string {
+  const lastUserContent = [...contents].reverse().find((content) => content.role === 'user');
+  return (
+    lastUserContent?.parts
+      .map((part) => ('text' in part ? part.text : ''))
+      .join('\n')
+      .trim() ?? ''
+  );
+}
+
+function isShopKnowledgeQuestion(content: string): boolean {
+  const normalized = normalizeText(content);
+  return (
+    normalized.includes('gioi thieu ve aura') ||
+    normalized.includes('aura la gi') ||
+    normalized.includes('shop aura') ||
+    normalized.includes('aura ban gi') ||
+    normalized.includes('aura ho tro gi') ||
+    normalized.includes('ve aura') ||
+    normalized.includes('doi tra') ||
+    normalized.includes('tra hang') ||
+    normalized.includes('hoan hang') ||
+    normalized.includes('phi ship') ||
+    normalized.includes('free ship') ||
+    normalized.includes('mien phi van chuyen') ||
+    normalized.includes('van chuyen') ||
+    normalized.includes('dia chi') ||
+    normalized.includes('shop o dau') ||
+    normalized.includes('aura o dau')
+  );
+}
+
 function buildIntentClassifierInstruction(): string {
   return [
     'Bạn là intent classifier cho chatbot thương mại điện tử thời trang AURA.',
     'Chỉ trả về JSON hợp lệ, không markdown, không giải thích.',
     'Intent hợp lệ: product_search, shop_question, fashion_advice, greeting, thanks, out_of_scope.',
     'product_search: người dùng muốn tìm, mua, hỏi có sản phẩm, gợi ý sản phẩm hoặc outfit cụ thể trong shop.',
-    'shop_question: người dùng hỏi chính sách đổi trả, vận chuyển, thanh toán, địa chỉ, COD, bảo hành, thời gian giao hàng.',
+    'shop_question: người dùng hỏi giới thiệu về AURA/shop AURA, chính sách đổi trả, vận chuyển, phí ship, thanh toán, địa chỉ, COD, bảo hành, thời gian giao hàng.',
     'fashion_advice: người dùng hỏi tư vấn phối đồ/phong cách nhưng chưa yêu cầu tìm sản phẩm cụ thể.',
     'greeting: lời chào, hỏi bạn là ai, hỏi bạn hỗ trợ được gì.',
     'thanks: cảm ơn hoặc kết thúc lịch sự.',
@@ -180,7 +223,7 @@ function buildKnowledgePathCandidates(): string[] {
 }
 
 function loadShopKnowledge(): string {
-  const filenames = ['policy.md', 'shipping.md', 'payment.md'];
+  const filenames = ['aura.md', 'policy.md', 'shipping.md', 'payment.md'];
 
   for (const directory of buildKnowledgePathCandidates()) {
     if (!existsSync(directory)) continue;
@@ -316,6 +359,13 @@ export class ChatbotLLMOrchestratorService {
     contents: ChatbotLLMContent[],
     sessionId: string,
   ): Promise<ChatbotIntentClassification> {
+    if (isShopKnowledgeQuestion(getLastUserText(contents))) {
+      return {
+        intent: 'shop_question',
+        confidence: 1,
+      };
+    }
+
     try {
       return await this.llmClient.classifyIntent({
         systemInstruction: buildIntentClassifierInstruction(),

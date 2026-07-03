@@ -593,14 +593,23 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         throw new BadRequestError('Sản phẩm không tồn tại hoặc đã bị xóa');
       }
 
-      const availableStock = current.stockOnHand - current.stockReserved;
-      if (availableStock < quantity || current.stockAvailable < quantity) {
+      const effectiveStockOnHand = Math.max(
+        current.stockOnHand,
+        current.stockAvailable + current.stockReserved,
+      );
+      const availableStock = Math.min(
+        current.stockAvailable,
+        effectiveStockOnHand - current.stockReserved,
+      );
+
+      if (availableStock < quantity) {
         throw new BadRequestError(`Không đủ tồn kho cho SKU ${current.sku}`);
       }
 
       await tx.productVariant.update({
         where: { id: variantId },
         data: {
+          stockOnHand: effectiveStockOnHand,
           stockReserved: { increment: quantity },
           stockAvailable: { decrement: quantity },
         },

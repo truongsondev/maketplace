@@ -16,6 +16,7 @@ Older `gemini-2.0-flash*` model ids are deprecated and may already be unavailabl
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_BASE_URL=https://api.shopaikey.com/v1beta
 GEMINI_MODEL=gemini-2.5-flash
 CHATBOT_LLM_PROVIDER=gemini
 CHATBOT_LLM_ENABLED=true
