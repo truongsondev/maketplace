@@ -175,6 +175,23 @@ function cancelRequestStatusText(status: string) {
   }
 }
 
+function returnStatusText(status?: string | null) {
+  switch (status) {
+    case "REQUESTED":
+      return "Chờ duyệt";
+    case "APPROVED":
+      return "Đã duyệt, chờ shipper lấy hàng";
+    case "SHIPPING":
+      return "Shipper đang mang hàng hoàn về shop";
+    case "COMPLETED":
+      return "Đã hoàn tất trả hàng";
+    case "REJECTED":
+      return "Đã từ chối";
+    default:
+      return status || "Chưa có yêu cầu";
+  }
+}
+
 function returnReasonText(code?: string | null) {
   switch (code) {
     case "WRONG_MODEL":
@@ -1039,6 +1056,20 @@ export default function OrdersPage() {
     }
   };
 
+  const handleCompleteReturns = async (orderId: string) => {
+    try {
+      await orderService.completeReturns(orderId);
+      toast.success("Đã hoàn tất trả hàng và tạo giao dịch hoàn tiền");
+      setDetailModal(undefined);
+      fetchCounts();
+      fetchAnalytics();
+      fetchOrders();
+    } catch (e) {
+      toast.error("Hoàn tất trả hàng thất bại");
+      console.error(e);
+    }
+  };
+
   const pendingReturnCount = orders.filter((order) =>
     order.returns?.details?.some((item) => item.status === "RT_REQUESTED"),
   ).length;
@@ -1520,6 +1551,15 @@ export default function OrdersPage() {
                           );
                         }
 
+                        if (order.returnStatus === "SHIPPING") {
+                          secondaryActions.push({
+                            key: `complete-return-${order.id}`,
+                            label: "Shop đã nhận hàng hoàn",
+                            onClick: () => handleCompleteReturns(order.id),
+                            tone: "success",
+                          });
+                        }
+
                         if (cancelRequest?.status === "REQUESTED") {
                           secondaryActions.push(
                             {
@@ -1912,6 +1952,12 @@ export default function OrdersPage() {
                       Yêu cầu trả hàng/hoàn tiền
                     </p>
                     <p className="mt-1">
+                      Trạng thái xử lý:{" "}
+                      <span className="font-semibold">
+                        {returnStatusText(detailModal.returnStatus)}
+                      </span>
+                    </p>
+                    <p className="mt-1">
                       SĐT liên hệ:{" "}
                       {detailModal.shipping?.phone ??
                         detailModal.user.phone ??
@@ -1937,6 +1983,18 @@ export default function OrdersPage() {
                         className="rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
                       >
                         Từ chối yêu cầu
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {detailModal.returnStatus === "SHIPPING" ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleCompleteReturns(detailModal.id)}
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Shop đã nhận hàng hoàn
                       </button>
                     </div>
                   ) : null}

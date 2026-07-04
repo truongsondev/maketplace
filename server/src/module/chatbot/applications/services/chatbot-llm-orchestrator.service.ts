@@ -217,6 +217,8 @@ function formatProductResults(products: ChatbotCatalogProduct[]): string {
 
 function buildKnowledgePathCandidates(): string[] {
   return [
+    join(process.cwd(), 'resources', 'chatbot', 'shop-knowledge'),
+    join(process.cwd(), 'dist', 'resources', 'chatbot', 'shop-knowledge'),
     join(process.cwd(), 'src', 'module', 'chatbot', 'shop-knowledge'),
     join(process.cwd(), 'server', 'src', 'module', 'chatbot', 'shop-knowledge'),
   ];

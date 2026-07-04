@@ -160,6 +160,30 @@ describe('ChatbotLLMOrchestratorService', () => {
     expect(llmClient.generateCalls[0].enableTools).toBe(false);
   });
 
+  it('answers shipping fee questions with shop knowledge context', async () => {
+    const llmClient = new FakeLLMClient(
+      [{ intent: 'out_of_scope', confidence: 0 }],
+      [
+        {
+          text: 'AURA đang miễn phí vận chuyển cho khách hàng.',
+          functionCalls: [],
+        },
+      ],
+    );
+    const orchestrator = makeOrchestrator(llmClient);
+
+    const reply = await orchestrator.buildReply(
+      makeSession('Phí vận chuyển của shop như thế nào'),
+      'Phí vận chuyển của shop như thế nào',
+    );
+
+    expect(reply.lastIntent).toBe('shop_question');
+    expect(reply.content).toContain('miễn phí vận chuyển');
+    expect(llmClient.classifyCalls).toHaveLength(0);
+    expect(llmClient.generateCalls).toHaveLength(1);
+    expect(JSON.stringify(llmClient.generateCalls[0].contents)).toContain('miễn phí vận chuyển');
+  });
+
   it('falls back to out_of_scope when intent classification fails', async () => {
     const llmClient: IChatbotLLMClient = {
       classifyIntent: async () => {

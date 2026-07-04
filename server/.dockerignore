@@ -15,6 +15,7 @@ coverage/
 # Development files
 *.md
 !README.md
+!src/module/chatbot/shop-knowledge/*.md
 .env*
 !.env.docker
 .vscode/

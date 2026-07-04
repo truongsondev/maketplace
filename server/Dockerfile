@@ -38,6 +38,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/src/resources ./resources
+COPY --from=builder /app/src/module/chatbot/shop-knowledge ./resources/chatbot/shop-knowledge
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY package*.json ./
 
