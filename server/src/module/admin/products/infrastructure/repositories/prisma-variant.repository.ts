@@ -199,11 +199,18 @@ export class PrismaVariantRepository implements IVariantRepository {
     if (data.price !== undefined) updateData.price = data.price;
     if (data.stockAvailable !== undefined) {
       updateData.stockAvailable = data.stockAvailable;
-      updateData.stockOnHand = data.stockAvailable;
     }
     if (data.minStock !== undefined) updateData.minStock = data.minStock;
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (data.stockAvailable !== undefined) {
+        const stock = await tx.productVariant.findUnique({
+          where: { id: variantId },
+          select: { stockReserved: true },
+        });
+        if (!stock) throw new Error(`Variant not found: ${variantId}`);
+        updateData.stockOnHand = data.stockAvailable + stock.stockReserved;
+      }
       if (data.attributes !== undefined || data.sku !== undefined) {
         const current = await tx.productVariant.findUnique({
           where: { id: variantId },
@@ -285,7 +292,7 @@ export class PrismaVariantRepository implements IVariantRepository {
       // Get current stock
       const variant = await tx.productVariant.findFirst({
         where: { id: variantId },
-        select: { stockAvailable: true, stockOnHand: true },
+        select: { stockAvailable: true, stockOnHand: true, stockReserved: true },
       });
 
       if (!variant) {
@@ -304,10 +311,15 @@ export class PrismaVariantRepository implements IVariantRepository {
         newStock = oldStock + quantity; // quantity can be positive or negative
       }
 
+      if (newStock < variant.stockReserved) {
+        throw new Error('Stock on hand cannot be lower than reserved stock');
+      }
+      const newAvailable = newStock - variant.stockReserved;
+
       // Update stock
       await tx.productVariant.update({
         where: { id: variantId },
-        data: { stockAvailable: newStock, stockOnHand: newStock },
+        data: { stockAvailable: newAvailable, stockOnHand: newStock },
       });
 
       // Create inventory log
@@ -317,6 +329,11 @@ export class PrismaVariantRepository implements IVariantRepository {
           action,
           quantity,
           referenceId,
+          beforeQuantity: oldStock,
+          afterQuantity: newStock,
+          referenceType: referenceId ? 'MANUAL_REFERENCE' : null,
+          reason: action === 'EXPORT' ? 'Physical store/manual stock export' : 'Manual inventory adjustment',
+          salesChannel: action === 'EXPORT' ? 'PHYSICAL_STORE' : 'INTERNAL',
         },
       });
 

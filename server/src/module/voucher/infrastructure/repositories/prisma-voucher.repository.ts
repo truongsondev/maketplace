@@ -14,6 +14,7 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
         endAt: { gte: now },
       },
       orderBy: [{ endAt: 'asc' }, { createdAt: 'desc' }],
+      include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true },
     });
 
     return rows.map((row) => this.toSummary(row));
@@ -21,7 +22,7 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
 
   async findByCode(code: string, tx?: Prisma.TransactionClient): Promise<VoucherSummary | null> {
     const client = tx ?? this.prisma;
-    const row = await client.discount.findUnique({ where: { code: code.trim().toUpperCase() } });
+    const row = await client.discount.findUnique({ where: { code: code.trim().toUpperCase() }, include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true } });
     return row ? this.toSummary(row) : null;
   }
 
@@ -32,6 +33,40 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
   ): Promise<number> {
     const client = tx ?? this.prisma;
     return client.discountUsage.count({ where: { discountId, userId } });
+  }
+
+  async countUserUsageForYear(
+    discountId: string,
+    userId: string,
+    year: number,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    const client = tx ?? this.prisma;
+    return client.discountUsage.count({ where: { discountId, userId, usageYear: year } });
+  }
+
+  async countUserVoucherOrdersForYear(
+    discountId: string,
+    userId: string,
+    year: number,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number> {
+    const client = tx ?? this.prisma;
+    return client.order.count({
+      where: {
+        discountId,
+        userId,
+        createdAt: {
+          gte: new Date(year, 0, 1),
+          lt: new Date(year + 1, 0, 1),
+        },
+        status: { notIn: ['CANCELLED', 'RETURNED'] },
+        OR: [
+          { payment: null },
+          { payment: { status: { notIn: ['FAILED', 'EXPIRED'] } } },
+        ],
+      },
+    });
   }
 
   async getCartTotals(
@@ -61,6 +96,7 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
         variantId: true,
         quantity: true,
         variant: { select: { price: true } },
+        product: { select: { categories: { select: { categoryId: true } } } },
       },
     });
 
@@ -68,26 +104,45 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
       throw new BadRequestError('Cart is empty');
     }
 
+    const categories = await client.category.findMany({ select: { id: true, parentId: true } });
+    const parentById = new Map(categories.map((category) => [category.id, category.parentId]));
+    const ancestorsOf = (ids: string[]): string[] => {
+      const result = new Set<string>();
+      for (const id of ids) {
+        let parent = parentById.get(id);
+        while (parent && !result.has(parent)) { result.add(parent); parent = parentById.get(parent); }
+      }
+      return [...result];
+    };
     const normalizedItems = items.map((item) => {
       if (!item.variantId || !item.variant) {
         throw new BadRequestError(`Cart item ${item.id} missing required variant`);
       }
 
+      const categoryIds = item.product.categories.map((row) => row.categoryId);
       return {
         id: item.id,
         productId: item.productId,
         variantId: item.variantId,
         quantity: item.quantity,
         unitPrice: Number(item.variant.price),
+        categoryIds,
+        ancestorCategoryIds: ancestorsOf(categoryIds),
       };
     });
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
+    const [account, user] = await Promise.all([
+      client.loyaltyAccount.findUnique({ where: { userId }, select: { tier: true } }),
+      client.user.findUnique({ where: { id: userId }, select: { birthday: true } }),
+    ]);
     return {
       cartId: cart.id,
       subtotal,
       items: normalizedItems,
+      memberTier: account?.tier ?? 'MEMBER',
+      userBirthday: user?.birthday ?? null,
     };
   }
 
@@ -101,7 +156,7 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
   } | null> {
     const row = await tx.order.findUnique({
       where: { id: orderId },
-      select: { discountId: true, userId: true, discount: true },
+      select: { discountId: true, userId: true, discount: { include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true } } },
     });
 
     return row
@@ -125,6 +180,7 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
     discountId: string;
     userId: string;
     orderId: string;
+    usageYear?: number | null;
     tx: Prisma.TransactionClient;
   }): Promise<void> {
     await params.tx.discountUsage.create({
@@ -132,6 +188,7 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
         discountId: params.discountId,
         userId: params.userId,
         orderId: params.orderId,
+        usageYear: params.usageYear ?? null,
       },
     });
   }
@@ -169,7 +226,16 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
     startAt: Date;
     endAt: Date;
     isActive: boolean;
+    isBirthdayVoucher?: boolean;
     bannerImageUrl: string | null;
+    scopeType: any;
+    includeDescendants: boolean;
+    minAmountBasis: any;
+    includedCategories?: Array<{ categoryId: string }>;
+    excludedCategories?: Array<{ categoryId: string }>;
+    includedProducts?: Array<{ productId: string }>;
+    excludedProducts?: Array<{ productId: string }>;
+    memberTiers?: Array<{ tier: string }>;
   }): VoucherSummary {
     return {
       id: row.id,
@@ -185,7 +251,16 @@ export class PrismaVoucherRepository implements IDiscountVoucherRepository {
       startAt: row.startAt,
       endAt: row.endAt,
       isActive: row.isActive,
+      isBirthdayVoucher: row.isBirthdayVoucher ?? false,
       bannerImageUrl: row.bannerImageUrl,
+      scopeType: row.scopeType,
+      includeDescendants: row.includeDescendants,
+      minAmountBasis: row.minAmountBasis,
+      includedCategoryIds: row.includedCategories?.map((item) => item.categoryId) ?? [],
+      excludedCategoryIds: row.excludedCategories?.map((item) => item.categoryId) ?? [],
+      includedProductIds: row.includedProducts?.map((item) => item.productId) ?? [],
+      excludedProductIds: row.excludedProducts?.map((item) => item.productId) ?? [],
+      memberTiers: row.memberTiers?.map((item) => item.tier) ?? [],
     };
   }
 }

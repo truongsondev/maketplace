@@ -95,13 +95,17 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
       },
       revenue: {
         currency: 'VND',
-        total: totals.revenue,
+        total: totals.onlineRevenue + totals.physicalRevenue,
+      },
+      revenueByChannel: {
+        online: { currency: 'VND', total: totals.onlineRevenue },
+        physicalStore: { currency: 'VND', total: totals.physicalRevenue },
       },
       orders: {
-        total: totals.orders,
+        total: totals.onlineOrders + totals.physicalOrders,
       },
       itemsSold: {
-        total: totals.itemsSold,
+        total: totals.onlineItemsSold + totals.physicalItemsSold,
       },
       profit: null,
       updatedAt: new Date().toISOString(),
@@ -229,8 +233,15 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
   private async getPaidAggregates(
     from: Date,
     to: Date,
-  ): Promise<{ revenue: number; orders: number; itemsSold: number }> {
-    const [paymentAgg, itemAgg] = await Promise.all([
+  ): Promise<{
+    onlineRevenue: number;
+    onlineOrders: number;
+    onlineItemsSold: number;
+    physicalRevenue: number;
+    physicalOrders: number;
+    physicalItemsSold: number;
+  }> {
+    const [paymentAgg, itemAgg, physicalAgg, physicalItemAgg] = await Promise.all([
       this.prisma.payment.aggregate({
         where: {
           status: { in: [...PAID_STATUSES] },
@@ -256,12 +267,24 @@ export class PrismaAdminDashboardRepository implements IAdminDashboardRepository
         },
         _sum: { quantity: true },
       }),
+      this.prisma.physicalSale.aggregate({
+        where: { createdAt: { gte: from, lt: to } },
+        _sum: { totalAmount: true },
+        _count: { _all: true },
+      }),
+      this.prisma.physicalSaleItem.aggregate({
+        where: { sale: { createdAt: { gte: from, lt: to } } },
+        _sum: { quantity: true },
+      }),
     ]);
 
     return {
-      revenue: Number(paymentAgg._sum.amount ?? 0),
-      orders: Number(paymentAgg._count._all ?? 0),
-      itemsSold: Number(itemAgg._sum.quantity ?? 0),
+      onlineRevenue: Number(paymentAgg._sum.amount ?? 0),
+      onlineOrders: Number(paymentAgg._count._all ?? 0),
+      onlineItemsSold: Number(itemAgg._sum.quantity ?? 0),
+      physicalRevenue: Number(physicalAgg._sum.totalAmount ?? 0),
+      physicalOrders: Number(physicalAgg._count._all ?? 0),
+      physicalItemsSold: Number(physicalItemAgg._sum.quantity ?? 0),
     };
   }
 }

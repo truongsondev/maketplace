@@ -13,10 +13,23 @@ export interface PaymentTransactionRecord {
 
 export interface CreatePendingTransactionInput {
   userId: string;
-  orderCode: string;
+  orderCode?: string;
+  paymentMethod?: 'PAYOS' | 'COD';
   amount: number;
   voucherCode?: string;
   cartItemIds?: string[];
+  shipping: {
+    recipientName: string;
+    phone: string;
+    addressLine: string;
+    ward: string;
+    district: string;
+    city: string;
+    sourceAddressId: string | null;
+    ghnProvinceId?: number | null;
+    ghnDistrictId?: number | null;
+    ghnWardCode?: string | null;
+  };
 }
 
 export interface UpdateTransactionFromWebhookInput {

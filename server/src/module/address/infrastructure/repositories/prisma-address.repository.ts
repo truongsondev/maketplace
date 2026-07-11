@@ -16,6 +16,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: true,
         district: true,
         city: true,
+        ghnProvinceId: true,
+        ghnDistrictId: true,
+        ghnWardCode: true,
         isDefault: true,
         createdAt: true,
       },
@@ -36,6 +39,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: true,
         district: true,
         city: true,
+        ghnProvinceId: true,
+        ghnDistrictId: true,
+        ghnWardCode: true,
         isDefault: true,
         createdAt: true,
       },
@@ -53,6 +59,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
       ward: string;
       district: string;
       city: string;
+      ghnProvinceId?: number;
+      ghnDistrictId?: number;
+      ghnWardCode?: string;
     },
   ): Promise<UserAddressResult | null> {
     const address = await this.prisma.userAddress.findFirst({
@@ -64,6 +73,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: input.ward,
         district: input.district,
         city: input.city,
+        ghnProvinceId: input.ghnProvinceId ?? null,
+        ghnDistrictId: input.ghnDistrictId ?? null,
+        ghnWardCode: input.ghnWardCode ?? null,
       },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -74,6 +86,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: true,
         district: true,
         city: true,
+        ghnProvinceId: true,
+        ghnDistrictId: true,
+        ghnWardCode: true,
         isDefault: true,
         createdAt: true,
       },
@@ -95,6 +110,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
       ward: string;
       district: string;
       city: string;
+      ghnProvinceId?: number;
+      ghnDistrictId?: number;
+      ghnWardCode?: string;
       isDefault: boolean;
     },
   ): Promise<UserAddressResult> {
@@ -107,6 +125,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: input.ward,
         district: input.district,
         city: input.city,
+        ghnProvinceId: input.ghnProvinceId,
+        ghnDistrictId: input.ghnDistrictId,
+        ghnWardCode: input.ghnWardCode,
         isDefault: input.isDefault,
       },
       select: {
@@ -117,6 +138,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: true,
         district: true,
         city: true,
+        ghnProvinceId: true,
+        ghnDistrictId: true,
+        ghnWardCode: true,
         isDefault: true,
         createdAt: true,
       },
@@ -137,6 +161,9 @@ export class PrismaAddressRepository implements IUserAddressRepository {
         ward: true,
         district: true,
         city: true,
+        ghnProvinceId: true,
+        ghnDistrictId: true,
+        ghnWardCode: true,
         isDefault: true,
         createdAt: true,
       },

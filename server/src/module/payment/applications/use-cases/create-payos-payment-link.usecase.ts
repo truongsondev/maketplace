@@ -21,15 +21,20 @@ export class CreatePayosPaymentLinkUseCase {
     const config = getPayosConfig();
     const orderCode = await this.generateUniqueOrderCode();
 
+    let sourceAddressId = command.shipping?.addressId?.trim() || null;
     if (command.shipping && this.shippingInfoService) {
-      await this.shippingInfoService.rememberAddress(command.userId, {
+      const rememberedAddress = await this.shippingInfoService.rememberAddress(command.userId, {
         recipient: command.shipping.recipient,
         phone: command.shipping.phone,
         addressLine: command.shipping.addressLine,
         ward: command.shipping.ward,
         district: command.shipping.district,
         city: command.shipping.city,
+        ghnProvinceId: command.shipping.ghnProvinceId,
+        ghnDistrictId: command.shipping.ghnDistrictId,
+        ghnWardCode: command.shipping.ghnWardCode,
       });
+      sourceAddressId = rememberedAddress.id;
     }
 
     const pendingTransaction = await this.paymentRepository.createPendingTransaction({
@@ -38,6 +43,18 @@ export class CreatePayosPaymentLinkUseCase {
       orderCode,
       voucherCode: command.voucherCode,
       cartItemIds: command.cartItemIds,
+      shipping: {
+        recipientName: command.shipping!.recipient.trim(),
+        phone: command.shipping!.phone.replace(/\s+/g, '').trim(),
+        addressLine: command.shipping!.addressLine.trim(),
+        ward: command.shipping!.ward.trim(),
+        district: command.shipping!.district.trim(),
+        city: command.shipping!.city.trim(),
+        sourceAddressId,
+        ghnProvinceId: command.shipping!.ghnProvinceId ?? null,
+        ghnDistrictId: command.shipping!.ghnDistrictId ?? null,
+        ghnWardCode: command.shipping!.ghnWardCode?.trim() || null,
+      },
     });
 
     const description = this.buildDescription(orderCode, command.description);
@@ -81,6 +98,10 @@ export class CreatePayosPaymentLinkUseCase {
   private validateCommand(command: CreatePayosPaymentLinkCommand): void {
     if (!Number.isFinite(command.amount) || command.amount <= 0) {
       throw new BadRequestError('amount must be greater than 0');
+    }
+
+    if (!command.shipping) {
+      throw new BadRequestError('shipping is required');
     }
 
     if (command.shipping) {

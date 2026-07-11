@@ -47,13 +47,16 @@ export function PaidCancelRequestModal({
 
   useEffect(() => {
     if (!open) {
-      setReasonCode("NO_LONGER_NEEDED");
-      setReasonText("");
-      setBankAccountName("");
-      setBankAccountNumber("");
-      setBankName("");
-      setError(null);
-      setConfirmStep(false);
+      const resetTimer = window.setTimeout(() => {
+        setReasonCode("NO_LONGER_NEEDED");
+        setReasonText("");
+        setBankAccountName("");
+        setBankAccountNumber("");
+        setBankName("");
+        setError(null);
+        setConfirmStep(false);
+      }, 0);
+      return () => window.clearTimeout(resetTimer);
     }
   }, [open]);
 

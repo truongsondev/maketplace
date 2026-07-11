@@ -82,17 +82,25 @@ export function VirtualTryOnModal({
   const currentRequest = statusQuery.data ?? request;
 
   const historyQuery = useQuery({
-    queryKey: ["virtual-try-on-history"],
-    queryFn: () => virtualTryOnService.listHistory({ page: 1, limit: 12 }),
+    queryKey: ["virtual-try-on-history", product.id],
+    queryFn: () =>
+      virtualTryOnService.listHistory({
+        page: 1,
+        limit: 12,
+        productId: product.id,
+      }),
     enabled: open,
   });
 
   const historyItems = useMemo(
     () =>
       (historyQuery.data?.data ?? []).filter(
-        (item) => item.status === "SUCCEEDED" && item.outputImageUrl,
+        (item) =>
+          item.productId === product.id &&
+          item.status === "SUCCEEDED" &&
+          item.outputImageUrl,
       ),
-    [historyQuery.data],
+    [historyQuery.data, product.id],
   );
 
   const createMutation = useMutation({
@@ -123,7 +131,9 @@ export function VirtualTryOnModal({
     },
     onSuccess: (data) => {
       setRequest(data);
-      queryClient.invalidateQueries({ queryKey: ["virtual-try-on-history"] });
+      queryClient.invalidateQueries({
+        queryKey: ["virtual-try-on-history", product.id],
+      });
     },
     onError: (error) => {
       toast.error(apiErrorMessage(error, "Không tạo được ảnh thử đồ."));

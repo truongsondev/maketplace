@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReturnReasonCode } from "@/types/order.types";
 
 export interface ReturnRequestFormPayload {
+  requestType: "RETURN_REFUND";
+  items: Array<{ orderItemId: string; quantity: number }>;
   reasonCode: ReturnReasonCode;
   reason?: string;
   images: File[];
@@ -25,12 +27,14 @@ function reasonLabel(reasonCode: ReturnReasonCode): string {
 export function ReturnRequestModal({
   open,
   orderLabel,
+  orderItems,
   isSubmitting,
   onClose,
   onConfirm,
 }: {
   open: boolean;
   orderLabel: string;
+  orderItems: Array<{ id: string; name: string; quantity: number; attributesText: string }>;
   isSubmitting: boolean;
   onClose: () => void;
   onConfirm: (payload: ReturnRequestFormPayload) => Promise<void>;
@@ -43,6 +47,19 @@ export function ReturnRequestModal({
   const [bankName, setBankName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmStep, setConfirmStep] = useState(false);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!open) return;
+    const handle = window.setTimeout(() => {
+      setSelectedQuantities((current) =>
+        Object.keys(current).length > 0
+          ? current
+          : Object.fromEntries(orderItems.map((item) => [item.id, item.quantity])),
+      );
+    }, 0);
+    return () => window.clearTimeout(handle);
+  }, [open, orderItems]);
 
   useEffect(() => {
     if (open) return;
@@ -54,6 +71,7 @@ export function ReturnRequestModal({
       setBankName("");
       setError(null);
       setConfirmStep(false);
+      setSelectedQuantities({});
       setImages((prev) => {
         prev.forEach((image) => URL.revokeObjectURL(image.previewUrl));
         return [];
@@ -64,6 +82,10 @@ export function ReturnRequestModal({
 
   const payload = useMemo(
     () => ({
+      requestType: "RETURN_REFUND" as const,
+      items: orderItems
+        .filter((item) => (selectedQuantities[item.id] ?? 0) > 0)
+        .map((item) => ({ orderItemId: item.id, quantity: selectedQuantities[item.id] })),
       reasonCode,
       reason: reason.trim() || undefined,
       images: images.map((image) => image.file),
@@ -71,13 +93,18 @@ export function ReturnRequestModal({
       bankAccountNumber: bankAccountNumber.trim(),
       bankName: bankName.trim(),
     }),
-    [reasonCode, reason, images, bankAccountName, bankAccountNumber, bankName],
+    [reasonCode, reason, images, bankAccountName, bankAccountNumber, bankName, orderItems, selectedQuantities],
   );
 
   if (!open) return null;
 
   const validate = (): boolean => {
-    if (payload.images.length === 0) {
+    if (payload.items.length === 0) {
+      setError("Vui lòng chọn ít nhất một sản phẩm cần trả.");
+      return false;
+    }
+
+    if (payload.reasonCode === "DEFECTIVE" && payload.images.length === 0) {
       setError("Vui lòng tải lên ít nhất 1 ảnh minh chứng.");
       return false;
     }
@@ -128,6 +155,35 @@ export function ReturnRequestModal({
 
           {!confirmStep ? (
             <div className="space-y-4">
+              <div>
+                <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                  Sản phẩm và số lượng cần trả
+                </p>
+                <div className="space-y-2">
+                  {orderItems.map((item) => {
+                    const quantity = selectedQuantities[item.id] ?? 0;
+                    return (
+                      <label key={item.id} className="flex items-center justify-between gap-3 border border-neutral-200 p-3 dark:border-neutral-800">
+                        <span className="min-w-0 text-sm">
+                          <span className="block font-semibold">{item.name}</span>
+                          <span className="text-neutral-500">{item.attributesText}</span>
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={item.quantity}
+                          value={quantity}
+                          onChange={(event) => {
+                            const next = Math.max(0, Math.min(item.quantity, Number(event.target.value) || 0));
+                            setSelectedQuantities((current) => ({ ...current, [item.id]: next }));
+                          }}
+                          className="h-10 w-20 border border-neutral-300 px-2 text-center dark:border-neutral-700 dark:bg-black"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-200">
                   Lý do trả hàng
@@ -223,6 +279,7 @@ export function ReturnRequestModal({
               <p className="font-semibold">Xác nhận thông tin trả hàng:</p>
               <div className="mt-3 space-y-2 rounded-sm border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-black">
                 <p>Lý do: {reasonLabel(payload.reasonCode)}</p>
+                <p>Số dòng sản phẩm: {payload.items.length}</p>
                 {payload.reason ? <p>Mô tả: {payload.reason}</p> : null}
                 <p>Ảnh minh chứng: {payload.images.length} ảnh</p>
                 <p>Tài khoản: {payload.bankAccountName} - {payload.bankAccountNumber} - {payload.bankName}</p>

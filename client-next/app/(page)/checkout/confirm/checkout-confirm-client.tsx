@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { useCart } from "@/hooks/use-cart";
 import { useMyAddresses } from "@/hooks/use-addresses";
@@ -22,8 +22,11 @@ import {
   type VoucherValidationResult,
 } from "@/services/voucher.service";
 import type { ApiErrorResponse } from "@/types/api.types";
+import { payosPaymentService } from "@/services/payos-payment.service";
+import { getMyLoyalty } from "@/services/loyalty.service";
+import { calculateLoyaltyDiscount } from "@/lib/loyalty-benefits";
 
-type PaymentMethod = "PAYOS" | "MOMO";
+type PaymentMethod = "PAYOS" | "COD";
 
 function formatPrice(price: number) {
   return new Intl.NumberFormat("vi-VN", {
@@ -75,6 +78,11 @@ export function CheckoutConfirmClient() {
     queryFn: () => addressService.getLastUsedAddress(),
     retry: false,
   });
+  const loyaltyQuery = useQuery({
+    queryKey: ["loyalty", "me", "checkout"],
+    queryFn: getMyLoyalty,
+    retry: false,
+  });
 
   const payosMutation = useCreatePayosPaymentLink();
 
@@ -122,13 +130,69 @@ export function CheckoutConfirmClient() {
     return itemsToPay.reduce((sum, item) => sum + item.subtotal, 0);
   }, [itemsToPay]);
 
+  const checkoutPreviewQuery = useQuery({
+    queryKey: [
+      "checkout",
+      "pricing-preview",
+      itemsToPay.map((item) => item.itemId).join(","),
+    ],
+    queryFn: () =>
+      voucherService.previewCheckout({
+        cartItemIds: itemsToPay.map((item) => item.itemId),
+      }),
+    enabled: itemsToPay.length > 0,
+    retry: false,
+  });
+
   const [voucherCode, setVoucherCode] = useState<string>("");
   const [voucherResult, setVoucherResult] =
     useState<VoucherValidationResult | null>(null);
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
-  const discountAmount = voucherResult?.pricing.discountAmount ?? 0;
-  const totalAmount = voucherResult?.pricing.finalTotal ?? subtotalAmount;
+  const localLoyaltyDiscount = useMemo(
+    () =>
+      calculateLoyaltyDiscount({
+        tier: loyaltyQuery.data?.tier,
+        amount: subtotalAmount,
+      }),
+    [loyaltyQuery.data?.tier, subtotalAmount],
+  );
+  const voucherDiscountAmount =
+    voucherResult?.pricing.voucherDiscountAmount ??
+    checkoutPreviewQuery.data?.voucherDiscountAmount ??
+    0;
+  const promotionDiscountAmount =
+    voucherResult?.pricing.promotionDiscountAmount ??
+    checkoutPreviewQuery.data?.promotionDiscountAmount ??
+    0;
+  const hasNonStackablePromotion =
+    voucherResult?.pricing.promotionAllocations?.some(
+      (item) => item.stackableWithVoucher === false,
+    ) ??
+    checkoutPreviewQuery.data?.itemDiscounts.some(
+      (item) => item.promotion?.stackableWithVoucher === false,
+    ) ??
+    false;
+  const loyaltyDiscountAmount =
+    voucherResult?.pricing.loyaltyDiscountAmount ??
+    checkoutPreviewQuery.data?.loyaltyDiscountAmount ??
+    localLoyaltyDiscount.discountAmount;
+  const loyaltyDiscountPercent =
+    voucherResult?.pricing.loyaltyDiscountPercent ??
+    checkoutPreviewQuery.data?.loyaltyDiscountPercent ??
+    localLoyaltyDiscount.discountPercent;
+  const loyaltyTierLabel =
+    voucherResult?.pricing.loyaltyTierLabel ??
+    checkoutPreviewQuery.data?.loyaltyTierLabel ??
+    loyaltyQuery.data?.tierLabel ??
+    localLoyaltyDiscount.tierLabel;
+  const discountAmount = voucherResult
+    ? voucherResult.pricing.discountAmount
+    : (checkoutPreviewQuery.data?.discountAmount ?? loyaltyDiscountAmount);
+  const totalAmount =
+    voucherResult?.pricing.finalTotal ??
+    checkoutPreviewQuery.data?.payableAmount ??
+    Math.max(0, subtotalAmount - loyaltyDiscountAmount);
 
   const defaultAddressId = useMemo(() => {
     const list = addresses ?? [];
@@ -140,11 +204,18 @@ export function CheckoutConfirmClient() {
   const [recipientName, setRecipientName] = useState<string>("");
   const [recipientPhone, setRecipientPhone] = useState<string>("");
   const [manualAddressLine, setManualAddressLine] = useState<string>("");
-  const [selectedProvinceCode, setSelectedProvinceCode] = useState<number | "">(
-    "",
-  );
-  const [selectedWardCode, setSelectedWardCode] = useState<number | "">("");
+  const [selectedProvinceId, setSelectedProvinceId] = useState<number | "">("");
+  const [selectedDistrictId, setSelectedDistrictId] = useState<number | "">("");
+  const [selectedWardCode, setSelectedWardCode] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PAYOS");
+  const codMutation = useMutation({
+    mutationFn: payosPaymentService.createCodOrder,
+    onError: (error: ApiErrorResponse) => {
+      toast.error("Không thể tạo đơn COD", {
+        description: error?.error?.message ?? "Vui lòng thử lại sau.",
+      });
+    },
+  });
 
   const activeAddressId = selectedAddressId || defaultAddressId;
 
@@ -159,20 +230,29 @@ export function CheckoutConfirmClient() {
     staleTime: 1000 * 60 * 60, // 1 hour
   });
 
+  const districtsQuery = useQuery({
+    queryKey: ["locations", "ghn", "districts", selectedProvinceId],
+    queryFn: () => locationService.getDistricts(Number(selectedProvinceId)),
+    enabled: selectedProvinceId !== "",
+    staleTime: 1000 * 60 * 60,
+  });
+
   const wardsQuery = useQuery({
-    queryKey: ["locations", "wards", selectedProvinceCode],
-    queryFn: () =>
-      locationService.getWardsByProvince(Number(selectedProvinceCode)),
-    enabled: selectedProvinceCode !== "",
+    queryKey: ["locations", "ghn", "wards", selectedDistrictId],
+    queryFn: () => locationService.getWards(Number(selectedDistrictId)),
+    enabled: selectedDistrictId !== "",
     staleTime: 1000 * 60 * 60, // 1 hour
   });
 
   const selectedProvince = useMemo(() => {
-    if (!provincesQuery.data || selectedProvinceCode === "") return null;
-    return (
-      provincesQuery.data.find((p) => p.code === selectedProvinceCode) ?? null
-    );
-  }, [provincesQuery.data, selectedProvinceCode]);
+    if (!provincesQuery.data || selectedProvinceId === "") return null;
+    return provincesQuery.data.find((p) => p.id === selectedProvinceId) ?? null;
+  }, [provincesQuery.data, selectedProvinceId]);
+
+  const selectedDistrict = useMemo(() => {
+    if (!districtsQuery.data || selectedDistrictId === "") return null;
+    return districtsQuery.data.find((d) => d.id === selectedDistrictId) ?? null;
+  }, [districtsQuery.data, selectedDistrictId]);
 
   const selectedWard = useMemo(() => {
     if (!wardsQuery.data || selectedWardCode === "") return null;
@@ -199,41 +279,11 @@ export function CheckoutConfirmClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastUsedAddressQuery.data, addresses?.length]);
 
-  const baseCityName = useMemo(() => {
-    if (selectedAddress?.city) return selectedAddress.city;
-    return lastUsedAddressQuery.data?.city ?? "";
-  }, [lastUsedAddressQuery.data?.city, selectedAddress?.city]);
-
-  const baseWardName = useMemo(() => {
-    if (selectedAddress?.ward) return selectedAddress.ward;
-    return lastUsedAddressQuery.data?.ward ?? "";
-  }, [lastUsedAddressQuery.data?.ward, selectedAddress?.ward]);
-
   useEffect(() => {
-    if (selectedProvinceCode !== "") return;
-    const cityName = baseCityName.trim();
-    if (!cityName) return;
-    const provinces = provincesQuery.data;
-    if (!provinces || provinces.length === 0) return;
-
-    const matched = provinces.find((p) => p.name === cityName);
-    if (matched) {
-      setSelectedProvinceCode(matched.code);
-    }
-  }, [baseCityName, provincesQuery.data, selectedProvinceCode]);
-
-  useEffect(() => {
-    if (selectedWardCode !== "") return;
-    const wardName = baseWardName.trim();
-    if (!wardName) return;
-    const wards = wardsQuery.data;
-    if (!wards || wards.length === 0) return;
-
-    const matched = wards.find((w) => w.name === wardName);
-    if (matched) {
-      setSelectedWardCode(matched.code);
-    }
-  }, [baseWardName, selectedWardCode, wardsQuery.data]);
+    setSelectedProvinceId(selectedAddress?.ghnProvinceId ?? "");
+    setSelectedDistrictId(selectedAddress?.ghnDistrictId ?? "");
+    setSelectedWardCode(selectedAddress?.ghnWardCode ?? "");
+  }, [selectedAddress]);
 
   useEffect(() => {
     if (!isAddressesError) return;
@@ -248,6 +298,13 @@ export function CheckoutConfirmClient() {
       description: "Vui lòng quay lại giỏ hàng và thử lại.",
     });
   }, [isCartError]);
+
+  useEffect(() => {
+    if (!checkoutPreviewQuery.isError) return;
+    toast.error("Không thể tính ưu đãi checkout", {
+      description: "Vui lòng tải lại trang hoặc quay lại giỏ hàng.",
+    });
+  }, [checkoutPreviewQuery.isError]);
 
   useEffect(() => {
     if (unavailableItems.length === 0) return;
@@ -266,7 +323,8 @@ export function CheckoutConfirmClient() {
     setVoucherCode(voucherFromQuery.toUpperCase());
   }, [voucherFromQuery]);
 
-  const canSubmit = itemsToPay.length > 0 && totalAmount > 0;
+  const canSubmit =
+    itemsToPay.length > 0 && totalAmount > 0 && checkoutPreviewQuery.isSuccess;
 
   const applyVoucher = async (params: {
     code: string;
@@ -350,20 +408,11 @@ export function CheckoutConfirmClient() {
 
     const city = (selectedProvince?.name || selectedAddress?.city || "").trim();
     const ward = (selectedWard?.name || selectedAddress?.ward || "").trim();
-    const district = (() => {
-      const addrDistrict = selectedAddress?.district?.trim() || "";
-      const addrWard = selectedAddress?.ward?.trim() || "";
-      const addrCity = selectedAddress?.city?.trim() || "";
-      if (
-        selectedAddress &&
-        ward === addrWard &&
-        city === addrCity &&
-        addrDistrict
-      ) {
-        return addrDistrict;
-      }
-      return ward;
-    })();
+    const district = (
+      selectedDistrict?.name ||
+      selectedAddress?.district ||
+      ""
+    ).trim();
 
     if (!name) {
       toast.error("Vui lòng nhập tên người nhận");
@@ -375,89 +424,110 @@ export function CheckoutConfirmClient() {
       return;
     }
 
-    if (!addressLine || !ward || !district || !city) {
-      toast.error("Vui lòng nhập đầy đủ địa chỉ giao hàng");
-      return;
-    }
-
-    if (paymentMethod === "MOMO") {
-      toast.message("MoMo chưa được tích hợp", {
-        description: "Vui lòng chọn PayOS (ngân hàng) để thanh toán.",
-      });
+    if (
+      !addressLine ||
+      !ward ||
+      !district ||
+      !city ||
+      selectedProvinceId === "" ||
+      selectedDistrictId === "" ||
+      !selectedWardCode
+    ) {
+      toast.error(
+        "Vui lòng chọn đầy đủ tỉnh, quận/huyện và phường/xã theo GHN",
+      );
       return;
     }
 
     const description = `TT ${itemsToPay.length} sản phẩm`;
-
-    payosMutation.mutate(
-      {
-        amount: totalAmount,
-        description,
-        voucherCode: voucherResult?.voucher.code,
-        cartItemIds: itemsToPay.map((item) => item.itemId),
-        shipping: {
-          recipient: name,
-          phone,
-          addressLine,
-          ward,
-          district,
-          city,
-          addressId: selectedAddress?.id ?? null,
-        },
+    const checkoutPayload = {
+      amount: totalAmount,
+      description,
+      voucherCode: voucherResult?.voucher.code,
+      cartItemIds: itemsToPay.map((item) => item.itemId),
+      shipping: {
+        recipient: name,
+        phone,
+        addressLine,
+        ward,
+        district,
+        city,
+        addressId: selectedAddress?.id ?? null,
+        ghnProvinceId: Number(selectedProvinceId),
+        ghnDistrictId: Number(selectedDistrictId),
+        ghnWardCode: selectedWardCode,
       },
-      {
+    };
+
+    if (paymentMethod === "COD") {
+      codMutation.mutate(checkoutPayload, {
         onSuccess: (result) => {
-          try {
-            const payload = {
-              orderId: result.orderId,
-              orderCode: result.orderCode,
-              amount: totalAmount,
-              pricing: {
-                subtotalAmount,
-                discountAmount,
-                totalAmount,
-                voucherCode: voucherResult?.voucher.code ?? null,
-              },
-              items: itemsToPay.map((item) => ({
-                itemId: item.itemId,
-                productId: item.productId,
-                productName: item.productName,
-                variantId: item.variantId,
-                variantSku: item.variantSku,
-                variantAttributes: item.variantAttributes,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                subtotal: item.subtotal,
-                image: item.image ?? null,
-              })),
-              shipping: {
-                recipient: name,
-                phone,
-                addressLine,
-                ward,
-                district,
-                city,
-                addressId: activeAddressId || null,
-              },
-              payment: {
-                method: paymentMethod,
-              },
-              createdAt: new Date().toISOString(),
-            };
-
-            sessionStorage.setItem(
-              `checkout:${result.orderCode}`,
-              JSON.stringify(payload),
-            );
-            sessionStorage.setItem("checkout:lastOrderCode", result.orderCode);
-          } catch {
-            // ignore storage errors
-          }
-
-          window.location.href = result.checkoutUrl;
+          toast.success("Đặt hàng COD thành công");
+          router.push(`/orders/${result.orderId}`);
         },
+      });
+      return;
+    }
+
+    payosMutation.mutate(checkoutPayload, {
+      onSuccess: (result) => {
+        try {
+          const payload = {
+            orderId: result.orderId,
+            orderCode: result.orderCode,
+            amount: totalAmount,
+            pricing: {
+              subtotalAmount,
+              discountAmount,
+              voucherDiscountAmount,
+              loyaltyDiscountAmount,
+              loyaltyDiscountPercent,
+              loyaltyTierLabel,
+              totalAmount,
+              voucherCode: voucherResult?.voucher.code ?? null,
+            },
+            items: itemsToPay.map((item) => ({
+              itemId: item.itemId,
+              productId: item.productId,
+              productName: item.productName,
+              variantId: item.variantId,
+              variantSku: item.variantSku,
+              variantAttributes: item.variantAttributes,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              subtotal: item.subtotal,
+              image: item.image ?? null,
+            })),
+            shipping: {
+              recipient: name,
+              phone,
+              addressLine,
+              ward,
+              district,
+              city,
+              addressId: activeAddressId || null,
+              ghnProvinceId: Number(selectedProvinceId),
+              ghnDistrictId: Number(selectedDistrictId),
+              ghnWardCode: selectedWardCode,
+            },
+            payment: {
+              method: paymentMethod,
+            },
+            createdAt: new Date().toISOString(),
+          };
+
+          sessionStorage.setItem(
+            `checkout:${result.orderCode}`,
+            JSON.stringify(payload),
+          );
+          sessionStorage.setItem("checkout:lastOrderCode", result.orderCode);
+        } catch {
+          // ignore storage errors
+        }
+
+        window.location.href = result.checkoutUrl;
       },
-    );
+    });
   };
 
   if (isCartLoading || isAddressesLoading) {
@@ -552,7 +622,7 @@ export function CheckoutConfirmClient() {
                     </div>
                   ) : null}
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
                       <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
                         Họ và tên
@@ -600,15 +670,16 @@ export function CheckoutConfirmClient() {
                       </label>
                       <select
                         value={
-                          selectedProvinceCode === ""
+                          selectedProvinceId === ""
                             ? ""
-                            : String(selectedProvinceCode)
+                            : String(selectedProvinceId)
                         }
                         onChange={(e) => {
                           const next = e.target.value
                             ? Number(e.target.value)
                             : "";
-                          setSelectedProvinceCode(next);
+                          setSelectedProvinceId(next);
+                          setSelectedDistrictId("");
                           setSelectedWardCode("");
                         }}
                         disabled={
@@ -618,8 +689,39 @@ export function CheckoutConfirmClient() {
                       >
                         <option value="">Chọn tỉnh/thành phố</option>
                         {(provincesQuery.data ?? []).map((p) => (
-                          <option key={p.code} value={String(p.code)}>
+                          <option key={p.id} value={String(p.id)}>
                             {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                        Quận/Huyện
+                      </label>
+                      <select
+                        value={
+                          selectedDistrictId === ""
+                            ? ""
+                            : String(selectedDistrictId)
+                        }
+                        onChange={(e) => {
+                          setSelectedDistrictId(
+                            e.target.value ? Number(e.target.value) : "",
+                          );
+                          setSelectedWardCode("");
+                        }}
+                        disabled={
+                          selectedProvinceId === "" ||
+                          districtsQuery.isLoading ||
+                          districtsQuery.isError
+                        }
+                        className="luxury-field mt-2 h-12 w-full py-0 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <option value="">Chọn quận/huyện</option>
+                        {(districtsQuery.data ?? []).map((district) => (
+                          <option key={district.id} value={String(district.id)}>
+                            {district.name}
                           </option>
                         ))}
                       </select>
@@ -629,18 +731,10 @@ export function CheckoutConfirmClient() {
                         Phường/Xã
                       </label>
                       <select
-                        value={
-                          selectedWardCode === ""
-                            ? ""
-                            : String(selectedWardCode)
-                        }
-                        onChange={(e) =>
-                          setSelectedWardCode(
-                            e.target.value ? Number(e.target.value) : "",
-                          )
-                        }
+                        value={selectedWardCode === "" ? "" : selectedWardCode}
+                        onChange={(e) => setSelectedWardCode(e.target.value)}
                         disabled={
-                          selectedProvinceCode === "" ||
+                          selectedDistrictId === "" ||
                           wardsQuery.isLoading ||
                           wardsQuery.isError
                         }
@@ -685,6 +779,22 @@ export function CheckoutConfirmClient() {
                         Chuyển hướng
                       </span>
                     </label>
+                    <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
+                      <span className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="payment"
+                          checked={paymentMethod === "COD"}
+                          onChange={() => setPaymentMethod("COD")}
+                        />
+                        <span className="font-semibold text-neutral-900 dark:text-white">
+                          Thanh toán khi nhận hàng (COD)
+                        </span>
+                      </span>
+                      <span className="text-neutral-500 dark:text-neutral-400">
+                        Miễn phí giao hàng
+                      </span>
+                    </label>
                   </div>
                 </section>
               </article>
@@ -698,9 +808,9 @@ export function CheckoutConfirmClient() {
 
                 {unavailableItems.length > 0 ? (
                   <div className="mt-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200">
-                    Có {unavailableItems.length} sản phẩm đã hết hàng hoặc
-                    vượt tồn kho hiện tại. Vui lòng quay lại giỏ hàng để cập
-                    nhật trước khi thanh toán.
+                    Có {unavailableItems.length} sản phẩm đã hết hàng hoặc vượt
+                    tồn kho hiện tại. Vui lòng quay lại giỏ hàng để cập nhật
+                    trước khi thanh toán.
                   </div>
                 ) : null}
 
@@ -774,7 +884,7 @@ export function CheckoutConfirmClient() {
                   {voucherResult && (
                     <p className="mt-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                       Đã áp dụng {voucherResult.voucher.code}: -
-                      {formatPrice(discountAmount)}
+                      {formatPrice(voucherDiscountAmount)}
                     </p>
                   )}
                 </div>
@@ -790,14 +900,52 @@ export function CheckoutConfirmClient() {
                   </div>
                   <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
                     <span className="font-semibold">Phí giao hàng</span>
-                    <span className="font-semibold">{formatPrice(0)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
-                    <span className="font-semibold">Giảm giá</span>
-                    <span className="font-semibold">
-                      -{formatPrice(discountAmount)}
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                      Miễn phí
                     </span>
                   </div>
+                  {voucherDiscountAmount > 0 ? (
+                    <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
+                      <span className="font-semibold">Voucher</span>
+                      <span className="font-semibold">
+                        -{formatPrice(voucherDiscountAmount)}
+                      </span>
+                    </div>
+                  ) : null}
+                  {promotionDiscountAmount > 0 ? (
+                    <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
+                      <span className="font-semibold">Giảm giá</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        -{formatPrice(promotionDiscountAmount)}
+                      </span>
+                    </div>
+                  ) : null}
+                  {hasNonStackablePromotion ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Một số sản phẩm đang thuộc chương trình không cộng thêm
+                      voucher; voucher chỉ áp dụng cho các sản phẩm còn lại.
+                    </p>
+                  ) : null}
+                  {loyaltyDiscountAmount > 0 ? (
+                    <div className="flex items-center justify-between text-sm text-neutral-700 dark:text-neutral-200">
+                      <span className="font-semibold">
+                        Ưu đãi thành viên {loyaltyTierLabel} (
+                        {loyaltyDiscountPercent}%)
+                      </span>
+                      <span className="font-semibold">
+                        -{formatPrice(loyaltyDiscountAmount)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Ưu đãi thành viên được tự động kiểm tra tại checkout.
+                    </p>
+                  )}
+                  {checkoutPreviewQuery.isLoading ? (
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                      Đang tính ưu đãi áp dụng cho đơn hàng...
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="my-8 border-t border-neutral-200 dark:border-neutral-800" />
@@ -818,7 +966,8 @@ export function CheckoutConfirmClient() {
                   disabled={
                     !canSubmit ||
                     unavailableItems.length > 0 ||
-                    payosMutation.isPending
+                    payosMutation.isPending ||
+                    codMutation.isPending
                   }
                   className="luxury-button mt-5 h-12 w-full whitespace-nowrap px-6 py-0 disabled:cursor-not-allowed disabled:opacity-60"
                 >
@@ -827,6 +976,8 @@ export function CheckoutConfirmClient() {
                       <Loader2 className="size-4 animate-spin" />
                       Đang chuyển sang thanh toán...
                     </span>
+                  ) : checkoutPreviewQuery.isLoading ? (
+                    "Đang tính ưu đãi..."
                   ) : (
                     `Hoàn tất ${formatPrice(totalAmount)}`
                   )}

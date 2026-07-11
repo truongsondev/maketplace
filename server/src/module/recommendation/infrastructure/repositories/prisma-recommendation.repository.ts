@@ -49,7 +49,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
   async getHomeRecommendations(limit: number, sessionId: string): Promise<RecommendationItem[]> {
     return this.withFeedLatency('home', async () => {
       const cacheKey = `recommendations:home:v2:${sessionId}:${limit}`;
-      const cached = await this.getRedisItems(cacheKey, 'home', limit);
+      const cached = await this.getCachedItems(cacheKey, 'home', limit);
       if (cached.length > 0) return cached;
 
       const searchIntentItems = await this.getSearchIntentRecommendations({
@@ -77,8 +77,12 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         LIMIT ${limit * 2}
       `;
 
-      const sessionItems = this.mergeRecommendationScores(
+      const hotItems = await this.getHotProductRecommendations(limit * 2);
+      const eventTrendingItems = await this.getEventTrendingRecommendations(limit * 2);
+      const contextItems = this.mergeRecommendationScores(
         [
+          ...hotItems,
+          ...eventTrendingItems,
           ...searchIntentItems,
           ...sessionRows.map((row) => ({
             productId: row.productId,
@@ -90,9 +94,9 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         limit,
       );
 
-      if (sessionItems.length > 0) {
-        await this.persistCache('home', cacheKey, null, null, sessionId, sessionItems, 900);
-        return sessionItems;
+      if (contextItems.length > 0) {
+        await this.persistCache('home', cacheKey, null, null, sessionId, contextItems, 900);
+        return contextItems;
       }
 
       const finalItems = await this.getLatestProductsFallback(limit, 'home_catalog_fallback');
@@ -105,7 +109,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
   async getProductRecommendations(productId: string, limit: number): Promise<RecommendationItem[]> {
     return this.withFeedLatency('product', async () => {
       const cacheKey = `recommendations:product:${productId}:${limit}`;
-      const cached = await this.getRedisItems(cacheKey, 'product', limit);
+      const cached = await this.getCachedItems(cacheKey, 'product', limit);
       if (cached.length > 0) return cached;
 
       const similarityRows = await this.prisma.$queryRaw<
@@ -152,7 +156,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
   async getCartRecommendations(userId: string, limit: number): Promise<RecommendationItem[]> {
     return this.withFeedLatency('cart', async () => {
       const cacheKey = `recommendations:cart:${userId}:${limit}`;
-      const cached = await this.getRedisItems(cacheKey, 'cart', limit);
+      const cached = await this.getCachedItems(cacheKey, 'cart', limit);
       if (cached.length > 0) return cached;
 
       const cart = await this.prisma.cart.findUnique({
@@ -173,11 +177,13 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         source: 'cart_ai',
       }));
       const sameCategoryItems = await this.getSameCategoryFallbackForProducts(excluded, limit * 3);
-      const nested = await Promise.all(
-        cart.items.map((item) => this.getProductRecommendations(item.productId, limit)),
+      const relatedItems = await this.getRelatedRecommendationsForProducts(
+        excluded,
+        limit * 3,
+        excluded,
       );
       const finalItems = this.uniqueTop(
-        [...aiItems, ...sameCategoryItems, ...nested.flat()],
+        [...aiItems, ...relatedItems, ...sameCategoryItems],
         limit,
         excluded,
       );
@@ -193,7 +199,7 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
   ): Promise<RecommendationItem[]> {
     return this.withFeedLatency('personalized', async () => {
       const cacheKey = `recommendations:personalized:v4:${userId}:${sessionId}:${limit}`;
-      const cached = await this.getRedisItems(cacheKey, 'personalized', limit);
+      const cached = await this.getCachedItems(cacheKey, 'personalized', limit);
       if (cached.length > 0) return cached;
 
       const recentEvents = await this.prisma.$queryRaw<Array<{ productId: string; score: number }>>`
@@ -222,18 +228,20 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
       });
 
       const contextIds = recentEvents.map((row) => row.productId);
+      const excludedProductIds = await this.getPersonalizedExcludedProductIds(userId, contextIds);
       const aiItems = await this.getAiVectorRecommendations(
         contextIds,
         limit * 4,
-        contextIds,
+        excludedProductIds,
         'personalized',
         userId,
       );
-      const related = await Promise.all(
-        recentEvents.map((row) =>
-          this.getProductRecommendations(row.productId, Math.max(6, limit)),
-        ),
+      const relatedItems = await this.getRelatedRecommendationsForProducts(
+        contextIds,
+        limit * 4,
+        excludedProductIds,
       );
+      const categoryItems = await this.getSameCategoryFallbackForProducts(contextIds, limit * 3);
 
       const ownSignals = recentEvents.map((row) => ({
         productId: row.productId,
@@ -242,10 +250,19 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         source: 'recent_behavior',
       }));
 
-      const finalItems = this.uniqueTop(
-        [...searchIntentItems, ...ownSignals, ...aiItems, ...related.flat()],
+      let finalItems = this.uniqueTop(
+        [...searchIntentItems, ...aiItems, ...relatedItems, ...categoryItems, ...ownSignals],
         limit,
+        excludedProductIds,
       );
+      if (finalItems.length < limit) {
+        const fallbackItems = await this.getLatestProductsFallback(
+          limit * 2,
+          'personalized_catalog_fallback',
+        );
+        finalItems = this.uniqueTop([...finalItems, ...fallbackItems], limit, excludedProductIds);
+      }
+
       await this.persistCache('personalized', cacheKey, userId, null, sessionId, finalItems, 900);
       return finalItems;
     });
@@ -397,7 +414,9 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
 
     if (cooccurrenceRows.length > 0) {
       const refreshedAt = new Date().toISOString();
-      const valuePlaceholders = cooccurrenceRows.map(() => '(?, ?, ?, ?, ?, ?, NOW(), NOW())').join(', ');
+      const valuePlaceholders = cooccurrenceRows
+        .map(() => '(?, ?, ?, ?, ?, ?, NOW(), NOW())')
+        .join(', ');
       const values = cooccurrenceRows.flatMap((row, index) => [
         row.productId,
         row.relatedProductId,
@@ -498,6 +517,119 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
         total: Number(row.total),
       })),
     };
+  }
+
+  private async getHotProductRecommendations(limit: number): Promise<RecommendationItem[]> {
+    const raw = await redis.zrevrange('recommendations:hot-products', 0, limit - 1, 'WITHSCORES');
+    const items: RecommendationItem[] = [];
+
+    for (let index = 0; index < raw.length; index += 2) {
+      const productId = raw[index];
+      const score = Number(raw[index + 1] ?? 0);
+      if (!productId) continue;
+
+      items.push({
+        productId,
+        score: score + Math.max(0.1, limit - index / 2),
+        reason: 'Sản phẩm đang được quan tâm nhiều',
+        source: 'hot_products',
+      });
+    }
+
+    return items;
+  }
+
+  private async getEventTrendingRecommendations(limit: number): Promise<RecommendationItem[]> {
+    const rows = await this.prisma.$queryRaw<
+      Array<{ productId: string; score: number; views: number; purchases: number }>
+    >`
+      SELECT product_id as productId,
+        SUM(CASE event_type
+          WHEN 'PURCHASE' THEN 5
+          WHEN 'ADD_TO_CART' THEN 3
+          WHEN 'FAVORITE_PRODUCT' THEN 2
+          WHEN 'VIEW_PRODUCT' THEN 1
+          ELSE 0
+        END) as score,
+        SUM(CASE WHEN event_type = 'VIEW_PRODUCT' THEN 1 ELSE 0 END) as views,
+        SUM(CASE WHEN event_type = 'PURCHASE' THEN 1 ELSE 0 END) as purchases
+      FROM recommendation_events
+      WHERE product_id IS NOT NULL
+        AND event_type IN ('VIEW_PRODUCT', 'ADD_TO_CART', 'FAVORITE_PRODUCT', 'PURCHASE')
+        AND occurred_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+      GROUP BY product_id
+      ORDER BY score DESC, purchases DESC, views DESC
+      LIMIT ${limit}
+    `;
+
+    return rows.map((row) => ({
+      productId: row.productId,
+      score: Number(row.score),
+      reason: Number(row.purchases) > 0 ? 'Được mua nhiều gần đây' : 'Được xem nhiều gần đây',
+      source: Number(row.purchases) > 0 ? 'top_purchased' : 'top_viewed',
+    }));
+  }
+
+  private async getRelatedRecommendationsForProducts(
+    productIds: string[],
+    limit: number,
+    excludedProductIds: string[] = [],
+  ): Promise<RecommendationItem[]> {
+    const uniqueProductIds = Array.from(new Set(productIds.filter(Boolean)));
+    if (uniqueProductIds.length === 0) return [];
+
+    const excluded = Array.from(new Set([...uniqueProductIds, ...excludedProductIds]));
+    const rows = await this.prisma.productSimilarity.findMany({
+      where: {
+        productId: { in: uniqueProductIds },
+        relatedProductId: { notIn: excluded },
+      },
+      select: {
+        relatedProductId: true,
+        score: true,
+        algorithm: true,
+      },
+      orderBy: [{ score: 'desc' }, { rank: 'asc' }],
+      take: limit * 2,
+    });
+
+    return this.uniqueTop(
+      rows.map((row) => ({
+        productId: row.relatedProductId,
+        score: Number(row.score),
+        reason: 'Liên quan theo hành vi mua sắm',
+        source: row.algorithm,
+      })),
+      limit,
+      excluded,
+    );
+  }
+
+  private async getPersonalizedExcludedProductIds(
+    userId: string,
+    contextIds: string[],
+  ): Promise<string[]> {
+    const [cart, purchasedRows] = await Promise.all([
+      this.prisma.cart.findUnique({
+        where: { userId },
+        include: { items: { select: { productId: true } } },
+      }),
+      this.prisma.$queryRaw<Array<{ productId: string }>>`
+        SELECT DISTINCT oi.product_id as productId
+        FROM orders o
+        INNER JOIN order_items oi ON oi.order_id = o.id
+        WHERE o.user_id = ${userId}
+          AND o.created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+      `,
+    ]);
+
+    return Array.from(
+      new Set([
+        ...contextIds,
+        ...(cart?.items ?? []).map((item) => item.productId),
+        ...purchasedRows.map((row) => row.productId),
+      ]),
+    );
   }
 
   private async getSameCategoryFallback(
@@ -893,6 +1025,17 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
     return [];
   }
 
+  private async getCachedItems(
+    cacheKey: string,
+    feed: string,
+    limit?: number,
+  ): Promise<RecommendationItem[]> {
+    const redisItems = await this.getRedisItems(cacheKey, feed, limit);
+    if (redisItems.length > 0) return redisItems;
+
+    return this.getDbCacheItems(cacheKey, feed, limit);
+  }
+
   private async getRedisItems(
     cacheKey: string,
     feed: string,
@@ -907,6 +1050,34 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
     } catch {
       return [];
     }
+  }
+
+  private async getDbCacheItems(
+    cacheKey: string,
+    feed: string,
+    limit?: number,
+  ): Promise<RecommendationItem[]> {
+    const cache = await this.prisma.recommendationCache.findUnique({
+      where: { cacheKey },
+      select: {
+        itemsJson: true,
+        expiresAt: true,
+      },
+    });
+
+    if (!cache || cache.expiresAt <= new Date()) {
+      return [];
+    }
+
+    const items = this.normalizeCachedRecommendationItems(cache.itemsJson, limit);
+    if (items.length === 0) {
+      return [];
+    }
+
+    const ttlSeconds = Math.max(1, Math.floor((cache.expiresAt.getTime() - Date.now()) / 1000));
+    await redis.set(cacheKey, JSON.stringify(items), 'EX', ttlSeconds);
+    cacheHitCounter.inc({ feed });
+    return items;
   }
 
   private normalizeCachedRecommendationItems(raw: unknown, limit?: number): RecommendationItem[] {
@@ -976,8 +1147,14 @@ export class PrismaRecommendationRepository implements IRecommendationRepository
             ? 3
             : event.eventType === 'FAVORITE_PRODUCT'
               ? 2
-              : 1;
-      await redis.zincrby('recommendations:hot-products', weight, event.productId);
+              : event.eventType === 'RECOMMENDATION_CLICK'
+                ? 1.5
+                : event.eventType === 'RECOMMENDATION_IMPRESSION'
+                  ? 0
+                  : 1;
+      if (weight > 0) {
+        await redis.zincrby('recommendations:hot-products', weight, event.productId);
+      }
     }
 
     if (event.userId && event.productId) {

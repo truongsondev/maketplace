@@ -213,6 +213,39 @@ services:
       - prod-network
     command: sh -c "npx prisma generate && node dist/payos-reconcile-worker.js"
 
+  birthday-voucher-worker:
+    image: maketplace-server:prod
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: prod-birthday-voucher-worker
+    restart: always
+    environment:
+      NODE_ENV: production
+      BIRTHDAY_VOUCHER_INTERVAL_MS: ${BIRTHDAY_VOUCHER_INTERVAL_MS:-3600000}
+      BIRTHDAY_VOUCHER_BATCH_SIZE: ${BIRTHDAY_VOUCHER_BATCH_SIZE:-200}
+      BIRTHDAY_VOUCHER_LOCK_KEY: locks:birthday-voucher
+      BIRTHDAY_VOUCHER_LOCK_TTL_MS: 600000
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@mysql:3306/${DB_NAME:-app_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      ENABLE_FILE_LOGGING: "true"
+    env_file:
+      - ./server/.env.prod
+    volumes:
+      - backend_logs:/app/logs
+    depends_on:
+      backend:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - prod-network
+    command: sh -c "npx prisma generate && node dist/birthday-voucher-worker.js"
+
   ai-service:
     build:
       context: ./ai-service

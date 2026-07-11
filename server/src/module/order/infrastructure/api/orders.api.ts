@@ -176,6 +176,20 @@ export class OrdersAPI {
     const body = req.body as Record<string, unknown>;
     const reason = body.reason;
     const reasonCode = String(body.reasonCode || '').trim().toUpperCase();
+    const requestType = String(body.requestType || '').trim().toUpperCase();
+    if (requestType !== 'EXCHANGE' && requestType !== 'RETURN_REFUND') {
+      throw new BadRequestError('requestType must be EXCHANGE or RETURN_REFUND');
+    }
+    const items = Array.isArray(body.items)
+      ? body.items
+          .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+          .map((item) => ({
+            orderItemId: String(item.orderItemId || '').trim(),
+            quantity: Number(item.quantity),
+            requestedVariantId:
+              typeof item.requestedVariantId === 'string' ? item.requestedVariantId.trim() : null,
+          }))
+      : [];
     const bankAccountName = String(body.bankAccountName || '').trim();
     const bankAccountNumber = String(body.bankAccountNumber || '').trim();
     const bankName = String(body.bankName || '').trim();
@@ -186,6 +200,8 @@ export class OrdersAPI {
     const result = await this.orderReturnsController.requestReturn({
       userId,
       orderId,
+      requestType,
+      items,
       reasonCode,
       reason: typeof reason === 'string' ? reason : null,
       evidenceImages,

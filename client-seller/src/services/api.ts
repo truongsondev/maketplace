@@ -25,6 +25,12 @@ import type {
   BannerListResponse,
   BannerResponse,
   BannerUpsertCommand,
+  LoyaltyConfig,
+  LoyaltyConfigResponse,
+  PromotionListResponse,
+  PromotionResponse,
+  PromotionStatus,
+  PromotionUpsertCommand,
 } from "@/types/api";
 import type {
   AdminProductLeastBoughtResponse,
@@ -38,6 +44,8 @@ import type {
   AdminOrdersListResponse,
   AdminOrderTab,
   AdminOrderSort,
+  AdminOrderRequestType,
+  AdminOrderRequestStatus,
   AdminOrderStatusBreakdownResponse,
   AdminOrderTimeseriesResponse,
 } from "@/types/order";
@@ -63,6 +71,21 @@ import type {
   DashboardTimeseries,
 } from "../types/dashboard";
 import type { AdminNotificationListResult } from "@/types/notification";
+
+function unwrapAdminData<T>(response: { data: { data?: T } | T }): T {
+  const body = response.data;
+  return typeof body === "object" && body !== null && "data" in body
+    ? (body as { data: T }).data
+    : (body as T);
+}
+
+export const physicalSaleService = {
+  catalog: async (search = "") => unwrapAdminData<never[]>(await apiClient.get("/admin/products/physical-sales/catalog", { params: { search } })),
+  list: async () => unwrapAdminData<never[]>(await apiClient.get("/admin/products/physical-sales")),
+  create: async (input: { paymentMethod: string; items: Array<{ variantId: string; quantity: number }>; idempotencyKey: string }) =>
+    unwrapAdminData<unknown>(await apiClient.post("/admin/products/physical-sales", input, { headers: { "Idempotency-Key": input.idempotencyKey } })),
+  cancel: async (id: string, reason: string) => unwrapAdminData<unknown>(await apiClient.post(`/admin/products/physical-sales/${id}/cancel`, { reason })),
+};
 
 export const authService = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
@@ -303,6 +326,8 @@ export const orderService = {
     limit?: number;
     from?: string;
     to?: string;
+    requestType?: AdminOrderRequestType;
+    requestStatus?: AdminOrderRequestStatus;
   }): Promise<AdminOrdersListResponse> => {
     const response = await apiClient.get("/admin/orders", { params });
     return response.data;
@@ -314,6 +339,8 @@ export const orderService = {
     sort?: AdminOrderSort;
     from?: string;
     to?: string;
+    requestType?: AdminOrderRequestType;
+    requestStatus?: AdminOrderRequestStatus;
   }): Promise<Blob> => {
     const response = await apiClient.get("/admin/orders/export", {
       params,
@@ -391,7 +418,21 @@ export const orderService = {
   },
 
   shipOrder: async (orderId: string): Promise<void> => {
-    await apiClient.post(`/admin/orders/${orderId}/ship`);
+    await apiClient.post(`/admin/orders/${orderId}/ship/ghn`);
+  },
+
+  syncGhnShipment: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/shipment/sync`);
+  },
+
+  printGhnShipment: async (orderId: string): Promise<void> => {
+    const response = await apiClient.post(`/admin/orders/${orderId}/shipment/print-token`);
+    const url = response.data?.data?.url;
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  },
+
+  packOrder: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/pack`);
   },
 
   deliverOrder: async (orderId: string): Promise<void> => {
@@ -444,6 +485,67 @@ export const voucherService = {
     const response = await apiClient.patch(`/admin/vouchers/${id}/status`, {
       isActive,
     });
+    return response.data;
+  },
+};
+
+export const promotionService = {
+  list: async (params?: { search?: string }): Promise<PromotionListResponse> => {
+    const response = await apiClient.get("/admin/promotions", { params });
+    return response.data;
+  },
+
+  create: async (data: PromotionUpsertCommand): Promise<PromotionResponse> => {
+    const response = await apiClient.post("/admin/promotions", data);
+    return response.data;
+  },
+
+  update: async (
+    id: string,
+    data: PromotionUpsertCommand,
+  ): Promise<PromotionResponse> => {
+    const response = await apiClient.put(`/admin/promotions/${id}`, data);
+    return response.data;
+  },
+
+  setStatus: async (
+    id: string,
+    status: PromotionStatus,
+  ): Promise<PromotionResponse> => {
+    const response = await apiClient.patch(`/admin/promotions/${id}/status`, {
+      status,
+    });
+    return response.data;
+  },
+};
+
+export const loyaltyAdminService = {
+  getConfig: async (): Promise<LoyaltyConfigResponse> => {
+    const response = await apiClient.get("/admin/loyalty/config");
+    return response.data;
+  },
+
+  updateConfig: async (data: LoyaltyConfig): Promise<LoyaltyConfigResponse> => {
+    const response = await apiClient.put("/admin/loyalty/config", data);
+    return response.data;
+  },
+
+  adjust: async (input: {
+    userId: string;
+    points: number;
+    reason: string;
+    idempotencyKey: string;
+  }): Promise<{ success: boolean; data: { changed: number } }> => {
+    const response = await apiClient.post(
+      `/admin/loyalty/accounts/${input.userId}/adjust`,
+      input,
+      { headers: { "Idempotency-Key": input.idempotencyKey } },
+    );
+    return response.data;
+  },
+
+  expire: async (): Promise<{ success: boolean; data: { expiredPoints: number } }> => {
+    const response = await apiClient.post("/admin/loyalty/expire");
     return response.data;
   },
 };

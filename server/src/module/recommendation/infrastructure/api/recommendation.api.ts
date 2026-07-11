@@ -98,6 +98,8 @@ export class RecommendationAPI {
       'PURCHASE',
       'SEARCH_QUERY',
       'FAVORITE_PRODUCT',
+      'RECOMMENDATION_IMPRESSION',
+      'RECOMMENDATION_CLICK',
     ]);
 
     if (!validTypes.has(eventType)) {
@@ -108,6 +110,21 @@ export class RecommendationAPI {
     const productId = cleanString(req.body?.productId);
     const orderId = cleanString(req.body?.orderId);
     const searchQuery = cleanString(req.body?.searchQuery);
+    const metadata = typeof req.body?.metadata === 'object' ? req.body.metadata : null;
+
+    if (eventType === 'RECOMMENDATION_CLICK' && !productId) {
+      throw new BadRequestError('productId is required for recommendation clicks');
+    }
+
+    if (
+      eventType === 'RECOMMENDATION_IMPRESSION' &&
+      (!metadata || !Array.isArray(metadata.recommendationIds))
+    ) {
+      throw new BadRequestError(
+        'metadata.recommendationIds is required for recommendation impressions',
+      );
+    }
+
     const dedupeKey = createTrackingDedupeKey({
       provided: req.body?.dedupeKey ?? req.header('x-idempotency-key'),
       eventType,
@@ -128,7 +145,7 @@ export class RecommendationAPI {
       searchQuery,
       source: typeof req.body?.source === 'string' ? req.body.source : 'web',
       placement: typeof req.body?.placement === 'string' ? req.body.placement : null,
-      metadata: typeof req.body?.metadata === 'object' ? req.body.metadata : null,
+      metadata,
       dedupeKey,
       occurredAt,
     };

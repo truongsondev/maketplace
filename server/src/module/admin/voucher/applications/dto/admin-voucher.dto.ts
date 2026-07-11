@@ -1,4 +1,4 @@
-import type { DiscountType } from '@/generated/prisma/enums';
+import type { DiscountType, VoucherMinAmountBasis, VoucherScopeType } from '@/generated/prisma/enums';
 
 export interface AdminVoucherSummary {
   id: string;
@@ -14,7 +14,16 @@ export interface AdminVoucherSummary {
   startAt: Date;
   endAt: Date;
   isActive: boolean;
+  isBirthdayVoucher?: boolean;
   bannerImageUrl: string | null;
+  scopeType: VoucherScopeType;
+  includeDescendants: boolean;
+  minAmountBasis: VoucherMinAmountBasis;
+  includedCategoryIds: string[];
+  excludedCategoryIds: string[];
+  includedProductIds: string[];
+  excludedProductIds: string[];
+  memberTiers: string[];
 }
 
 export interface AdminVoucherInput {
@@ -30,6 +39,14 @@ export interface AdminVoucherInput {
   endAt: string;
   isActive?: boolean;
   bannerImageUrl?: string | null;
+  scopeType?: VoucherScopeType;
+  includeDescendants?: boolean;
+  minAmountBasis?: VoucherMinAmountBasis;
+  includedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
+  includedProductIds?: string[];
+  excludedProductIds?: string[];
+  memberTiers?: string[];
 }
 
 export interface NormalizedAdminVoucherInput {
@@ -45,4 +62,12 @@ export interface NormalizedAdminVoucherInput {
   endAt: Date;
   isActive: boolean;
   bannerImageUrl: string | null;
+  scopeType: VoucherScopeType;
+  includeDescendants: boolean;
+  minAmountBasis: VoucherMinAmountBasis;
+  includedCategoryIds: string[];
+  excludedCategoryIds: string[];
+  includedProductIds: string[];
+  excludedProductIds: string[];
+  memberTiers: string[];
 }

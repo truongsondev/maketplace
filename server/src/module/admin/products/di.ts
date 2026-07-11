@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../../infrastructure/database';
+import { PhysicalSaleAPI } from './infrastructure/api/physical-sale.api';
 
 // Use Cases
 import {
@@ -169,6 +170,7 @@ export function createAdminModule(): Router {
   const productAnalyticsAPI = new ProductAnalyticsAPI(productAnalyticsController);
 
   // Register routes
+  router.use(new PhysicalSaleAPI(prisma).router);
   router.use(productAPI.router);
   router.use(variantAPI.router);
   router.use(bulkOperationsAPI.router);

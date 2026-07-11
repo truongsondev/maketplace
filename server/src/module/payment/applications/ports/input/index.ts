@@ -1,6 +1,8 @@
 import {
   CreatePayosPaymentLinkCommand,
   CreatePayosPaymentLinkResult,
+  CreateCodOrderCommand,
+  CreateCodOrderResult,
   HandlePayosWebhookResult,
   PaymentStatusResult,
   PayosReturnResult,
@@ -20,4 +22,8 @@ export interface IHandlePayosWebhookUseCase {
 
 export interface IGetPaymentStatusUseCase {
   execute(orderCode: string, userId: string): Promise<PaymentStatusResult>;
+}
+
+export interface ICreateCodOrderUseCase {
+  execute(command: CreateCodOrderCommand): Promise<CreateCodOrderResult>;
 }

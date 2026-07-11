@@ -1,0 +1,11 @@
+-- Phase 4: normalized voucher scopes.
+ALTER TABLE `discounts`
+  ADD COLUMN `scope_type` ENUM('ALL_PRODUCTS','INCLUDE_CATEGORIES','INCLUDE_PRODUCTS','MEMBER_TIERS') NOT NULL DEFAULT 'ALL_PRODUCTS',
+  ADD COLUMN `include_descendants` BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN `min_amount_basis` ENUM('ELIGIBLE_SUBTOTAL','CART_SUBTOTAL') NOT NULL DEFAULT 'ELIGIBLE_SUBTOTAL';
+
+CREATE TABLE `discount_included_categories` (`discount_id` VARCHAR(36) NOT NULL, `category_id` VARCHAR(36) NOT NULL, PRIMARY KEY(`discount_id`,`category_id`), INDEX(`category_id`), CONSTRAINT FOREIGN KEY(`discount_id`) REFERENCES `discounts`(`id`) ON DELETE CASCADE, CONSTRAINT FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON DELETE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE `discount_excluded_categories` (`discount_id` VARCHAR(36) NOT NULL, `category_id` VARCHAR(36) NOT NULL, PRIMARY KEY(`discount_id`,`category_id`), INDEX(`category_id`), CONSTRAINT FOREIGN KEY(`discount_id`) REFERENCES `discounts`(`id`) ON DELETE CASCADE, CONSTRAINT FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON DELETE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE `discount_included_products` (`discount_id` VARCHAR(36) NOT NULL, `product_id` VARCHAR(36) NOT NULL, PRIMARY KEY(`discount_id`,`product_id`), INDEX(`product_id`), CONSTRAINT FOREIGN KEY(`discount_id`) REFERENCES `discounts`(`id`) ON DELETE CASCADE, CONSTRAINT FOREIGN KEY(`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE `discount_excluded_products` (`discount_id` VARCHAR(36) NOT NULL, `product_id` VARCHAR(36) NOT NULL, PRIMARY KEY(`discount_id`,`product_id`), INDEX(`product_id`), CONSTRAINT FOREIGN KEY(`discount_id`) REFERENCES `discounts`(`id`) ON DELETE CASCADE, CONSTRAINT FOREIGN KEY(`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE `discount_member_tiers` (`discount_id` VARCHAR(36) NOT NULL, `tier` VARCHAR(30) NOT NULL, PRIMARY KEY(`discount_id`,`tier`), CONSTRAINT FOREIGN KEY(`discount_id`) REFERENCES `discounts`(`id`) ON DELETE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

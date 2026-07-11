@@ -13,6 +13,13 @@ import { createPublicVoucherModule, createVoucherModule } from './module/voucher
 import { createAddressModule } from './module/address/di';
 import { createOrderModule } from './module/order/di';
 import { createMockOrdersModule } from './module/mock-orders/di';
+import {
+  createGhnAdminModule,
+  createGhnCustomerModule,
+  createGhnMasterDataModule,
+  createGhnWebhookModule,
+  isGhnEnabled,
+} from './module/shipping/di';
 import { createReviewModule } from './module/review/di';
 import { createAdminVoucherModule } from './module/admin/voucher/di';
 import { createAdminBannerModule } from './module/admin/banner/di';
@@ -21,6 +28,9 @@ import { createAdminRefundModule } from './module/admin/refund/di';
 import { createAdminDashboardModule } from './module/admin/dashboard/di';
 import { createAdminLogsModule } from './module/admin/logs/di';
 import { createAdminNotificationsModule } from './module/admin/notifications/di';
+import { createAdminLoyaltyModule } from './module/admin/loyalty/di';
+import { createAdminPromotionModule } from './module/admin/promotion/di';
+import { createPublicPromotionModule } from './module/promotion/di';
 import { createPublicBannerModule } from './module/banner/di';
 import { createPublicLocationModule } from './module/location/di';
 import { createChatbotModule } from './module/chatbot/di';
@@ -104,12 +114,18 @@ app.get('/metrics', (req, res) => {
   res.send(metricsRegistry.render());
 });
 
-app.use('/api/mock/orders', createMockOrdersModule());
+app.use('/api/webhooks/ghn', createGhnWebhookModule());
+app.use('/api/shipping/ghn', createGhnMasterDataModule());
+
+if (process.env.NODE_ENV !== 'production' && !isGhnEnabled()) {
+  app.use('/api/mock/orders', createMockOrdersModule());
+}
 
 app.use('/api/common', createCommonModule());
 app.use('/api/common/vouchers', createPublicVoucherModule());
 app.use('/api/common/banners', createPublicBannerModule());
 app.use('/api/common/locations', createPublicLocationModule());
+app.use('/api/promotions', createPublicPromotionModule());
 
 app.use(requestLoggingMiddleware);
 
@@ -123,6 +139,7 @@ app.use('/api/users', createUserProfileModule());
 app.use('/api/addresses', createAddressModule());
 app.use('/api/cart', createCartModule());
 app.use('/api/orders', createOrderModule());
+app.use('/api/orders', createGhnCustomerModule());
 app.use('/api/reviews', createReviewModule());
 app.use('/api/virtual-try-on', createVirtualTryOnModule());
 app.use('/api/products', createProductModule());
@@ -132,10 +149,13 @@ app.use('/api/vouchers', createVoucherModule());
 app.use('/api/admin/virtual-try-on', requireAdmin, createAdminVirtualTryOnModule());
 app.use('/api/admin', requireAdmin, createAdminModule());
 app.use('/api/admin/orders', requireAdmin, createAdminOrdersModule());
+app.use('/api/admin/orders', requireAdmin, createGhnAdminModule());
 app.use('/api/admin/dashboard', requireAdmin, createAdminDashboardModule());
 app.use('/api/admin/logs', requireAdmin, createAdminLogsModule());
 app.use('/api/admin/notifications', requireAdmin, createAdminNotificationsModule());
 app.use('/api/admin/vouchers', requireAdmin, createAdminVoucherModule());
+app.use('/api/admin/loyalty', requireAdmin, createAdminLoyaltyModule());
+app.use('/api/admin/promotions', requireAdmin, createAdminPromotionModule());
 app.use('/api/admin/banners', requireAdmin, createAdminBannerModule());
 app.use('/api/admin/users', requireAdmin, createAdminUsersModule());
 app.use('/api/admin/refunds', requireAdmin, createAdminRefundModule());

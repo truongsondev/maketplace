@@ -9,13 +9,30 @@ import {
   SectionHeading,
   Sidebar,
 } from "@/components/admin";
-import { cloudinaryService, voucherService } from "@/services/api";
+import {
+  categoryService,
+  cloudinaryService,
+  productService,
+  voucherService,
+} from "@/services/api";
 import type {
+  Category,
+  ProductListItem,
   VoucherItem,
+  VoucherScopeType,
   VoucherType,
   VoucherUpsertCommand,
 } from "@/types/api";
-import { BadgePercent, PiggyBank, ShieldAlert, TrendingUp } from "lucide-react";
+import {
+  BadgePercent,
+  Check,
+  ImageIcon,
+  PiggyBank,
+  Search,
+  ShieldAlert,
+  TrendingUp,
+  X,
+} from "lucide-react";
 
 function toDateTimeLocalValue(value: string): string {
   const date = new Date(value);
@@ -41,6 +58,14 @@ function createInitialForm(): VoucherUpsertCommand {
     endAt: end.toISOString(),
     isActive: true,
     bannerImageUrl: "",
+    scopeType: "ALL_PRODUCTS",
+    includeDescendants: false,
+    minAmountBasis: "ELIGIBLE_SUBTOTAL",
+    includedCategoryIds: [],
+    excludedCategoryIds: [],
+    includedProductIds: [],
+    excludedProductIds: [],
+    memberTiers: [],
   };
 }
 
@@ -126,10 +151,523 @@ function formatVoucherTypeLabel(type: VoucherType): string {
   return "Số tiền cố định";
 }
 
+type PickerOption = {
+  id: string;
+  label: string;
+  description?: string;
+};
+
+type MultiSelectPickerProps = {
+  label: string;
+  placeholder: string;
+  options: PickerOption[];
+  selectedIds: string[];
+  search: string;
+  loading?: boolean;
+  emptyText: string;
+  onSearchChange: (value: string) => void;
+  onChange: (ids: string[]) => void;
+};
+
+function toggleId(ids: string[], id: string): string[] {
+  return ids.includes(id)
+    ? ids.filter((selectedId) => selectedId !== id)
+    : [...ids, id];
+}
+
+function MultiSelectPicker({
+  label,
+  placeholder,
+  options,
+  selectedIds,
+  search,
+  loading,
+  emptyText,
+  onSearchChange,
+  onChange,
+}: MultiSelectPickerProps) {
+  const optionById = new Map(options.map((option) => [option.id, option]));
+  const selectedOptions = selectedIds.map(
+    (id) =>
+      optionById.get(id) ?? {
+        id,
+        label: id,
+        description: "Đã chọn trước đó",
+      },
+  );
+
+  return (
+    <div className="space-y-2 text-sm text-gray-700 md:col-span-2">
+      <div className="flex items-center justify-between gap-3">
+        <span>{label}</span>
+        {selectedIds.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+          >
+            Bỏ chọn tất cả
+          </button>
+        ) : null}
+      </div>
+
+      <div className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg border border-gray-300 px-3 py-2">
+        {selectedOptions.length === 0 ? (
+          <span className="text-gray-400">Chưa chọn mục nào</span>
+        ) : (
+          selectedOptions.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() =>
+                onChange(selectedIds.filter((id) => id !== option.id))
+              }
+              className="inline-flex max-w-full items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700"
+              title={option.description || option.id}
+            >
+              <span className="truncate">{option.label}</span>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ))
+        )}
+      </div>
+
+      <div className="rounded-lg border border-gray-200">
+        <div className="flex items-center gap-2 border-b border-gray-200 px-3">
+          <Search className="h-4 w-4 text-gray-400" />
+          <input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            className="h-10 w-full border-0 text-sm outline-none"
+            placeholder={placeholder}
+          />
+        </div>
+        <div className="max-h-56 overflow-y-auto p-2">
+          {loading ? (
+            <p className="px-2 py-3 text-sm text-gray-500">Đang tải dữ liệu...</p>
+          ) : options.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-gray-500">{emptyText}</p>
+          ) : (
+            options.map((option) => {
+              const checked = selectedIds.includes(option.id);
+
+              return (
+                <label
+                  key={option.id}
+                  className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 hover:bg-gray-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onChange(toggleId(selectedIds, option.id))}
+                    className="mt-1"
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-gray-900">
+                      {option.label}
+                    </span>
+                    {option.description ? (
+                      <span className="block truncate text-xs text-gray-500">
+                        {option.description}
+                      </span>
+                    ) : null}
+                  </span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildCategoryOptions(
+  categories: Category[],
+  search: string,
+): PickerOption[] {
+  const byParent = new Map<string | null, Category[]>();
+  for (const category of categories) {
+    const siblings = byParent.get(category.parentId) ?? [];
+    siblings.push(category);
+    byParent.set(category.parentId, siblings);
+  }
+
+  const flattened: Array<Category & { depth: number }> = [];
+  const visit = (parentId: string | null, depth: number) => {
+    const children = [...(byParent.get(parentId) ?? [])].sort(
+      (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+    );
+    for (const child of children) {
+      flattened.push({ ...child, depth });
+      visit(child.id, depth + 1);
+    }
+  };
+  visit(null, 0);
+
+  const normalizedSearch = search.trim().toLowerCase();
+  return flattened
+    .filter((category) =>
+      normalizedSearch
+        ? `${category.name} ${category.slug}`
+            .toLowerCase()
+            .includes(normalizedSearch)
+        : true,
+    )
+    .map((category) => ({
+      id: category.id,
+      label: `${"— ".repeat(category.depth)}${category.name}`,
+      description: category.parentId ? "Danh mục con" : "Danh mục gốc",
+    }));
+}
+
+function formatProductPrice(product: ProductListItem): string {
+  const min = product.variantsSummary.priceRange.min;
+  const max = product.variantsSummary.priceRange.max;
+
+  if (min === max) {
+    return `${min.toLocaleString("vi-VN")} đ`;
+  }
+
+  return `${min.toLocaleString("vi-VN")} - ${max.toLocaleString("vi-VN")} đ`;
+}
+
+type ProductSelectFieldProps = {
+  label: string;
+  placeholder: string;
+  products: ProductListItem[];
+  selectedIds: string[];
+  search: string;
+  loading?: boolean;
+  onSearchChange: (value: string) => void;
+  onChange: (ids: string[]) => void;
+};
+
+function ProductSelectField({
+  label,
+  placeholder,
+  products,
+  selectedIds,
+  search,
+  loading,
+  onSearchChange,
+  onChange,
+}: ProductSelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const productById = new Map(products.map((product) => [product.id, product]));
+  const selectedProducts = selectedIds.map((id) => productById.get(id)).filter(Boolean) as ProductListItem[];
+  const missingSelectedIds = selectedIds.filter((id) => !productById.has(id));
+
+  const removeId = (id: string) => {
+    onChange(selectedIds.filter((selectedId) => selectedId !== id));
+  };
+
+  return (
+    <div className="space-y-2 text-sm text-gray-700 md:col-span-2">
+      <div className="flex items-center justify-between gap-3">
+        <span>{label}</span>
+        {selectedIds.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+          >
+            Bỏ chọn tất cả
+          </button>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="flex min-h-12 w-full items-center justify-between rounded-lg border border-gray-300 px-3 py-2 text-left hover:border-blue-400 hover:bg-blue-50/40"
+      >
+        <span className={selectedIds.length ? "font-medium text-gray-900" : "text-gray-400"}>
+          {selectedIds.length
+            ? `Đã chọn ${selectedIds.length} sản phẩm`
+            : "Chưa chọn sản phẩm nào"}
+        </span>
+        <span className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white">
+          Mở danh sách
+        </span>
+      </button>
+
+      {selectedIds.length > 0 ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {selectedProducts.slice(0, 4).map((product) => (
+            <div
+              key={product.id}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-gray-100">
+                {product.primaryImage?.url ? (
+                  <img
+                    src={product.primaryImage.url}
+                    alt={product.primaryImage.altText || product.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-gray-950" title={product.name}>
+                  {product.name}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  {formatProductPrice(product)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => removeId(product.id)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                title="Bỏ sản phẩm"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          {missingSelectedIds.map((id) => (
+            <div
+              key={id}
+              className="flex min-h-14 items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
+            >
+              <span className="truncate text-gray-600">{id}</span>
+              <button
+                type="button"
+                onClick={() => removeId(id)}
+                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                title="Bỏ sản phẩm"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          {selectedIds.length > selectedProducts.slice(0, 4).length + missingSelectedIds.length ? (
+            <button
+              type="button"
+              onClick={() => setIsOpen(true)}
+              className="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600"
+            >
+              Xem thêm sản phẩm đã chọn
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {isOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-950">{label}</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Chọn theo ảnh, tên sản phẩm, danh mục và khoảng giá để tránh nhầm sản phẩm.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+                title="Đóng"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="border-b border-gray-200 px-5 py-3">
+              <div className="flex items-center gap-2 rounded-lg border border-gray-300 px-3">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={(event) => onSearchChange(event.target.value)}
+                  className="h-11 w-full border-0 text-sm outline-none"
+                  placeholder={placeholder}
+                />
+              </div>
+            </div>
+
+            <div className="grid min-h-0 flex-1 lg:grid-cols-[1fr_18rem]">
+              <div className="min-h-0 overflow-y-auto p-5">
+                {loading ? (
+                  <p className="py-10 text-center text-sm text-gray-500">
+                    Đang tải sản phẩm...
+                  </p>
+                ) : products.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-gray-500">
+                    Không tìm thấy sản phẩm phù hợp.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {products.map((product) => {
+                      const checked = selectedIds.includes(product.id);
+
+                      return (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => onChange(toggleId(selectedIds, product.id))}
+                          className={`overflow-hidden rounded-xl border text-left transition ${
+                            checked
+                              ? "border-blue-500 bg-blue-50 shadow-sm"
+                              : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"
+                          }`}
+                        >
+                          <div className="relative aspect-[4/3] bg-gray-100">
+                            {product.primaryImage?.url ? (
+                              <img
+                                src={product.primaryImage.url}
+                                alt={product.primaryImage.altText || product.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-gray-400">
+                                <ImageIcon className="h-8 w-8" />
+                              </div>
+                            )}
+                            <span
+                              className={`absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full border ${
+                                checked
+                                  ? "border-blue-600 bg-blue-600 text-white"
+                                  : "border-white bg-white/90 text-transparent"
+                              }`}
+                            >
+                              <Check className="h-4 w-4" />
+                            </span>
+                          </div>
+                          <div className="space-y-2 p-3">
+                            <p className="line-clamp-2 min-h-10 font-semibold text-gray-950">
+                              {product.name}
+                            </p>
+                            <p className="text-sm font-medium text-blue-700">
+                              {formatProductPrice(product)}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {product.categories.slice(0, 2).map((category) => (
+                                <span
+                                  key={category.id}
+                                  className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600"
+                                >
+                                  {category.name}
+                                </span>
+                              ))}
+                              {product.categories.length > 2 ? (
+                                <span className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                  +{product.categories.length - 2}
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {product.variantsSummary.count} biến thể · Tồn {product.variantsSummary.totalStock}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <aside className="min-h-0 overflow-y-auto border-t border-gray-200 bg-gray-50 p-4 lg:border-l lg:border-t-0">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-gray-950">
+                    Đã chọn {selectedIds.length}
+                  </p>
+                  {selectedIds.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => onChange([])}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      Xóa hết
+                    </button>
+                  ) : null}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {selectedProducts.length === 0 && missingSelectedIds.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-gray-300 p-3 text-sm text-gray-500">
+                      Chưa chọn sản phẩm nào.
+                    </p>
+                  ) : null}
+                  {selectedProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center gap-2 rounded-lg bg-white p-2 shadow-sm"
+                    >
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100">
+                        {product.primaryImage?.url ? (
+                          <img
+                            src={product.primaryImage.url}
+                            alt={product.primaryImage.altText || product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <ImageIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800">
+                        {product.name}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => removeId(product.id)}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        title="Bỏ sản phẩm"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {missingSelectedIds.map((id) => (
+                    <div
+                      key={id}
+                      className="flex items-center justify-between gap-2 rounded-lg bg-white p-2 text-sm shadow-sm"
+                    >
+                      <span className="truncate text-gray-600">{id}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeId(id)}
+                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        title="Bỏ sản phẩm"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Xong
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function VouchersPage() {
   const [items, setItems] = useState<VoucherItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [memberTierSearch, setMemberTierSearch] = useState("");
+  const [scopeOptionsLoading, setScopeOptionsLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<VoucherUpsertCommand>(createInitialForm());
@@ -141,6 +679,11 @@ export default function VouchersPage() {
   const editingItem = useMemo(
     () => items.find((item) => item.id === editingId) ?? null,
     [items, editingId],
+  );
+
+  const categoryOptions = useMemo(
+    () => buildCategoryOptions(categories, categorySearch),
+    [categories, categorySearch],
   );
 
   const loadVouchers = async () => {
@@ -164,10 +707,62 @@ export default function VouchersPage() {
     loadVouchers();
   }, []);
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setScopeOptionsLoading(true);
+        const response = await categoryService.getCategories();
+        setCategories(response.data.categories);
+      } catch (error) {
+        toast.error("Không thể tải danh mục áp dụng voucher");
+        console.error(error);
+      } finally {
+        setScopeOptionsLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setProductsLoading(true);
+        const response = await productService.getProducts({
+          page: 1,
+          limit: 100,
+          search: productSearch.trim() || undefined,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+        });
+        setProducts(response.data.items);
+      } catch (error) {
+        toast.error("Không thể tải sản phẩm áp dụng voucher");
+        console.error(error);
+      } finally {
+        setProductsLoading(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [productSearch]);
+
   const resetForm = () => {
     setEditingId(null);
     setForm(createInitialForm());
     setSelectedBannerFile(null);
+  };
+
+  const onScopeTypeChange = (scopeType: VoucherScopeType) => {
+    setForm((prev) => ({
+      ...prev,
+      scopeType,
+      includedCategoryIds:
+        scopeType === "INCLUDE_CATEGORIES" ? prev.includedCategoryIds : [],
+      includedProductIds:
+        scopeType === "INCLUDE_PRODUCTS" ? prev.includedProductIds : [],
+      memberTiers: scopeType === "MEMBER_TIERS" ? prev.memberTiers : [],
+    }));
   };
 
   const onEdit = (item: VoucherItem) => {
@@ -185,6 +780,14 @@ export default function VouchersPage() {
       endAt: item.endAt,
       isActive: item.isActive,
       bannerImageUrl: item.bannerImageUrl,
+      scopeType: item.scopeType,
+      includeDescendants: item.includeDescendants,
+      minAmountBasis: item.minAmountBasis,
+      includedCategoryIds: item.includedCategoryIds,
+      excludedCategoryIds: item.excludedCategoryIds,
+      includedProductIds: item.includedProductIds,
+      excludedProductIds: item.excludedProductIds,
+      memberTiers: item.memberTiers,
     });
     setSelectedBannerFile(null);
   };
@@ -475,6 +1078,151 @@ export default function VouchersPage() {
                     <option value="FIXED_AMOUNT">Số tiền cố định</option>
                   </select>
                 </label>
+
+                <label className="block text-sm text-gray-700">
+                  Phạm vi áp dụng
+                  <select
+                    value={form.scopeType}
+                    onChange={(event) =>
+                      onScopeTypeChange(event.target.value as VoucherScopeType)
+                    }
+                    className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
+                  >
+                    <option value="ALL_PRODUCTS">Tất cả sản phẩm</option>
+                    <option value="INCLUDE_CATEGORIES">Danh mục được chọn</option>
+                    <option value="INCLUDE_PRODUCTS">Sản phẩm được chọn</option>
+                    <option value="MEMBER_TIERS">Hạng thành viên</option>
+                  </select>
+                </label>
+                <label className="block text-sm text-gray-700">
+                  Điều kiện đơn tối thiểu
+                  <select
+                    value={form.minAmountBasis}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        minAmountBasis: event.target.value as
+                          | "ELIGIBLE_SUBTOTAL"
+                          | "CART_SUBTOTAL",
+                      }))
+                    }
+                    className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
+                  >
+                    <option value="ELIGIBLE_SUBTOTAL">
+                      Tổng sản phẩm đủ điều kiện
+                    </option>
+                    <option value="CART_SUBTOTAL">Tổng toàn giỏ</option>
+                  </select>
+                </label>
+                {form.scopeType === "INCLUDE_CATEGORIES" ? (
+                  <>
+                    <MultiSelectPicker
+                      label="Danh mục áp dụng"
+                      placeholder="Tìm danh mục theo tên hoặc slug"
+                      options={categoryOptions}
+                      selectedIds={form.includedCategoryIds ?? []}
+                      search={categorySearch}
+                      loading={scopeOptionsLoading}
+                      emptyText="Không tìm thấy danh mục phù hợp"
+                      onSearchChange={setCategorySearch}
+                      onChange={(ids) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          includedCategoryIds: ids,
+                        }))
+                      }
+                    />
+                    <label className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="checkbox"
+                        checked={form.includeDescendants}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            includeDescendants: event.target.checked,
+                          }))
+                        }
+                      />
+                      Bao gồm danh mục con
+                    </label>
+                  </>
+                ) : null}
+                {form.scopeType === "INCLUDE_PRODUCTS" ? (
+                  <ProductSelectField
+                    label="Sản phẩm áp dụng"
+                    placeholder="Tìm sản phẩm theo tên hoặc SKU"
+                    products={products}
+                    selectedIds={form.includedProductIds ?? []}
+                    search={productSearch}
+                    loading={productsLoading}
+                    onSearchChange={setProductSearch}
+                    onChange={(ids) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        includedProductIds: ids,
+                      }))
+                    }
+                  />
+                ) : null}
+                {form.scopeType === "MEMBER_TIERS" ? (
+                  <MultiSelectPicker
+                    label="Hạng thành viên áp dụng"
+                    placeholder="Tìm MEMBER, SILVER hoặc GOLD"
+                    options={[
+                      {
+                        id: "MEMBER",
+                        label: "MEMBER",
+                        description: "Khách hàng thành viên cơ bản",
+                      },
+                      {
+                        id: "SILVER",
+                        label: "SILVER",
+                        description: "Khách hàng hạng bạc",
+                      },
+                      {
+                        id: "GOLD",
+                        label: "GOLD",
+                        description: "Khách hàng hạng vàng",
+                      },
+                    ].filter((option) =>
+                      option.label
+                        .toLowerCase()
+                        .includes(memberTierSearch.trim().toLowerCase()),
+                    )}
+                    selectedIds={form.memberTiers ?? []}
+                    search={memberTierSearch}
+                    emptyText="Không tìm thấy hạng thành viên phù hợp"
+                    onSearchChange={setMemberTierSearch}
+                    onChange={(ids) =>
+                      setForm((prev) => ({ ...prev, memberTiers: ids }))
+                    }
+                  />
+                ) : null}
+                <ProductSelectField
+                  label="Loại trừ sản phẩm"
+                  placeholder="Tìm sản phẩm cần loại trừ"
+                  products={products}
+                  selectedIds={form.excludedProductIds ?? []}
+                  search={productSearch}
+                  loading={productsLoading}
+                  onSearchChange={setProductSearch}
+                  onChange={(ids) =>
+                    setForm((prev) => ({ ...prev, excludedProductIds: ids }))
+                  }
+                />
+                <MultiSelectPicker
+                  label="Loại trừ danh mục"
+                  placeholder="Tìm danh mục cần loại trừ"
+                  options={categoryOptions}
+                  selectedIds={form.excludedCategoryIds ?? []}
+                  search={categorySearch}
+                  loading={scopeOptionsLoading}
+                  emptyText="Không tìm thấy danh mục phù hợp"
+                  onSearchChange={setCategorySearch}
+                  onChange={(ids) =>
+                    setForm((prev) => ({ ...prev, excludedCategoryIds: ids }))
+                  }
+                />
 
                 <label className="block text-sm text-gray-700">
                   Giá trị

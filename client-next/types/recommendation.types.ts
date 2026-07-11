@@ -19,7 +19,9 @@ export type TrackingEventType =
   | "REMOVE_FROM_CART"
   | "PURCHASE"
   | "SEARCH_QUERY"
-  | "FAVORITE_PRODUCT";
+  | "FAVORITE_PRODUCT"
+  | "RECOMMENDATION_IMPRESSION"
+  | "RECOMMENDATION_CLICK";
 
 export interface TrackingPayload {
   eventType: TrackingEventType;
@@ -32,4 +34,3 @@ export interface TrackingPayload {
   dedupeKey?: string;
   metadata?: Record<string, unknown>;
 }
-

@@ -15,6 +15,7 @@ import { GetRelatedProductsFromOrdersUseCase } from './applications/usecases/get
 import { GetHomeTeamContentUseCase } from './applications/usecases/get-home-team-content.usecase';
 import { ProductController } from './interface-adapter/controller/product.controller';
 import { ProductAPI } from './infrastructure/api/product.api';
+import { SizeRecommendationService } from './applications/services/size-recommendation.service';
 
 export function createProductModule(): Router {
   const categoryRepository = new PrismaCategoryRepository(prisma);
@@ -43,7 +44,7 @@ export function createProductModule(): Router {
     getHomeTeamContentUseCase,
   );
 
-  const productAPI = new ProductAPI(controller);
+  const productAPI = new ProductAPI(controller, new SizeRecommendationService(prisma));
   return productAPI.router;
 }
 

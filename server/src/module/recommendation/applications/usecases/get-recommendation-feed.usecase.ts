@@ -11,7 +11,7 @@ const TITLES: Record<FeedKind, string> = {
 };
 
 const STRATEGIES: Record<FeedKind, string> = {
-  home: 'trending+top_viewed+top_purchased',
+  home: 'hot_products+top_viewed+top_purchased+session_context',
   product: 'item_similarity+category_fallback',
   cart: 'cart_ai+category_fallback+cross_sell',
   personalized: 'recent_behavior+hybrid',
@@ -43,7 +43,10 @@ export class GetRecommendationFeedUseCase {
         );
         break;
       case 'cart':
-        items = await this.recommendationRepository.getCartRecommendations(input.userId!, input.limit);
+        items = await this.recommendationRepository.getCartRecommendations(
+          input.userId!,
+          input.limit,
+        );
         break;
       case 'personalized':
         items = await this.recommendationRepository.getPersonalizedRecommendations(
@@ -64,4 +67,3 @@ export class GetRecommendationFeedUseCase {
     };
   }
 }
-

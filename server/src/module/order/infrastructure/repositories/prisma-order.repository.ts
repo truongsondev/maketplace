@@ -62,6 +62,29 @@ function mapCancelReasonCodeToText(code: CancelReason | null | undefined): strin
   return null;
 }
 
+function mapShippingSnapshot(snapshot: {
+  sourceAddressId: string | null;
+  recipientName: string;
+  phone: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  city: string;
+  snapshotSource: string;
+} | null) {
+  if (!snapshot) return null;
+  return {
+    addressId: snapshot.sourceAddressId,
+    recipient: snapshot.recipientName,
+    phone: snapshot.phone,
+    addressLine: snapshot.addressLine,
+    ward: snapshot.ward,
+    district: snapshot.district,
+    city: snapshot.city,
+    source: snapshot.snapshotSource,
+  };
+}
+
 function extractReasonFromAuditNewData(payload: Prisma.JsonValue | null): string | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return null;
@@ -151,7 +174,27 @@ export class PrismaOrderRepository implements IOrderRepository {
           createdAt: true,
           status: true,
           returnStatus: true,
+          subtotalPrice: true,
+          discountAmount: true,
+          shippingFee: true,
           totalPrice: true,
+          carrierName: true,
+          trackingCode: true,
+          deliveryNote: true,
+          shippedAt: true,
+          deliveredAt: true,
+          shippingAddress: {
+            select: {
+              sourceAddressId: true,
+              recipientName: true,
+              phone: true,
+              addressLine: true,
+              ward: true,
+              district: true,
+              city: true,
+              snapshotSource: true,
+            },
+          },
           payment: { select: { method: true, status: true, paidAt: true } },
           paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
           cancelRequest: {
@@ -187,6 +230,18 @@ export class PrismaOrderRepository implements IOrderRepository {
               variantId: true,
               quantity: true,
               price: true,
+              productName: true,
+              sku: true,
+              variantAttributes: true,
+              imageUrl: true,
+              sellingUnitPrice: true,
+              lineSubtotal: true,
+              promotionDiscountAmount: true,
+              voucherDiscountAmount: true,
+              lineDiscountAmount: true,
+              lineTotal: true,
+              promotionName: true,
+              snapshotSource: true,
               product: {
                 select: {
                   id: true,
@@ -304,7 +359,17 @@ export class PrismaOrderRepository implements IOrderRepository {
         receivedAt: receivedAtByOrderId.get(o.id) ?? null,
         status: o.status,
         returnStatus: o.returnStatus ?? null,
+        subtotalPrice: Number(o.subtotalPrice),
+        discountAmount: Number(o.discountAmount ?? 0),
+        shippingFee: Number(o.shippingFee),
         totalPrice: Number(o.totalPrice),
+        delivery: {
+          carrierName: o.carrierName,
+          trackingCode: o.trackingCode,
+          deliveryNote: o.deliveryNote,
+          shippedAt: o.shippedAt,
+          deliveredAt: o.deliveredAt,
+        },
         orderCode: o.paymentTransaction?.orderCode ?? null,
         payment: {
           method: o.payment?.method ?? null,
@@ -313,8 +378,9 @@ export class PrismaOrderRepository implements IOrderRepository {
           transactionStatus: o.paymentTransaction?.status ?? null,
           transactionPaidAt: o.paymentTransaction?.paidAt ?? null,
         },
+        shipping: mapShippingSnapshot(o.shippingAddress),
         items: o.items.map((it) => {
-          const imageUrl = pickPrimaryImageUrl({
+          const imageUrl = it.imageUrl ?? pickPrimaryImageUrl({
             variantImages: it.variant?.images,
             productImages: it.product.images,
           });
@@ -322,11 +388,17 @@ export class PrismaOrderRepository implements IOrderRepository {
             id: it.id,
             productId: it.productId,
             variantId: it.variantId,
-            name: it.product.name,
+            name: it.productName || it.product.name,
             imageUrl,
-            attributesText: safeAttributesToText(it.variant?.attributes),
+            attributesText: safeAttributesToText(it.variantAttributes ?? it.variant?.attributes),
             quantity: it.quantity,
-            price: Number(it.price),
+            price: Number(it.sellingUnitPrice || it.price),
+            lineSubtotal: Number(it.lineSubtotal ?? 0),
+            promotionDiscountAmount: Number(it.promotionDiscountAmount ?? 0),
+            voucherDiscountAmount: Number(it.voucherDiscountAmount ?? 0),
+            lineDiscountAmount: Number(it.lineDiscountAmount ?? 0),
+            lineTotal: Number(it.lineTotal ?? 0),
+            promotionName: it.promotionName,
           };
         }),
       } satisfies MyOrderDto;
@@ -390,7 +462,27 @@ export class PrismaOrderRepository implements IOrderRepository {
         createdAt: true,
         status: true,
         returnStatus: true,
+        subtotalPrice: true,
+        discountAmount: true,
+        shippingFee: true,
         totalPrice: true,
+        carrierName: true,
+        trackingCode: true,
+        deliveryNote: true,
+        shippedAt: true,
+        deliveredAt: true,
+        shippingAddress: {
+          select: {
+            sourceAddressId: true,
+            recipientName: true,
+            phone: true,
+            addressLine: true,
+            ward: true,
+            district: true,
+            city: true,
+            snapshotSource: true,
+          },
+        },
         payment: { select: { method: true, status: true, paidAt: true } },
         paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
         cancelRequest: {
@@ -426,6 +518,18 @@ export class PrismaOrderRepository implements IOrderRepository {
             variantId: true,
             quantity: true,
             price: true,
+            productName: true,
+            sku: true,
+            variantAttributes: true,
+            imageUrl: true,
+            sellingUnitPrice: true,
+            lineSubtotal: true,
+            promotionDiscountAmount: true,
+            voucherDiscountAmount: true,
+            lineDiscountAmount: true,
+            lineTotal: true,
+            promotionName: true,
+            snapshotSource: true,
             product: {
               select: {
                 id: true,
@@ -513,7 +617,17 @@ export class PrismaOrderRepository implements IOrderRepository {
       receivedAt: receivedHistory?.changedAt ?? null,
       status: order.status,
       returnStatus: order.returnStatus ?? null,
+      subtotalPrice: Number(order.subtotalPrice),
+      discountAmount: Number(order.discountAmount ?? 0),
+      shippingFee: Number(order.shippingFee),
       totalPrice: Number(order.totalPrice),
+      delivery: {
+        carrierName: order.carrierName,
+        trackingCode: order.trackingCode,
+        deliveryNote: order.deliveryNote,
+        shippedAt: order.shippedAt,
+        deliveredAt: order.deliveredAt,
+      },
       orderCode: order.paymentTransaction?.orderCode ?? null,
       payment: {
         method: order.payment?.method ?? null,
@@ -522,8 +636,9 @@ export class PrismaOrderRepository implements IOrderRepository {
         transactionStatus: order.paymentTransaction?.status ?? null,
         transactionPaidAt: order.paymentTransaction?.paidAt ?? null,
       },
+      shipping: mapShippingSnapshot(order.shippingAddress),
       items: order.items.map((it) => {
-        const imageUrl = pickPrimaryImageUrl({
+        const imageUrl = it.imageUrl ?? pickPrimaryImageUrl({
           variantImages: it.variant?.images,
           productImages: it.product.images,
         });
@@ -531,11 +646,17 @@ export class PrismaOrderRepository implements IOrderRepository {
           id: it.id,
           productId: it.productId,
           variantId: it.variantId,
-          name: it.product.name,
+          name: it.productName || it.product.name,
           imageUrl,
-          attributesText: safeAttributesToText(it.variant?.attributes),
+          attributesText: safeAttributesToText(it.variantAttributes ?? it.variant?.attributes),
           quantity: it.quantity,
-          price: Number(it.price),
+          price: Number(it.sellingUnitPrice || it.price),
+          lineSubtotal: Number(it.lineSubtotal ?? 0),
+          promotionDiscountAmount: Number(it.promotionDiscountAmount ?? 0),
+          voucherDiscountAmount: Number(it.voucherDiscountAmount ?? 0),
+          lineDiscountAmount: Number(it.lineDiscountAmount ?? 0),
+          lineTotal: Number(it.lineTotal ?? 0),
+          promotionName: it.promotionName,
         };
       }),
     } satisfies MyOrderDto;
@@ -919,7 +1040,7 @@ export class PrismaOrderRepository implements IOrderRepository {
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
-        data: { status: 'DELIVERED' },
+        data: { status: 'DELIVERED', deliveredAt: new Date() },
         select: { id: true, status: true },
       });
 

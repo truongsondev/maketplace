@@ -82,11 +82,13 @@ export class PrismaVirtualTryOnRepository {
     });
   }
 
-  listMine(userId: string, page: number, limit: number) {
+  listMine(userId: string, page: number, limit: number, productId?: string) {
+    const where = { userId, deletedAt: null, ...(productId ? { productId } : {}) };
+
     return this.prisma.$transaction([
-      this.prisma.virtualTryOnRequest.count({ where: { userId, deletedAt: null } }),
+      this.prisma.virtualTryOnRequest.count({ where }),
       this.prisma.virtualTryOnRequest.findMany({
-        where: { userId, deletedAt: null },
+        where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,

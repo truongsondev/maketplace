@@ -16,6 +16,9 @@ export interface IUserAddressRepository {
       ward: string;
       district: string;
       city: string;
+      ghnProvinceId?: number;
+      ghnDistrictId?: number;
+      ghnWardCode?: string;
     },
   ): Promise<UserAddressResult | null>;
 
@@ -30,6 +33,9 @@ export interface IUserAddressRepository {
       ward: string;
       district: string;
       city: string;
+      ghnProvinceId?: number;
+      ghnDistrictId?: number;
+      ghnWardCode?: string;
       isDefault: boolean;
     },
   ): Promise<UserAddressResult>;

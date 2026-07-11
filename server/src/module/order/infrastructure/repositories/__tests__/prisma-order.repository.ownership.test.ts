@@ -25,4 +25,48 @@ describe('PrismaOrderRepository ownership', () => {
       }),
     );
   });
+
+  it('returns the order snapshot instead of a later profile address', async () => {
+    const orderSnapshot = {
+      sourceAddressId: 'address-a',
+      recipientName: 'Nguyễn Văn A',
+      phone: '0900000000',
+      addressLine: '1 Đường A',
+      ward: 'Phường A',
+      district: 'Quận A',
+      city: 'TP. Hồ Chí Minh',
+      snapshotSource: 'CHECKOUT',
+    };
+    const laterProfileAddress = { addressLine: '99 Đường B' };
+    const prisma = {
+      order: {
+        findFirst: jest.fn(async () => ({
+          id: 'order-1',
+          createdAt: new Date('2026-07-10T00:00:00.000Z'),
+          status: 'PENDING',
+          returnStatus: null,
+          totalPrice: 250000,
+          shippingAddress: orderSnapshot,
+          payment: null,
+          paymentTransaction: null,
+          cancelRequest: null,
+          refundTransactions: [],
+          items: [],
+        })),
+      },
+      auditLog: { findFirst: jest.fn(async () => null) },
+      orderStatusHistory: { findFirst: jest.fn(async () => null) },
+      userAddress: { findFirst: jest.fn(async () => laterProfileAddress) },
+    } as unknown as PrismaClient;
+
+    const result = await new PrismaOrderRepository(prisma).getMyOrderDetail({
+      userId: 'user-1',
+      orderId: 'order-1',
+    });
+
+    expect(result.shipping?.addressLine).toBe('1 Đường A');
+    expect(result.shipping?.source).toBe('CHECKOUT');
+    expect(result.shipping?.addressLine).not.toBe(laterProfileAddress.addressLine);
+    expect((prisma.userAddress.findFirst as ReturnType<typeof jest.fn>)).not.toHaveBeenCalled();
+  });
 });

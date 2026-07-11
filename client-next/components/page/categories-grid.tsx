@@ -67,11 +67,7 @@ export function CategoriesGrid({ categories, isLoading }: CategoriesGridProps) {
     };
   }, [totalPages]);
 
-  useEffect(() => {
-    if (currentPage > totalPages - 1) {
-      setCurrentPage(Math.max(0, totalPages - 1));
-    }
-  }, [currentPage, totalPages]);
+  const visiblePage = Math.min(currentPage, totalPages - 1);
 
   if (isLoading) {
     return (
@@ -120,7 +116,7 @@ export function CategoriesGrid({ categories, isLoading }: CategoriesGridProps) {
       <div className="overflow-hidden">
         <div
           className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${currentPage * 100}%)` }}
+          style={{ transform: `translateX(-${visiblePage * 100}%)` }}
         >
           {categories.map((cat) => (
             <div
@@ -159,7 +155,7 @@ export function CategoriesGrid({ categories, isLoading }: CategoriesGridProps) {
               onClick={() => setCurrentPage(idx)}
               aria-label={`Đến nhóm danh mục ${idx + 1}`}
               className={`h-2 rounded-full transition-all ${
-                idx === currentPage
+                idx === visiblePage
                   ? "w-8 bg-primary"
                   : "w-2 bg-neutral-300 dark:bg-neutral-700"
               }`}

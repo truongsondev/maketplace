@@ -19,9 +19,9 @@ import {
   useUploadReviewImage,
 } from "@/hooks/use-reviews";
 
-function formatMoney(value: string) {
+function formatMoney(value: string | number) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return value;
+  if (!Number.isFinite(n)) return String(value);
 
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -259,7 +259,13 @@ export function OrderDetailClient({
       deliveryAddress?: MaybeAddress | null;
       address?: MaybeAddress | null;
       customerAddress?: MaybeAddress | null;
-      shipping?: { address?: MaybeAddress | null } | null;
+      shipping?:
+        | (MaybeAddress & {
+            recipient?: string | null;
+            addressLine?: string | null;
+          })
+        | { address?: MaybeAddress | null }
+        | null;
     };
 
     const raw = order as OrderWithOptionalAddresses;
@@ -270,16 +276,21 @@ export function OrderDetailClient({
       raw.deliveryAddress,
       raw.address,
       raw.customerAddress,
-      raw.shipping?.address,
+      raw.shipping && "address" in raw.shipping ? raw.shipping.address : raw.shipping,
     ].filter(Boolean);
 
-    const addr = candidates[0];
+    const addr = candidates[0] as
+      | (MaybeAddress & {
+          recipient?: string | null;
+          addressLine?: string | null;
+        })
+      | undefined;
     if (!addr) return [] as string[];
 
     const lines: string[] = [];
-    const name = addr.fullName ?? addr.name;
+    const name = addr.recipient ?? addr.fullName ?? addr.name;
     const phone = addr.phoneNumber ?? addr.phone;
-    const line1 = addr.addressLine1 ?? addr.street ?? addr.line1;
+    const line1 = addr.addressLine ?? addr.addressLine1 ?? addr.street ?? addr.line1;
     const line2 = addr.addressLine2 ?? addr.ward ?? addr.line2;
     const city = addr.city ?? addr.district;
     const country = addr.country;
@@ -506,6 +517,12 @@ export function OrderDetailClient({
                       {deliveryLines.map((line) => (
                         <p key={line}>{line}</p>
                       ))}
+                      {order.delivery.carrierName ? (
+                        <p>Đơn vị vận chuyển: {order.delivery.carrierName}</p>
+                      ) : null}
+                      {order.delivery.trackingCode ? (
+                        <p>Mã vận đơn: {order.delivery.trackingCode}</p>
+                      ) : null}
                     </div>
                   </div>
                 ) : null}
@@ -658,11 +675,25 @@ export function OrderDetailClient({
                 </section>
               ) : null}
 
-              <div className="mt-6 flex items-center justify-between border-t border-border-color pt-4 text-sm">
-                <span className="text-text-muted">Tổng cộng</span>
-                <span className="text-base font-bold text-text-main">
-                  {formatMoney(order.totalPrice)}
-                </span>
+              <div className="mt-6 space-y-2 border-t border-border-color pt-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted">Tạm tính</span>
+                  <span>{formatMoney(order.subtotalPrice)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted">Giảm giá</span>
+                  <span>-{formatMoney(order.discountAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-muted">Phí giao hàng</span>
+                  <span className="font-semibold text-emerald-600">Miễn phí</span>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <span className="font-semibold text-text-main">Tổng cộng</span>
+                  <span className="text-base font-bold text-text-main">
+                    {formatMoney(order.totalPrice)}
+                  </span>
+                </div>
               </div>
             </>
           )}
@@ -704,6 +735,7 @@ export function OrderDetailClient({
       <ReturnRequestModal
         open={Boolean(order && openReturnModal)}
         orderLabel={order ? (order.orderCode ?? order.id) : ""}
+        orderItems={order?.items ?? []}
         isSubmitting={
           requestReturnMutation.isPending ||
           signatureMutation.isPending ||
@@ -734,6 +766,8 @@ export function OrderDetailClient({
             requestReturnMutation.mutate(
               {
                 orderId: order.id,
+                requestType: payload.requestType,
+                items: payload.items,
                 reasonCode: payload.reasonCode,
                 reason: payload.reason,
                 evidenceImages: uploads.map((u) => ({

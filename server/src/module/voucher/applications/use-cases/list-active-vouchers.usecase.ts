@@ -7,6 +7,8 @@ export class ListActiveVouchersUseCase implements IListActiveVouchersUseCase {
 
   async execute(): Promise<VoucherSummary[]> {
     const rows = await this.voucherRepository.findActive(new Date());
-    return rows.filter((row) => row.maxUsage === null || row.usedCount < row.maxUsage);
+    return rows.filter(
+      (row) => !row.isBirthdayVoucher && (row.maxUsage === null || row.usedCount < row.maxUsage),
+    );
   }
 }

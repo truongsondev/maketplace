@@ -1,0 +1,11 @@
+ALTER TABLE `recommendation_events`
+  MODIFY `event_type` ENUM(
+    'VIEW_PRODUCT',
+    'ADD_TO_CART',
+    'REMOVE_FROM_CART',
+    'PURCHASE',
+    'SEARCH_QUERY',
+    'FAVORITE_PRODUCT',
+    'RECOMMENDATION_IMPRESSION',
+    'RECOMMENDATION_CLICK'
+  ) NOT NULL;

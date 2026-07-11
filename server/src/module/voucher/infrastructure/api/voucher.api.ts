@@ -3,16 +3,22 @@ import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { VoucherController } from '../../interface-adapter/controller/voucher.controller';
+import { prisma } from '../../../../infrastructure/database';
+import type { VoucherCheckoutService } from '../../applications/services/voucher-checkout.service';
 
 export class VoucherAPI {
   readonly router = express.Router();
 
-  constructor(private readonly voucherController: VoucherController) {
+  constructor(
+    private readonly voucherController: VoucherController,
+    private readonly checkoutService: VoucherCheckoutService,
+  ) {
     this.initializeRoutes();
   }
 
   private initializeRoutes(): void {
     this.router.get('/active', asyncHandler(this.getActiveVouchers.bind(this)));
+    this.router.post('/checkout-preview', asyncHandler(this.previewCheckout.bind(this)));
     this.router.post('/validate', asyncHandler(this.validateVoucher.bind(this)));
     this.router.post('/apply', asyncHandler(this.applyVoucher.bind(this)));
   }
@@ -48,6 +54,30 @@ export class VoucherAPI {
     });
 
     res.status(200).json(ResponseFormatter.success(result, 'Voucher validated successfully'));
+  }
+
+  private async previewCheckout(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const voucherCodeRaw = String((req.body as any)?.voucherCode ?? '').trim();
+    const cartItemIdsRaw = (req.body as any)?.cartItemIds;
+    const cartItemIds = Array.isArray(cartItemIdsRaw)
+      ? cartItemIdsRaw.filter((id) => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+
+    const result = await prisma.$transaction((tx) =>
+      this.checkoutService.calculateForCheckout({
+        userId,
+        voucherCode: voucherCodeRaw || undefined,
+        cartItemIds,
+        tx,
+      }),
+    );
+
+    res.status(200).json(ResponseFormatter.success(result, 'Checkout pricing previewed successfully'));
   }
 
   private async applyVoucher(req: Request, res: Response): Promise<void> {

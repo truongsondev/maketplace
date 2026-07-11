@@ -28,7 +28,9 @@ export type RecommendationEventPayload = {
     | 'REMOVE_FROM_CART'
     | 'PURCHASE'
     | 'SEARCH_QUERY'
-    | 'FAVORITE_PRODUCT';
+    | 'FAVORITE_PRODUCT'
+    | 'RECOMMENDATION_IMPRESSION'
+    | 'RECOMMENDATION_CLICK';
   userId?: string | null;
   sessionId: string;
   productId?: string | null;
@@ -52,4 +54,3 @@ export type RecommendationAnalyticsResult = {
   eventBreakdown: Array<{ eventType: string; total: number }>;
   topProducts: Array<{ productId: string; name: string; total: number }>;
 };
-

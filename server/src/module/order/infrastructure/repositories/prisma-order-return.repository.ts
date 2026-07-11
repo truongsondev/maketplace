@@ -29,8 +29,9 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
         status: true,
         returnStatus: true,
         totalPrice: true,
+        deliveredAt: true,
         paymentTransaction: { select: { orderCode: true } },
-        items: { select: { id: true, quantity: true } },
+        items: { select: { id: true, productId: true, variantId: true, quantity: true } },
       },
     });
 
@@ -46,6 +47,25 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
       throw new BadRequestError('Order has no items');
     }
 
+    if (!order.deliveredAt) {
+      throw new BadRequestError('Delivered timestamp is missing');
+    }
+    const returnDeadline = new Date(order.deliveredAt);
+    returnDeadline.setDate(returnDeadline.getDate() + 14);
+    if (new Date() > returnDeadline) {
+      throw new BadRequestError('The 14-day return period has expired');
+    }
+
+    const orderItemsById = new Map(order.items.map((item) => [item.id, item]));
+    const requestedItems = input.items.map((requested) => {
+      const orderItem = orderItemsById.get(requested.orderItemId);
+      if (!orderItem) throw new BadRequestError('Order item does not belong to this order');
+      if (requested.quantity > orderItem.quantity) {
+        throw new BadRequestError('Return quantity exceeds purchased quantity');
+      }
+      return { ...requested, orderItem };
+    });
+
     const returnStatusToSet: ReturnFlowStatus = 'REQUESTED';
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -55,18 +75,46 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
         select: { id: true },
       });
 
+      const requestedItemIds = requestedItems.map((item) => item.orderItemId);
       const existingReturns = await tx.return.findMany({
-        where: { orderItemId: { in: order.items.map((it) => it.id) } },
-        select: { orderItemId: true },
+        where: { orderItemId: { in: requestedItemIds }, status: { not: 'RT_REJECTED' } },
+        select: { orderItemId: true, quantity: true },
       });
-      const existingItemIds = new Set(existingReturns.map((r) => r.orderItemId));
+      const existingQuantity = new Map<string, number>();
+      for (const existing of existingReturns) {
+        existingQuantity.set(
+          existing.orderItemId,
+          (existingQuantity.get(existing.orderItemId) ?? 0) + existing.quantity,
+        );
+      }
+      for (const requested of requestedItems) {
+        if ((existingQuantity.get(requested.orderItemId) ?? 0) + requested.quantity > requested.orderItem.quantity) {
+          throw new BadRequestError('Cumulative return quantity exceeds purchased quantity');
+        }
+      }
 
-      const itemsToCreate = order.items.filter((it) => !existingItemIds.has(it.id));
-      if (itemsToCreate.length > 0) {
-        await tx.return.createMany({
-          data: itemsToCreate.map((it) => ({
-            orderItemId: it.id,
-            quantity: it.quantity,
+      if (input.requestType === 'EXCHANGE') {
+        for (const requested of requestedItems) {
+          const target = await tx.productVariant.findFirst({
+            where: {
+              id: requested.requestedVariantId ?? '',
+              productId: requested.orderItem.productId,
+              status: 'ACTIVE',
+              isDeleted: false,
+              stockAvailable: { gte: requested.quantity },
+            },
+            select: { id: true },
+          });
+          if (!target) throw new BadRequestError('Requested exchange variant is unavailable');
+        }
+      }
+
+      await tx.return.createMany({
+          data: requestedItems.map((requested) => ({
+            orderItemId: requested.orderItemId,
+            quantity: requested.quantity,
+            requestType: input.requestType,
+            requestedVariantId: requested.requestedVariantId ?? null,
             reason: safeReason,
             reasonCode: input.reasonCode,
             evidenceImages: safeEvidenceImages as Prisma.InputJsonValue,
@@ -75,22 +123,7 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
             bankName: input.bankName,
             status: 'RT_REQUESTED',
           })),
-        });
-      }
-
-      if (existingItemIds.size > 0) {
-        await tx.return.updateMany({
-          where: { orderItemId: { in: Array.from(existingItemIds) }, status: 'RT_REQUESTED' },
-          data: {
-            reason: safeReason,
-            reasonCode: input.reasonCode,
-            evidenceImages: safeEvidenceImages as Prisma.InputJsonValue,
-            bankAccountName: input.bankAccountName,
-            bankAccountNumber: input.bankAccountNumber,
-            bankName: input.bankName,
-          },
-        });
-      }
+      });
 
       const admins = await tx.userRole.findMany({
         where: { role: { code: 'ADMIN' } },
@@ -119,11 +152,15 @@ export class PrismaOrderReturnRepository implements IOrderReturnRepository {
           oldData: { returnStatus: order.returnStatus ?? null } as Prisma.InputJsonValue,
           newData: {
             returnStatus: returnStatusToSet,
+            requestType: input.requestType,
+            items: requestedItems.map((item) => ({
+              orderItemId: item.orderItemId,
+              quantity: item.quantity,
+              requestedVariantId: item.requestedVariantId ?? null,
+            })),
             reasonCode: input.reasonCode,
             reason: safeReason,
             evidenceImages: safeEvidenceImages,
-            bankName: input.bankName,
-            amount: order.totalPrice,
             adminReceivers: admins.length,
           } as Prisma.InputJsonValue,
         },

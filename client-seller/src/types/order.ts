@@ -8,12 +8,26 @@ export type AdminOrderTab =
 
 export type AdminOrderSort = "new" | "old";
 
+export type AdminOrderRequestType = "all" | "cancel" | "return" | "refund";
+
+export type AdminOrderRequestStatus =
+  | "all"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "completed"
+  | "failed";
+
 export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
   | "PAID"
+  | "PACKING"
   | "SHIPPED"
+  | "DELIVERY_FAILED"
+  | "RETURN_TO_STORE"
   | "DELIVERED"
+  | "COMPLETED"
   | "CANCELLED"
   | "RETURNED";
 
@@ -34,6 +48,17 @@ export interface AdminOrderListItem {
   status: string;
   returnStatus?: string | null;
   totalPrice: string;
+  subtotalPrice: string;
+  discountAmount: string;
+  shippingFee: string;
+  delivery: {
+    carrierName: string | null;
+    trackingCode: string | null;
+    providerStatus: string | null;
+    deliveryNote: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+  };
   cancelRequest?: {
     id: string;
     status: "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
@@ -90,13 +115,13 @@ export interface AdminOrderListItem {
   };
   shipping?: {
     addressId: string | null;
-    recipient: string;
+    recipient: string | null;
     phone: string | null;
     addressLine: string | null;
     ward: string | null;
     district: string | null;
     city: string | null;
-    source: "LATEST_USER_ADDRESS" | "USER_PROFILE_FALLBACK";
+    source: "CHECKOUT" | "LEGACY_PROFILE_BACKFILL" | "LEGACY_MISSING_SNAPSHOT";
   };
   payment: {
     method: string | null;

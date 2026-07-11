@@ -12,7 +12,28 @@ export interface CreatePayosPaymentLinkCommand {
     district: string;
     city: string;
     addressId?: string | null;
+    ghnProvinceId?: number;
+    ghnDistrictId?: number;
+    ghnWardCode?: string;
   };
+}
+
+export interface CreateCodOrderCommand {
+  userId: string;
+  amount: number;
+  voucherCode?: string;
+  cartItemIds?: string[];
+  shipping: NonNullable<CreatePayosPaymentLinkCommand['shipping']>;
+}
+
+export interface CreateCodOrderResult {
+  orderId: string;
+  paymentMethod: 'COD';
+  paymentStatus: 'PENDING';
+  subtotalAmount: number;
+  discountAmount: number;
+  shippingFee: 0;
+  totalAmount: number;
 }
 
 export interface CreatePayosPaymentLinkResult {

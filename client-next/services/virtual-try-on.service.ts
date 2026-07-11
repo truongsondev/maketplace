@@ -85,10 +85,14 @@ export const virtualTryOnService = {
   async listHistory(params?: {
     page?: number;
     limit?: number;
+    productId?: string;
   }): Promise<ApiPaginatedResponse<VirtualTryOnRequest>> {
     const searchParams = new URLSearchParams();
     searchParams.set("page", String(params?.page ?? 1));
     searchParams.set("limit", String(params?.limit ?? 12));
+    if (params?.productId) {
+      searchParams.set("productId", params.productId);
+    }
 
     const response = await apiClient.get<VirtualTryOnRequest[]>(
       `api/virtual-try-on/history?${searchParams.toString()}`,

@@ -39,6 +39,7 @@ import { cartService } from "@/services/cart.service";
 import { productService } from "@/services/product.service";
 import { bannerService } from "@/services/banner.service";
 import { voucherService } from "@/services/voucher.service";
+import { promotionService } from "@/services/promotion.service";
 import { useAuthStore } from "@/stores/auth.store";
 import { trackingService } from "@/services/tracking.service";
 
@@ -254,6 +255,12 @@ export default function Home() {
     staleTime: 1000 * 60,
     retry: false,
   });
+  const { data: activePromotions = [] } = useQuery({
+    queryKey: ["active-promotion-campaigns"],
+    queryFn: () => promotionService.getActive(),
+    staleTime: 1000 * 60,
+    retry: false,
+  });
 
   const newArrivals = useMemo<NormalizedProduct[]>(() => {
     return (newArrivalsData?.products ?? []).map((item) => ({
@@ -291,6 +298,34 @@ export default function Home() {
   }, [activeBanners, promoProduct?.imageUrl]);
 
   const promoSlides = useMemo(() => {
+    const campaignSlides = activePromotions.map((campaign) => ({
+      id: campaign.id,
+      imageUrl: normalizeProductImageUrl(
+        campaign.bannerImageUrl || promoProduct?.imageUrl || FALLBACK_IMAGE,
+      ),
+      eyebrow:
+        campaign.campaignType === "FLASH_SALE"
+          ? "Flash sale"
+          : "Chiến dịch khuyến mãi",
+      title: campaign.title,
+      description: campaign.subtitle || campaign.description,
+      codeLabel: "TỰ ĐỘNG",
+      discountLabel:
+        campaign.type === "PERCENTAGE"
+          ? `${campaign.value}%`
+          : formatCurrency(campaign.value),
+      highlights: [
+        "Không cần nhập mã",
+        campaign.stackableWithVoucher
+          ? "Có thể dùng thêm voucher"
+          : "Không cộng thêm voucher",
+        campaign.campaignType.replaceAll("_", " "),
+      ],
+      endDate: new Date(campaign.endAt).toLocaleDateString("vi-VN"),
+      ctaUrl: campaign.ctaUrl || `/promotions/${campaign.slug}`,
+      ctaLabel: campaign.ctaLabel || "Xem ưu đãi",
+      isCampaign: true,
+    }));
     const voucherSlides = activeVouchers.map((voucher) => {
       const remainingSlots =
         voucher.maxUsage !== null
@@ -326,11 +361,18 @@ export default function Home() {
           month: "2-digit",
           year: "numeric",
         }),
+        ctaUrl: "#category-showcase-1",
+        ctaLabel: "Mua ngay",
+        isCampaign: false,
       };
     });
 
-    return voucherSlides;
-  }, [activeVouchers, promoProduct?.imageUrl]);
+    return [...campaignSlides, ...voucherSlides];
+  }, [activePromotions, activeVouchers, promoProduct?.imageUrl]);
+  const campaignSlides = useMemo(
+    () => promoSlides.filter((slide) => slide.isCampaign),
+    [promoSlides],
+  );
   const categoryShowcases = useMemo(() => {
     const realShowcases = categoryShowcasesData.map((showcase) => ({
       id: showcase.id,
@@ -373,16 +415,6 @@ export default function Home() {
       count: item.productCount,
     }));
   }, [categories]);
-
-  const campaignStoryImages = useMemo(() => {
-    const images = [
-      topBannerSlides[0]?.imageUrl,
-      newArrivals[0]?.imageUrl,
-      categoryItems[0]?.image,
-    ].filter(Boolean) as string[];
-
-    return images.length > 0 ? images : [FALLBACK_IMAGE];
-  }, [categoryItems, newArrivals, topBannerSlides]);
 
   useEffect(() => {
     const trimmed = searchKeyword.trim();
@@ -646,62 +678,98 @@ export default function Home() {
           </section>
         </RevealSection>
 
-        <RevealSection delay={50}>
-          <section className="luxury-section overflow-hidden">
-            <div className="grid min-h-[620px] grid-cols-1 bg-neutral-950 text-white lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="relative min-h-[520px] overflow-hidden">
-                <Image
-                  src={campaignStoryImages[0]}
-                  alt="Chiến dịch mùa của AURA"
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 58vw"
-                  className="object-cover opacity-88"
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/10 to-transparent" />
-              </div>
-
-              <div className="flex flex-col justify-center px-5 py-14 sm:px-8 lg:px-14">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/55">
-                  Seasonal edit / Form, fabric, occasion
-                </p>
-                <h2 className="mt-5 max-w-2xl text-5xl font-semibold uppercase leading-[0.92] tracking-[-0.05em] md:text-7xl">
-                  Một tủ đồ có nhịp thở riêng
-                </h2>
-                <p className="mt-6 max-w-xl text-sm leading-7 text-white/72 md:text-base">
-                  AURA chọn sản phẩm theo cách bạn thật sự mặc: chất liệu chạm
-                  da, phom dáng theo lịch trình, và những lớp phối đủ tinh tế để
-                  đi qua cả ngày.
-                </p>
-
-                <div className="mt-8 grid gap-px bg-white/16 sm:grid-cols-3">
-                  {[
-                    ["01", "Chất liệu", "Ưu tiên cảm giác mặc lâu."],
-                    ["02", "Phom dáng", "Dáng gọn, dễ phối, không ồn ào."],
-                    ["03", "Hoàn cảnh", "Từ văn phòng đến cuối tuần."],
-                  ].map(([index, title, copy]) => (
-                    <div key={index} className="bg-neutral-950 p-4">
-                      <p className="text-xs text-white/42">{index}</p>
-                      <p className="mt-3 text-sm font-semibold uppercase tracking-[0.18em]">
-                        {title}
-                      </p>
-                      <p className="mt-2 text-xs leading-5 text-white/55">
-                        {copy}
-                      </p>
-                    </div>
+        {campaignSlides.length > 0 ? (
+          <RevealSection delay={50}>
+            <section
+              id="sale"
+              className="luxury-section overflow-hidden bg-neutral-950 text-white"
+            >
+              <Carousel
+                setApi={setPromoApi}
+                opts={{ align: "start", loop: campaignSlides.length > 1 }}
+                className="w-full"
+              >
+                <CarouselContent className="ml-0">
+                  {campaignSlides.map((slide) => (
+                    <CarouselItem key={slide.id} className="pl-0">
+                      <div className="relative h-[clamp(600px,42vw,700px)] w-full overflow-hidden bg-black">
+                        <div
+                          aria-hidden="true"
+                          className="absolute inset-0 scale-110 bg-cover bg-center opacity-55 blur-xl"
+                          style={{ backgroundImage: `url(${slide.imageUrl})` }}
+                        />
+                        <Image
+                          src={slide.imageUrl}
+                          alt={slide.title}
+                          fill
+                          priority
+                          sizes="100vw"
+                          className="object-contain object-center"
+                        />
+                        <div className="absolute inset-0 bg-black/25" />
+                        <div className="absolute inset-0 bg-linear-to-r from-black/85 via-black/48 to-black/10" />
+                        <div className="absolute inset-0 mx-auto flex w-full max-w-330 items-center px-5 py-8 sm:px-8 lg:px-14">
+                          <div className="w-full max-w-2xl">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-white/70">
+                              {slide.eyebrow}
+                            </p>
+                            <h2 className="mt-5 text-4xl font-semibold uppercase leading-none md:text-6xl">
+                              {slide.title}
+                            </h2>
+                            <p className="mt-6 max-w-xl text-sm leading-7 text-white/85 md:text-base">
+                              {slide.description}
+                            </p>
+                            <div className="mt-8 grid max-w-2xl gap-px border-y border-white/25 sm:grid-cols-3">
+                              <div className="py-4 sm:pr-4">
+                                <p className="text-xs text-white/55">01</p>
+                                <p className="mt-2 text-sm font-semibold uppercase">
+                                  Mức giảm
+                                </p>
+                                <p className="mt-1 text-sm text-white/75">
+                                  {slide.discountLabel}
+                                </p>
+                              </div>
+                              <div className="border-t border-white/25 py-4 sm:border-l sm:border-t-0 sm:px-4">
+                                <p className="text-xs text-white/55">02</p>
+                                <p className="mt-2 text-sm font-semibold uppercase">
+                                  Áp dụng
+                                </p>
+                                <p className="mt-1 text-sm text-white/75">
+                                  Tự động
+                                </p>
+                              </div>
+                              <div className="border-t border-white/25 py-4 sm:border-l sm:border-t-0 sm:pl-4">
+                                <p className="text-xs text-white/55">03</p>
+                                <p className="mt-2 text-sm font-semibold uppercase">
+                                  Hiệu lực
+                                </p>
+                                <p className="mt-1 text-sm text-white/75">
+                                  Đến {slide.endDate}
+                                </p>
+                              </div>
+                            </div>
+                            <Link
+                              href={slide.ctaUrl}
+                              className="mt-8 inline-flex items-center gap-3 bg-white px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-black transition-colors hover:bg-neutral-200"
+                            >
+                              {slide.ctaLabel}
+                              <ArrowRight className="size-4" />
+                            </Link>
+                            {campaignSlides.length > 1 ? (
+                              <p className="mt-5 text-xs text-white/60">
+                                {promoCurrent + 1}/{campaignSlides.length}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </CarouselItem>
                   ))}
-                </div>
-
-                <Link
-                  href="#new-arrivals"
-                  className="mt-8 inline-flex w-fit items-center gap-3 border-b border-white pb-1 text-xs font-semibold uppercase tracking-[0.2em] text-white transition-opacity hover:opacity-60"
-                >
-                  Xem bản tuyển chọn
-                  <ArrowRight className="size-4" />
-                </Link>
-              </div>
-            </div>
-          </section>
-        </RevealSection>
+                </CarouselContent>
+              </Carousel>
+            </section>
+          </RevealSection>
+        ) : null}
 
         <RevealSection delay={60}>
           <section
@@ -765,6 +833,7 @@ export default function Home() {
           <section className="py-10">
             <RecommendationShelf
               kind={isAuthenticated ? "personalized" : "home"}
+              fallbackKind={isAuthenticated ? "home" : undefined}
               placement={
                 isAuthenticated
                   ? "home_personalized_recommendations"
@@ -779,115 +848,6 @@ export default function Home() {
           </section>
         </RevealSection>
 
-        {promoSlides.length > 0 ? (
-          <section
-            id="sale"
-            className="relative min-h-105 overflow-hidden bg-black text-white md:min-h-140"
-          >
-            <Carousel
-              setApi={setPromoApi}
-              opts={{ align: "start", loop: promoSlides.length > 1 }}
-              className="h-full w-full"
-            >
-              <CarouselContent className="ml-0">
-                {promoSlides.map((slide) => (
-                  <CarouselItem key={slide.id} className="pl-0">
-                    <div className="relative min-h-105 overflow-hidden md:min-h-140">
-                      <Image
-                        src={slide.imageUrl}
-                        alt={slide.title}
-                        fill
-                        className="object-cover object-center opacity-35 blur-[2px]"
-                        sizes="100vw"
-                      />
-                      <Image
-                        src={slide.imageUrl}
-                        alt={slide.title}
-                        fill
-                        className="object-contain object-center px-4 py-6 opacity-95 md:px-10 md:py-8"
-                        sizes="100vw"
-                      />
-                      <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/35 to-black/20" />
-                      <div className="absolute inset-0 bg-linear-to-t from-black/55 via-transparent to-black/20" />
-                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_25%,rgba(255,255,255,0.15),transparent_38%),radial-gradient(circle_at_85%_80%,rgba(255,120,0,0.24),transparent_40%)]" />
-
-                      <div className="relative mx-auto flex min-h-105 w-full max-w-330 flex-col justify-center gap-8 px-4 py-8 md:min-h-140 md:flex-row md:items-center md:justify-between md:px-6 lg:px-8">
-                        <div className="max-w-3xl">
-                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/75">
-                            {slide.eyebrow}
-                          </p>
-                          <h3 className="mt-3 text-3xl font-black leading-tight md:text-5xl">
-                            {slide.title}
-                          </h3>
-                          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base">
-                            {slide.description}
-                          </p>
-                          <div className="mt-5 flex flex-wrap gap-2">
-                            {slide.highlights.map((item) => (
-                              <span
-                                key={item}
-                                className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white"
-                              >
-                                {item}
-                              </span>
-                            ))}
-                            {slide.endDate ? (
-                              <span className="rounded-full border border-orange-300/60 bg-orange-300/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-orange-100">
-                                HSD: {slide.endDate}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <div className="w-full max-w-sm rounded-xl border border-white/40 bg-black/35 p-4 backdrop-blur-[2px] md:p-5">
-                          <p className="text-[11px] font-semibold uppercase tracking-widest text-white/80">
-                            Mã voucher
-                          </p>
-                          <p className="mt-2 text-2xl font-black uppercase tracking-wide text-orange-200 md:text-3xl">
-                            {slide.codeLabel}
-                          </p>
-                          <div className="mt-4 grid grid-cols-2 gap-3">
-                            <div className="rounded-lg border border-white/25 bg-white/10 p-3">
-                              <p className="text-[10px] uppercase tracking-widest text-white/70">
-                                Mức giảm
-                              </p>
-                              <p className="mt-1 text-lg font-black text-white">
-                                {slide.discountLabel}
-                              </p>
-                            </div>
-                            <div className="rounded-lg border border-white/25 bg-white/10 p-3">
-                              <p className="text-[10px] uppercase tracking-widest text-white/70">
-                                Hiệu lực
-                              </p>
-                              <p className="mt-1 text-sm font-bold text-white">
-                                {slide.endDate
-                                  ? `Đến ${slide.endDate}`
-                                  : "Đang mở"}
-                              </p>
-                            </div>
-                          </div>
-                          <a
-                            href="#category-showcase-1"
-                            className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-sm bg-white px-7 text-sm font-extrabold uppercase tracking-[0.08em] text-black shadow-[0_12px_30px_rgba(0,0,0,0.35)] transition-all hover:-translate-y-0.5 hover:bg-orange-300"
-                          >
-                            Mua ngay
-                            <ArrowRight className="size-4" />
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
-
-            {promoSlides.length > 1 ? (
-              <div className="pointer-events-none absolute bottom-4 right-4 z-10 rounded-full border border-white/35 bg-black/45 px-3 py-1 text-xs font-semibold tracking-wider text-white md:bottom-5 md:right-6">
-                {promoCurrent + 1}/{promoSlides.length}
-              </div>
-            ) : null}
-          </section>
-        ) : null}
         {categoryShowcases.map((group, idx) => (
           <section
             id={`category-showcase-${idx + 1}`}
@@ -1033,7 +993,7 @@ export default function Home() {
             {isProductsLoading || isCategoryShowcasesLoading ? (
               <div className="flex items-center justify-center gap-2 rounded-sm bg-white p-4 text-sm font-medium text-slate-700 dark:bg-neutral-900 dark:text-neutral-100">
                 <Loader2 className="size-4 animate-spin" />
-                Đang đồng bộ dữ liệu Home từ API...
+                Đang tải
               </div>
             ) : (
               <button

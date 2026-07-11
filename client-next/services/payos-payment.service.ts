@@ -14,6 +14,9 @@ export interface CreatePayosPaymentLinkRequest {
     district?: string;
     city: string;
     addressId?: string | null;
+    ghnProvinceId: number;
+    ghnDistrictId: number;
+    ghnWardCode: string;
   };
 }
 
@@ -25,6 +28,16 @@ export interface CreatePayosPaymentLinkResponse {
   paymentLinkId: string;
   status: string;
   expiredAt?: number;
+}
+
+export interface CreateCodOrderResponse {
+  orderId: string;
+  paymentMethod: "COD";
+  paymentStatus: "PENDING";
+  subtotalAmount: number;
+  discountAmount: number;
+  shippingFee: 0;
+  totalAmount: number;
 }
 
 export interface PayosReturnVerification {
@@ -50,6 +63,19 @@ export interface PaymentOrderStatus {
 }
 
 export const payosPaymentService = {
+  async createCodOrder(
+    payload: CreatePayosPaymentLinkRequest,
+  ): Promise<CreateCodOrderResponse> {
+    const response = await apiClient.post<CreateCodOrderResponse>(
+      "api/payments/cod/orders",
+      payload,
+    );
+    if (response.success) {
+      return (response as ApiSuccessResponse<CreateCodOrderResponse>).data;
+    }
+    throw response as ApiErrorResponse;
+  },
+
   async createPaymentLink(
     payload: CreatePayosPaymentLinkRequest,
   ): Promise<CreatePayosPaymentLinkResponse> {

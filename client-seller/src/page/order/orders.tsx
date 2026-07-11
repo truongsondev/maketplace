@@ -10,6 +10,8 @@ import type {
   AdminOrderListItem,
   AdminOrderSort,
   AdminOrderTab,
+  AdminOrderRequestType,
+  AdminOrderRequestStatus,
   OrderStatus,
   AdminOrderStatusBreakdown,
   AdminOrderTimeseries,
@@ -81,10 +83,14 @@ function statusBadge(status: string) {
       return "bg-yellow-100 text-yellow-800";
     case "CONFIRMED":
     case "PAID":
+    case "PACKING":
       return "bg-blue-100 text-blue-700";
     case "SHIPPED":
     case "DELIVERED":
       return "bg-purple-100 text-purple-700";
+    case "DELIVERY_FAILED":
+    case "RETURN_TO_STORE":
+      return "bg-orange-100 text-orange-700";
     case "CANCELLED":
       return "bg-red-100 text-red-700";
     case "RETURNED":
@@ -102,10 +108,18 @@ function statusText(status: string) {
       return "Đang xử lý";
     case "PAID":
       return "Đã thanh toán";
+    case "PACKING":
+      return "Đang đóng gói";
     case "SHIPPED":
       return "Đang giao";
     case "DELIVERED":
+      return "Đã giao";
+    case "COMPLETED":
       return "Hoàn thành";
+    case "DELIVERY_FAILED":
+      return "Giao thất bại";
+    case "RETURN_TO_STORE":
+      return "Đã hoàn về shop";
     case "CANCELLED":
       return "Đã hủy";
     case "RETURNED":
@@ -141,7 +155,8 @@ function buildSparklinePath(values: number[], width: number, height: number) {
 
 function primaryActionLabel(status: string) {
   if (status === "PAID") return "Xác nhận";
-  if (status === "CONFIRMED") return "Bàn giao cho shipper";
+  if (status === "CONFIRMED") return "Bắt đầu đóng gói";
+  if (status === "PACKING") return "Bàn giao GHN";
   return "—";
 }
 
@@ -655,6 +670,10 @@ export default function OrdersPage() {
     : { from: rangeInfo.from, to: rangeInfo.to };
   const [tab, setTab] = useState<AdminOrderTab>("all");
   const [sort, setSort] = useState<AdminOrderSort>("new");
+  const [requestType, setRequestType] =
+    useState<AdminOrderRequestType>("all");
+  const [requestStatus, setRequestStatus] =
+    useState<AdminOrderRequestStatus>("all");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState<string | undefined>(undefined);
 
@@ -754,6 +773,8 @@ export default function OrdersPage() {
         tab,
         sort,
         search,
+        requestType,
+        requestStatus,
         page: 1,
         limit: 20,
         ...rangeParams,
@@ -783,7 +804,16 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders();
-  }, [tab, sort, search, rangeInfo.from, rangeInfo.to, range.option]);
+  }, [
+    tab,
+    sort,
+    search,
+    requestType,
+    requestStatus,
+    rangeInfo.from,
+    rangeInfo.to,
+    range.option,
+  ]);
 
   useEffect(() => {
     const orderId = new URLSearchParams(location.search).get("orderId")?.trim();
@@ -814,6 +844,8 @@ export default function OrdersPage() {
         tab,
         search,
         sort,
+        requestType,
+        requestStatus,
         ...rangeParams,
       });
       const url = window.URL.createObjectURL(blob);
@@ -972,12 +1004,12 @@ export default function OrdersPage() {
   const handleShip = async (orderId: string) => {
     try {
       await orderService.shipOrder(orderId);
-      toast.success("Đã bàn giao cho shipper");
+      toast.success("Đã tạo vận đơn và bàn giao GHN");
       fetchCounts();
       fetchAnalytics();
       fetchOrders();
     } catch (e) {
-      toast.error("Bàn giao cho shipper thất bại");
+      toast.error("Bàn giao GHN thất bại. Hãy kiểm tra mã địa chỉ GHN và cấu hình máy chủ.");
       console.error(e);
     }
   };
@@ -1054,6 +1086,32 @@ export default function OrdersPage() {
       toast.error("Từ chối trả hàng thất bại");
       console.error(e);
     }
+  };
+
+  const handleSyncGhn = async (orderId: string) => {
+    try {
+      await orderService.syncGhnShipment(orderId);
+      toast.success("Đã đồng bộ trạng thái GHN");
+      fetchCounts();
+      fetchOrders();
+    } catch (e) {
+      toast.error("Đồng bộ GHN thất bại");
+      console.error(e);
+    }
+  };
+
+  const handlePrintGhn = async (orderId: string) => {
+    try {
+      await orderService.printGhnShipment(orderId);
+    } catch (e) {
+      toast.error("Không thể mở phiếu giao GHN");
+      console.error(e);
+    }
+  };
+
+  const handlePack = async (orderId: string) => {
+    try { await orderService.packOrder(orderId); toast.success("Đơn đang được đóng gói"); fetchOrders(); }
+    catch (e) { toast.error("Không thể chuyển sang đóng gói"); console.error(e); }
   };
 
   const handleCompleteReturns = async (orderId: string) => {
@@ -1426,14 +1484,14 @@ export default function OrdersPage() {
               </div>
             </section>
 
-            <section className="mt-5 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <section className="mt-5 rounded-3xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+              <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   {tabs.map((t) => (
                     <button
                       key={t.key}
                       onClick={() => setTab(t.key)}
-                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                      className={`min-h-11 rounded-full border px-5 py-2 text-sm font-semibold transition-colors ${
                         tab === t.key
                           ? "border-slate-900 bg-slate-900 text-white"
                           : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
@@ -1444,7 +1502,7 @@ export default function OrdersPage() {
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(280px,1fr)_152px_198px_128px_108px_116px] xl:items-center">
                   <input
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
@@ -1452,13 +1510,43 @@ export default function OrdersPage() {
                       if (e.key === "Enter") handleApplySearch();
                     }}
                     placeholder="Tìm theo id, email, mã đơn"
-                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-cyan-500/30 sm:w-80"
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-cyan-500/30 sm:col-span-2 xl:col-span-1"
                   />
+
+                  <select
+                    value={requestType}
+                    onChange={(e) =>
+                      setRequestType(e.target.value as AdminOrderRequestType)
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                    aria-label="Lọc theo loại yêu cầu"
+                  >
+                    <option value="all">Loại yêu cầu</option>
+                    <option value="cancel">Yêu cầu hủy</option>
+                    <option value="return">Trả hàng</option>
+                    <option value="refund">Hoàn tiền</option>
+                  </select>
+
+                  <select
+                    value={requestStatus}
+                    onChange={(e) =>
+                      setRequestStatus(e.target.value as AdminOrderRequestStatus)
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                    aria-label="Lọc theo trạng thái yêu cầu"
+                  >
+                    <option value="all">Trạng thái yêu cầu</option>
+                    <option value="pending">Chờ xử lý</option>
+                    <option value="approved">Đã duyệt</option>
+                    <option value="rejected">Từ chối</option>
+                    <option value="completed">Hoàn tất</option>
+                    <option value="failed">Thất bại</option>
+                  </select>
 
                   <select
                     value={sort}
                     onChange={(e) => setSort(e.target.value as AdminOrderSort)}
-                    className="h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900"
                   >
                     <option value="new">Mới nhất</option>
                     <option value="old">Cũ nhất</option>
@@ -1466,7 +1554,7 @@ export default function OrdersPage() {
 
                   <button
                     onClick={handleApplySearch}
-                    className="h-11 rounded-xl bg-cyan-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700"
+                    className="h-11 w-full rounded-xl bg-cyan-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700"
                   >
                     Tìm đơn
                   </button>
@@ -1474,7 +1562,7 @@ export default function OrdersPage() {
                   <button
                     onClick={handleExport}
                     disabled={loading || exporting}
-                    className="h-11 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-11 w-full rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {exporting ? "Đang xuất..." : "Xuất CSV"}
                   </button>
@@ -1511,11 +1599,14 @@ export default function OrdersPage() {
                           order.status === "PAID" ||
                           order.status === "CONFIRMED";
 
-                        const primaryLabel = primaryActionLabel(order.status);
+                        const isPendingCod = order.status === "PENDING" && order.payment.method === "COD" && order.payment.status === "PENDING";
+                        const primaryLabel = isPendingCod ? "Xác nhận COD - Chưa thu tiền" : primaryActionLabel(order.status);
                         const handlePrimary = () => {
-                          if (order.status === "PAID")
+                          if (order.status === "PAID" || isPendingCod)
                             return handleConfirm(order.id);
                           if (order.status === "CONFIRMED")
+                            return handlePack(order.id);
+                          if (order.status === "PACKING")
                             return handleShip(order.id);
                           return;
                         };
@@ -1529,11 +1620,26 @@ export default function OrdersPage() {
                           cancelRequest?.status === "COMPLETED";
 
                         const canPrimary =
-                          (order.status === "PAID" ||
-                            order.status === "CONFIRMED") &&
+                          (order.status === "PAID" || isPendingCod ||
+                            order.status === "CONFIRMED" || order.status === "PACKING") &&
                           !isCancelFlowApproved;
 
                         const secondaryActions: RowActionItem[] = [];
+
+                        if (order.status === "SHIPPED" && order.delivery.carrierName === "GHN") {
+                          secondaryActions.push(
+                            {
+                              key: `sync-ghn-${order.id}`,
+                              label: "Đồng bộ GHN",
+                              onClick: () => handleSyncGhn(order.id),
+                            },
+                            {
+                              key: `print-ghn-${order.id}`,
+                              label: "In phiếu GHN",
+                              onClick: () => handlePrintGhn(order.id),
+                            },
+                          );
+                        }
 
                         if (hasReturnRequest) {
                           secondaryActions.push(
@@ -1908,10 +2014,30 @@ export default function OrdersPage() {
                 <p className="mt-1 text-sm text-slate-700">
                   {formatShippingAddress(detailModal)}
                 </p>
-                {detailModal.shipping?.source === "USER_PROFILE_FALLBACK" ? (
+                {detailModal.shipping?.source === "LEGACY_PROFILE_BACKFILL" ? (
                   <p className="mt-2 text-xs text-slate-500">
-                    Ghi chú: hiển thị theo hồ sơ người dùng do chưa có địa chỉ
-                    lưu cho đơn.
+                    Ghi chú: địa chỉ được backfill từ hồ sơ hiện tại của đơn cũ,
+                    không phải snapshot tại thời điểm đặt.
+                  </p>
+                ) : null}
+                {detailModal.shipping?.source === "LEGACY_MISSING_SNAPSHOT" ? (
+                  <p className="mt-2 text-xs font-medium text-amber-700">
+                    Đơn cũ không có snapshot địa chỉ giao hàng.
+                  </p>
+                ) : null}
+                {detailModal.delivery.carrierName ? (
+                  <p className="mt-2 text-sm text-slate-700">
+                    Đơn vị: {detailModal.delivery.carrierName}
+                  </p>
+                ) : null}
+                {detailModal.delivery.trackingCode ? (
+                  <p className="mt-1 text-sm text-slate-700">
+                    Mã vận đơn: {detailModal.delivery.trackingCode}
+                  </p>
+                ) : null}
+                {detailModal.delivery.providerStatus ? (
+                  <p className="mt-1 text-sm text-slate-600">
+                    Trạng thái GHN: {detailModal.delivery.providerStatus}
                   </p>
                 ) : null}
               </div>
@@ -1940,6 +2066,15 @@ export default function OrdersPage() {
                 </p>
                 <p className="mt-1 text-sm font-semibold text-slate-900">
                   Tổng tiền: {formatMoney(detailModal.totalPrice)}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Tạm tính: {formatMoney(detailModal.subtotalPrice)}
+                </p>
+                <p className="mt-1 text-sm text-slate-700">
+                  Giảm giá: -{formatMoney(detailModal.discountAmount)}
+                </p>
+                <p className="mt-1 text-sm font-medium text-emerald-700">
+                  Phí giao hàng: Miễn phí
                 </p>
               </div>
             </div>

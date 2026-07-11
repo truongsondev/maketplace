@@ -12,6 +12,9 @@ import BannersPage from "../page/banner/banners";
 import UsersPage from "../page/user/users";
 import RefundsPage from "../page/refund/refunds";
 import LogsPage from "../page/logs";
+import PhysicalSalesPage from "../page/physical-sale/physical-sales";
+import LoyaltyPage from "../page/loyalty/loyalty";
+import PromotionsPage from "../page/promotion/promotions";
 
 export default function AppRouter() {
   return (
@@ -67,6 +70,10 @@ export default function AppRouter() {
         }
       />
       <Route
+        path="/physical-sales"
+        element={<ProtectedRoute><PhysicalSalesPage /></ProtectedRoute>}
+      />
+      <Route
         path="/users"
         element={
           <ProtectedRoute>
@@ -79,6 +86,22 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <VouchersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/promotions"
+        element={
+          <ProtectedRoute>
+            <PromotionsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/loyalty"
+        element={
+          <ProtectedRoute>
+            <LoyaltyPage />
           </ProtectedRoute>
         }
       />

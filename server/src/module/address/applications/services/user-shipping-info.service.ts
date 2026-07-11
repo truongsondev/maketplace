@@ -9,6 +9,9 @@ export interface ShippingInfoInput {
   ward: string;
   district: string;
   city: string;
+  ghnProvinceId?: number;
+  ghnDistrictId?: number;
+  ghnWardCode?: string;
 }
 
 type CachedShippingInfo = ShippingInfoInput & {
@@ -33,6 +36,9 @@ function normalizeInput(input: ShippingInfoInput): ShippingInfoInput {
     ward: input.ward.trim(),
     district: input.district.trim(),
     city: input.city.trim(),
+    ghnProvinceId: input.ghnProvinceId,
+    ghnDistrictId: input.ghnDistrictId,
+    ghnWardCode: input.ghnWardCode?.trim() || undefined,
   };
 }
 
@@ -81,6 +87,9 @@ export class UserShippingInfoService {
         ward: fallback.ward,
         district: fallback.district,
         city: fallback.city,
+        ghnProvinceId: fallback.ghnProvinceId ?? undefined,
+        ghnDistrictId: fallback.ghnDistrictId ?? undefined,
+        ghnWardCode: fallback.ghnWardCode ?? undefined,
       });
     }
 

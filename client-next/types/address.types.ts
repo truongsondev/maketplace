@@ -6,6 +6,9 @@ export interface UserAddress {
   ward: string;
   district: string;
   city: string;
+  ghnProvinceId: number | null;
+  ghnDistrictId: number | null;
+  ghnWardCode: string | null;
   isDefault: boolean;
   createdAt: string;
 }

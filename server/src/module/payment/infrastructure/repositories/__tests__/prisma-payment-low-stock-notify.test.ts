@@ -41,6 +41,7 @@ describe('PrismaPaymentRepository low-stock notification', () => {
       cartItem: {
         deleteMany: jest.fn(async () => ({ count: 0 })),
       },
+      inventoryLog: { create: jest.fn(async () => ({})) },
       auditLog: {
         create: jest.fn(async () => ({})),
       },

@@ -1,5 +1,6 @@
 export interface BodyProfile {
   age: number | null;
+  birthday: string | null;
   heightCm: number | null;
   weightKg: number | null;
   isComplete: boolean;
@@ -7,7 +8,8 @@ export interface BodyProfile {
 }
 
 export interface UpdateBodyProfilePayload {
-  age: number;
-  heightCm: number;
-  weightKg: number;
+  age?: number;
+  birthday?: string | null;
+  heightCm?: number;
+  weightKg?: number;
 }

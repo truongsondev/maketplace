@@ -160,8 +160,8 @@ export class VirtualTryOnService {
     return this.refresh(request);
   }
 
-  listMine(userId: string, page: number, limit: number) {
-    return this.repository.listMine(userId, page, limit);
+  listMine(userId: string, page: number, limit: number, productId?: string) {
+    return this.repository.listMine(userId, page, limit, productId);
   }
 
   deleteMine(id: string, userId: string) {

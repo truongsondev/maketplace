@@ -1,12 +1,15 @@
 import {
   CreatePayosPaymentLinkCommand,
   CreatePayosPaymentLinkResult,
+  CreateCodOrderCommand,
+  CreateCodOrderResult,
   HandlePayosWebhookResult,
   PaymentStatusResult,
   PayosReturnResult,
 } from '../../applications/dto';
 import {
   ICreatePayosPaymentLinkUseCase,
+  ICreateCodOrderUseCase,
   IGetPaymentStatusUseCase,
   IHandlePayosReturnUseCase,
   IHandlePayosWebhookUseCase,
@@ -18,6 +21,7 @@ export class PaymentController {
     private readonly handlePayosReturnUseCase: IHandlePayosReturnUseCase,
     private readonly handlePayosWebhookUseCase: IHandlePayosWebhookUseCase,
     private readonly getPaymentStatusUseCase: IGetPaymentStatusUseCase,
+    private readonly createCodOrderUseCase: ICreateCodOrderUseCase,
   ) {}
 
   createPayosPaymentLink(
@@ -36,5 +40,9 @@ export class PaymentController {
 
   getPaymentStatus(orderCode: string, userId: string): Promise<PaymentStatusResult> {
     return this.getPaymentStatusUseCase.execute(orderCode, userId);
+  }
+
+  createCodOrder(command: CreateCodOrderCommand): Promise<CreateCodOrderResult> {
+    return this.createCodOrderUseCase.execute(command);
   }
 }

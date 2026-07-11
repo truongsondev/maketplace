@@ -367,6 +367,7 @@ export interface AdjustStockRequest {
 }
 
 export type VoucherType = "PERCENTAGE" | "FIXED_AMOUNT";
+export type VoucherScopeType = "ALL_PRODUCTS" | "INCLUDE_CATEGORIES" | "INCLUDE_PRODUCTS" | "MEMBER_TIERS";
 
 export interface VoucherItem {
   id: string;
@@ -383,6 +384,14 @@ export interface VoucherItem {
   endAt: string;
   isActive: boolean;
   bannerImageUrl: string | null;
+  scopeType: VoucherScopeType;
+  includeDescendants: boolean;
+  minAmountBasis: "ELIGIBLE_SUBTOTAL" | "CART_SUBTOTAL";
+  includedCategoryIds: string[];
+  excludedCategoryIds: string[];
+  includedProductIds: string[];
+  excludedProductIds: string[];
+  memberTiers: string[];
 }
 
 export interface VoucherListResponse {
@@ -420,6 +429,14 @@ export interface VoucherUpsertCommand {
   endAt: string;
   isActive?: boolean;
   bannerImageUrl?: string | null;
+  scopeType?: VoucherScopeType;
+  includeDescendants?: boolean;
+  minAmountBasis?: "ELIGIBLE_SUBTOTAL" | "CART_SUBTOTAL";
+  includedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
+  includedProductIds?: string[];
+  excludedProductIds?: string[];
+  memberTiers?: string[];
 }
 
 export interface BannerItem {
@@ -463,4 +480,109 @@ export interface BannerUpsertCommand {
   imageUrl: string;
   isActive?: boolean;
   sortOrder?: number;
+}
+
+export type PromotionType =
+  | "PERCENTAGE"
+  | "FIXED_AMOUNT"
+  | "SALE_PRICE"
+  | "COMBO_FIXED"
+  | "BUY_X_GET_Y";
+export type PromotionStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "ENDED";
+export type PromotionCampaignType = "FLASH_SALE" | "HOLIDAY" | "CUSTOMER_APPRECIATION" | "SEASONAL" | "CUSTOM";
+export type PromotionScopeType =
+  | "ALL_PRODUCTS"
+  | "INCLUDE_CATEGORIES"
+  | "INCLUDE_PRODUCTS"
+  | "MEMBER_TIERS";
+
+export interface PromotionItem {
+  id: string;
+  name: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  bannerImageUrl: string | null;
+  mobileBannerImageUrl: string | null;
+  campaignType: PromotionCampaignType;
+  type: PromotionType;
+  status: PromotionStatus;
+  scopeType: PromotionScopeType;
+  includeDescendants: boolean;
+  value: number;
+  maxDiscount: number | null;
+  priority: number;
+  displayPriority: number;
+  isFeatured: boolean;
+  ctaLabel: string | null;
+  ctaUrl: string | null;
+  memberTiers: string[] | null;
+  usageLimit: number | null;
+  usedCount: number;
+  stackableWithVoucher: boolean;
+  startAt: string;
+  endAt: string;
+  includedProducts: Array<{ productId: string }>;
+  includedCategories: Array<{ categoryId: string }>;
+}
+
+export interface PromotionListResponse {
+  success: boolean;
+  data: { items: PromotionItem[] };
+  message: string;
+  timestamp: string;
+}
+
+export interface PromotionResponse {
+  success: boolean;
+  data: PromotionItem;
+  message: string;
+  timestamp: string;
+}
+
+export interface PromotionUpsertCommand {
+  name: string;
+  slug?: string;
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  bannerImageUrl?: string | null;
+  mobileBannerImageUrl?: string | null;
+  campaignType: PromotionCampaignType;
+  type: PromotionType;
+  status: PromotionStatus;
+  scopeType: PromotionScopeType;
+  includeDescendants?: boolean;
+  value: number;
+  maxDiscount?: number | null;
+  priority?: number;
+  displayPriority?: number;
+  isFeatured?: boolean;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  memberTiers?: string[];
+  usageLimit?: number | null;
+  stackableWithVoucher?: boolean;
+  startAt: string;
+  endAt: string;
+  includedProductIds?: string[];
+  includedCategoryIds?: string[];
+}
+
+export interface LoyaltyConfig {
+  id: number;
+  spendPerPoint: number;
+  pointValidityDays: number;
+  silverMinPoints: number;
+  goldMinPoints: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface LoyaltyConfigResponse {
+  success: boolean;
+  data: LoyaltyConfig;
+  message: string;
+  timestamp: string;
 }

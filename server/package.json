@@ -11,9 +11,11 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "dev": "cross-env NODE_ENV=development CHOKIDAR_USEPOLLING=true tsup src/server.ts --format esm --clean --watch --onSuccess \"node dist/server.js\"",
-    "payos:worker:dev": "cross-env NODE_ENV=development CHOKIDAR_USEPOLLING=true tsup src/payos-reconcile-worker.ts --format esm --clean --watch --onSuccess \"node dist/payos-reconcile-worker.js\"",
-    "payos:worker:start": "node dist/payos-reconcile-worker.js"
+    "dev": "cross-env NODE_ENV=development CHOKIDAR_USEPOLLING=true tsup src/server.ts --format esm --out-dir dist-dev/server --watch --onSuccess \"node dist-dev/server/server.js\"",
+    "payos:worker:dev": "cross-env NODE_ENV=development CHOKIDAR_USEPOLLING=true tsup src/payos-reconcile-worker.ts --format esm --out-dir dist-dev/payos --watch --onSuccess \"node dist-dev/payos/payos-reconcile-worker.js\"",
+    "payos:worker:start": "node dist/payos-reconcile-worker.js",
+    "birthday-voucher:dev": "cross-env NODE_ENV=development CHOKIDAR_USEPOLLING=true tsup src/birthday-voucher-worker.ts --format esm --out-dir dist-dev/birthday --watch --onSuccess \"node dist-dev/birthday/birthday-voucher-worker.js\"",
+    "birthday-voucher:start": "node dist/birthday-voucher-worker.js"
   },
   "keywords": [],
   "author": "",

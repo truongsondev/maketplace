@@ -30,9 +30,9 @@ import type { MyOrderListItem, OrderTab } from "@/types/order.types";
 
 const ORDERS_PAGE_LIMIT = 6;
 
-function formatMoney(value: string) {
+function formatMoney(value: string | number) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return value;
+  if (!Number.isFinite(n)) return String(value);
 
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",

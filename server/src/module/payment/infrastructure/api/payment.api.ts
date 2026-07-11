@@ -20,6 +20,7 @@ export class PaymentAPI {
 
   private initializeRoutes(): void {
     this.router.post('/payos/create-link', asyncHandler(this.createPayosPaymentLink.bind(this)));
+    this.router.post('/cod/orders', asyncHandler(this.createCodOrder.bind(this)));
     this.router.get('/payos/return', asyncHandler(this.handlePayosReturn.bind(this)));
     this.router.post('/payos/webhook', asyncHandler(this.handlePayosWebhook.bind(this)));
     this.router.get(
@@ -70,6 +71,9 @@ export class PaymentAPI {
             district: shippingRaw.district ?? shippingRaw.ward,
             city: shippingRaw.city,
             addressId: shippingRaw.addressId,
+            ghnProvinceId: shippingRaw.ghnProvinceId,
+            ghnDistrictId: shippingRaw.ghnDistrictId,
+            ghnWardCode: shippingRaw.ghnWardCode,
           }
         : undefined;
 
@@ -99,6 +103,15 @@ export class PaymentAPI {
       ) {
         throw new BadRequestError('shipping.addressId must be a string');
       }
+      if (!Number.isInteger(shippingValue.ghnProvinceId) || Number(shippingValue.ghnProvinceId) <= 0) {
+        throw new BadRequestError('shipping.ghnProvinceId must be a positive integer');
+      }
+      if (!Number.isInteger(shippingValue.ghnDistrictId) || Number(shippingValue.ghnDistrictId) <= 0) {
+        throw new BadRequestError('shipping.ghnDistrictId must be a positive integer');
+      }
+      if (typeof shippingValue.ghnWardCode !== 'string' || !shippingValue.ghnWardCode.trim()) {
+        throw new BadRequestError('shipping.ghnWardCode is required');
+      }
     }
 
     const result = await this.paymentController.createPayosPaymentLink({
@@ -115,6 +128,9 @@ export class PaymentAPI {
             ward: String(shippingValue.ward).trim(),
             district: String(shippingValue.district).trim(),
             city: String(shippingValue.city).trim(),
+            ghnProvinceId: Number(shippingValue.ghnProvinceId),
+            ghnDistrictId: Number(shippingValue.ghnDistrictId),
+            ghnWardCode: String(shippingValue.ghnWardCode).trim(),
             addressId:
               typeof shippingValue.addressId === 'string'
                 ? shippingValue.addressId.trim()
@@ -183,5 +199,72 @@ export class PaymentAPI {
 
     const result = await this.paymentController.getPaymentStatus(orderCode, userId);
     res.status(200).json(ResponseFormatter.success(result));
+  }
+
+  private async createCodOrder(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) throw new BadRequestError('User ID not found');
+
+    const body = req.body as Record<string, unknown>;
+    if (typeof body.amount !== 'number') {
+      throw new BadRequestError('amount must be a number');
+    }
+    if (!isRecord(body.shipping)) {
+      throw new BadRequestError('shipping is required');
+    }
+
+    const raw = body.shipping;
+    const shipping = {
+      recipient: raw.recipient,
+      phone: raw.phone,
+      addressLine: raw.addressLine,
+      ward: raw.ward,
+      district: raw.district ?? raw.ward,
+      city: raw.city,
+      addressId: raw.addressId,
+      ghnProvinceId: raw.ghnProvinceId,
+      ghnDistrictId: raw.ghnDistrictId,
+      ghnWardCode: raw.ghnWardCode,
+    };
+    for (const field of ['recipient', 'phone', 'addressLine', 'ward', 'district', 'city'] as const) {
+      if (typeof shipping[field] !== 'string' || !shipping[field].trim()) {
+        throw new BadRequestError(`shipping.${field} is required`);
+      }
+    }
+    if (!Number.isInteger(shipping.ghnProvinceId) || Number(shipping.ghnProvinceId) <= 0) {
+      throw new BadRequestError('shipping.ghnProvinceId must be a positive integer');
+    }
+    if (!Number.isInteger(shipping.ghnDistrictId) || Number(shipping.ghnDistrictId) <= 0) {
+      throw new BadRequestError('shipping.ghnDistrictId must be a positive integer');
+    }
+    if (typeof shipping.ghnWardCode !== 'string' || !shipping.ghnWardCode.trim()) {
+      throw new BadRequestError('shipping.ghnWardCode is required');
+    }
+
+    const cartItemIds = Array.isArray(body.cartItemIds)
+      ? body.cartItemIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+      : undefined;
+    const voucherCode = typeof body.voucherCode === 'string' ? body.voucherCode.trim() : undefined;
+
+    const result = await this.paymentController.createCodOrder({
+      userId,
+      amount: body.amount,
+      voucherCode: voucherCode || undefined,
+      cartItemIds,
+      shipping: {
+        recipient: String(shipping.recipient).trim(),
+        phone: String(shipping.phone).trim(),
+        addressLine: String(shipping.addressLine).trim(),
+        ward: String(shipping.ward).trim(),
+        district: String(shipping.district).trim(),
+        city: String(shipping.city).trim(),
+        ghnProvinceId: Number(shipping.ghnProvinceId),
+        ghnDistrictId: Number(shipping.ghnDistrictId),
+        ghnWardCode: String(shipping.ghnWardCode).trim(),
+        addressId: typeof shipping.addressId === 'string' ? shipping.addressId.trim() : null,
+      },
+    });
+
+    res.status(201).json(ResponseFormatter.success(result, 'COD order created successfully'));
   }
 }

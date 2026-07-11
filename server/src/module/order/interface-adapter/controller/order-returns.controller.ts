@@ -7,16 +7,20 @@ export class OrderReturnsController {
   requestReturn(params: {
     userId: string;
     orderId: string;
+    requestType: 'EXCHANGE' | 'RETURN_REFUND';
+    items: Array<{ orderItemId: string; quantity: number; requestedVariantId?: string | null }>;
     reasonCode: string;
     reason?: string | null;
     evidenceImages: Array<{ url: string; publicId?: string | null }>;
-    bankAccountName: string;
-    bankAccountNumber: string;
-    bankName: string;
+    bankAccountName?: string | null;
+    bankAccountNumber?: string | null;
+    bankName?: string | null;
   }): Promise<RequestReturnResult> {
     return this.requestReturnUseCase.execute({
       userId: params.userId,
       orderId: params.orderId,
+      requestType: params.requestType,
+      items: params.items,
       reasonCode: params.reasonCode,
       reason: params.reason ?? null,
       evidenceImages: params.evidenceImages,

@@ -22,11 +22,33 @@ export class RequestReturnUseCase implements IRequestReturnUseCase {
       throw new BadRequestError('Invalid return reason');
     }
 
-    if (!input.bankAccountName?.trim() || !input.bankAccountNumber?.trim() || !input.bankName?.trim()) {
+    if (!['EXCHANGE', 'RETURN_REFUND'].includes(input.requestType)) {
+      throw new BadRequestError('Invalid return request type');
+    }
+    if (!Array.isArray(input.items) || input.items.length === 0) {
+      throw new BadRequestError('At least one order item is required');
+    }
+    if (input.items.some((item) => !item.orderItemId || !Number.isInteger(item.quantity) || item.quantity < 1)) {
+      throw new BadRequestError('Invalid return item quantity');
+    }
+    if (
+      input.requestType === 'EXCHANGE' &&
+      input.items.some((item) => !item.requestedVariantId?.trim())
+    ) {
+      throw new BadRequestError('requestedVariantId is required for exchanges');
+    }
+
+    if (
+      input.requestType === 'RETURN_REFUND' &&
+      (!input.bankAccountName?.trim() || !input.bankAccountNumber?.trim() || !input.bankName?.trim())
+    ) {
       throw new BadRequestError('bankAccountName, bankAccountNumber and bankName are required');
     }
 
-    if (!Array.isArray(input.evidenceImages) || input.evidenceImages.length === 0) {
+    if (
+      input.reasonCode === 'DEFECTIVE' &&
+      (!Array.isArray(input.evidenceImages) || input.evidenceImages.length === 0)
+    ) {
       throw new BadRequestError('At least one evidence image is required');
     }
 
@@ -40,12 +62,14 @@ export class RequestReturnUseCase implements IRequestReturnUseCase {
     return this.repo.requestReturn({
       userId: input.userId,
       orderId: input.orderId,
+      requestType: input.requestType,
+      items: input.items,
       reasonCode: input.reasonCode,
       reason: input.reason ?? null,
       evidenceImages: input.evidenceImages,
-      bankAccountName: input.bankAccountName.trim(),
-      bankAccountNumber: input.bankAccountNumber.trim(),
-      bankName: input.bankName.trim(),
+      bankAccountName: input.bankAccountName?.trim() || null,
+      bankAccountNumber: input.bankAccountNumber?.trim() || null,
+      bankName: input.bankName?.trim() || null,
     });
   }
 }

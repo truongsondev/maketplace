@@ -55,7 +55,8 @@ export class VirtualTryOnAPI {
 
   private async history(req: Request, res: Response): Promise<void> {
     const { page, limit } = parsePage(req);
-    const [total, items] = await this.service.listMine(requireUserId(req), page, limit);
+    const productId = typeof req.query.productId === 'string' ? req.query.productId.trim() : undefined;
+    const [total, items] = await this.service.listMine(requireUserId(req), page, limit, productId || undefined);
     res.status(200).json(ResponseFormatter.paginated(items, total, page, limit));
   }
 

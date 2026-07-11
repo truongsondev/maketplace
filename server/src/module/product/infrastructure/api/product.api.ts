@@ -5,6 +5,7 @@ import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { ProductController } from '../../interface-adapter/controller/product.controller';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { redis } from '../../../../infrastructure/database';
+import type { SizeRecommendationService } from '../../applications/services/size-recommendation.service';
 
 export class ProductAPI {
   readonly router = express.Router();
@@ -12,7 +13,10 @@ export class ProductAPI {
   private readonly homeCacheTtlSeconds = 600;
   private readonly cacheTimeoutMs = 300;
 
-  constructor(private readonly productController: ProductController) {
+  constructor(
+    private readonly productController: ProductController,
+    private readonly sizeRecommendationService: SizeRecommendationService,
+  ) {
     this.initializeRoutes();
   }
 
@@ -26,7 +30,24 @@ export class ProductAPI {
     this.router.get('/favorites', asyncHandler(this.getFavoriteProducts.bind(this)));
     this.router.post('/:id/favorite', asyncHandler(this.addProductToFavorite.bind(this)));
     this.router.delete('/:id/favorite', asyncHandler(this.removeProductFromFavorite.bind(this)));
+    this.router.post('/:id/size-recommendation', asyncHandler(this.recommendSize.bind(this)));
     this.router.get('/:id', asyncHandler(this.getProductDetail.bind(this)));
+  }
+
+  private async recommendSize(req: Request, res: Response): Promise<void> {
+    const productId = String(req.params.id || '').trim();
+    const body = req.body as Record<string, unknown>;
+    const fit = String(body.fitPreference || 'REGULAR').toUpperCase();
+    if (!['SLIM', 'REGULAR', 'RELAXED'].includes(fit)) {
+      throw new BadRequestError('fitPreference must be SLIM, REGULAR or RELAXED');
+    }
+    const result = await this.sizeRecommendationService.recommend({
+      productId,
+      heightCm: Number(body.heightCm),
+      weightKg: Number(body.weightKg),
+      fitPreference: fit as 'SLIM' | 'REGULAR' | 'RELAXED',
+    });
+    res.status(200).json(ResponseFormatter.success(result));
   }
 
   private async getRelatedFromMyOrders(

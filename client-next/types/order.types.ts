@@ -80,7 +80,17 @@ export interface MyOrderListItem {
   returnStatus?: ReturnFlowStatus | null;
   refund?: OrderRefundInfo | null;
   cancelRequest?: OrderCancelRequestInfo | null;
-  totalPrice: string;
+  subtotalPrice: string | number;
+  discountAmount: string | number;
+  shippingFee: string | number;
+  totalPrice: string | number;
+  delivery: {
+    carrierName: string | null;
+    trackingCode: string | null;
+    deliveryNote: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+  };
   orderCode: string | null;
   payment: {
     method: string | null;
@@ -89,11 +99,23 @@ export interface MyOrderListItem {
     transactionStatus: string | null;
     transactionPaidAt: string | null;
   };
+  shipping: {
+    addressId: string | null;
+    recipient: string;
+    phone: string;
+    addressLine: string;
+    ward: string;
+    district: string;
+    city: string;
+    source: string;
+  } | null;
   items: OrderListItemProduct[];
 }
 
 export interface ReturnRequestPayload {
   orderId: string;
+  requestType: "EXCHANGE" | "RETURN_REFUND";
+  items: Array<{ orderItemId: string; quantity: number; requestedVariantId?: string | null }>;
   reasonCode: ReturnReasonCode;
   reason?: string;
   evidenceImages: Array<{ url: string; publicId?: string | null }>;

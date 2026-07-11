@@ -17,7 +17,7 @@ function createVoucherController(): VoucherController {
 }
 
 export function createVoucherModule(): Router {
-  const api = new VoucherAPI(createVoucherController());
+  const api = new VoucherAPI(createVoucherController(), createVoucherCheckoutService());
   return api.router;
 }
 

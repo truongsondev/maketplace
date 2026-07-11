@@ -134,6 +134,8 @@ export const orderService = {
     const response = await apiClient.post<{ id: string; status: string }>(
       `api/orders/${encodeURIComponent(params.orderId)}/return`,
       {
+        requestType: params.requestType,
+        items: params.items,
         reasonCode: params.reasonCode,
         reason: params.reason,
         evidenceImages: params.evidenceImages,

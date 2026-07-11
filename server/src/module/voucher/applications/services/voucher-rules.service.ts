@@ -1,8 +1,21 @@
 import type { DiscountType } from '@/generated/prisma/enums';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
-import type { VoucherPricingResult, VoucherSummary } from '../dto/voucher.dto';
+import type { CartItemPricing, VoucherPricingResult, VoucherSummary } from '../dto/voucher.dto';
 
 export class VoucherRulesService {
+  static isItemEligible(voucher: VoucherSummary, item: CartItemPricing, memberTier: string): boolean {
+    const categoryIds = voucher.includeDescendants
+      ? [...item.categoryIds, ...item.ancestorCategoryIds]
+      : item.categoryIds;
+    const excluded = (voucher.excludedProductIds ?? []).includes(item.productId) ||
+      categoryIds.some((id) => (voucher.excludedCategoryIds ?? []).includes(id));
+    if (excluded) return false;
+    if (voucher.scopeType === 'ALL_PRODUCTS') return true;
+    if (voucher.scopeType === 'INCLUDE_PRODUCTS') return (voucher.includedProductIds ?? []).includes(item.productId);
+    if (voucher.scopeType === 'INCLUDE_CATEGORIES') return categoryIds.some((id) => (voucher.includedCategoryIds ?? []).includes(id));
+    if (voucher.scopeType === 'MEMBER_TIERS') return (voucher.memberTiers ?? []).includes(memberTier);
+    return true;
+  }
   static ensureVoucherIsApplicable(voucher: VoucherSummary, subtotal: number): void {
     const now = new Date();
 

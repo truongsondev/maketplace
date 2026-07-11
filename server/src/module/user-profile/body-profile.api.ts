@@ -9,6 +9,7 @@ export class BodyProfileAPI {
   readonly router = express.Router();
 
   constructor(private readonly repository: PrismaBodyProfileRepository) {
+    this.router.get('/me', asyncHandler(this.getAccount.bind(this)));
     this.router.get('/me/body-profile', asyncHandler(this.getMine.bind(this)));
     this.router.put('/me/body-profile', asyncHandler(this.updateMine.bind(this)));
   }
@@ -23,6 +24,21 @@ export class BodyProfileAPI {
   private async getMine(req: Request, res: Response): Promise<void> {
     const result = await this.repository.getByUserId(this.getUserId(req));
     res.status(200).json(ResponseFormatter.success(result));
+  }
+
+  private async getAccount(req: Request, res: Response): Promise<void> {
+    const user = (req as any).user as
+      | { id?: string; email?: string | null; status?: string | null }
+      | undefined;
+    const userId = this.getUserId(req);
+
+    res.status(200).json(
+      ResponseFormatter.success({
+        id: user?.id ?? userId,
+        email: user?.email ?? null,
+        status: user?.status ?? null,
+      }),
+    );
   }
 
   private async updateMine(req: Request, res: Response): Promise<void> {

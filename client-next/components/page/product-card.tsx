@@ -48,7 +48,7 @@ function normalizeProductImageUrl(rawUrl: string | null) {
 }
 
 interface ProductCardProps {
-  product: ProductItem;
+  product: ProductItem & { originalPrice?: number; salePrice?: number; promotionName?: string };
   trackingPlacement?: string;
   trackingSource?: string;
   enableDwellTracking?: boolean;
@@ -84,10 +84,12 @@ export function ProductCard({
     toggleFavorite.isPending &&
     toggleFavorite.variables?.productId === product.id;
 
-  const formattedPrice = new Intl.NumberFormat("vi-VN", {
+  const priceFormatter = new Intl.NumberFormat("vi-VN", {
     style: "currency",
     currency: "VND",
-  }).format(Number(product.minPrice));
+  });
+  const effectivePrice = product.salePrice ?? Number(product.minPrice);
+  const formattedPrice = priceFormatter.format(effectivePrice);
 
   const handleViewDetail = () => {
     router.push(`/product/${product.id}`);
@@ -125,6 +127,9 @@ export function ProductCard({
       className="group relative flex flex-col"
     >
       <div className="relative aspect-3/4 w-full overflow-hidden bg-[#ebe7df] dark:bg-neutral-900">
+        {product.salePrice !== undefined && product.originalPrice !== undefined && product.salePrice < product.originalPrice ? (
+          <span className="absolute left-3 top-3 z-10 bg-red-600 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">Đang sale</span>
+        ) : null}
         <button
           aria-label={isFavorite ? "Bỏ khỏi yêu thích" : "Thêm vào yêu thích"}
           onClick={handleToggleFavorite}
@@ -178,6 +183,9 @@ export function ProductCard({
         <p className="text-sm font-semibold tracking-[0.04em] text-neutral-950 dark:text-white">
           {formattedPrice}
         </p>
+        {product.originalPrice !== undefined && product.salePrice !== undefined && product.salePrice < product.originalPrice ? (
+          <p className="text-xs text-neutral-500 line-through">{priceFormatter.format(product.originalPrice)}</p>
+        ) : null}
       </div>
     </motion.div>
   );

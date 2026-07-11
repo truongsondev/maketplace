@@ -1,4 +1,4 @@
-import type { DiscountType } from '@/generated/prisma/enums';
+import type { DiscountType, VoucherMinAmountBasis, VoucherScopeType } from '@/generated/prisma/enums';
 
 export interface VoucherSummary {
   id: string;
@@ -14,12 +14,33 @@ export interface VoucherSummary {
   startAt: Date;
   endAt: Date;
   isActive: boolean;
+  isBirthdayVoucher?: boolean;
   bannerImageUrl: string | null;
+  scopeType?: VoucherScopeType;
+  includeDescendants?: boolean;
+  minAmountBasis?: VoucherMinAmountBasis;
+  includedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
+  includedProductIds?: string[];
+  excludedProductIds?: string[];
+  memberTiers?: string[];
 }
 
 export interface VoucherPricingResult {
   subtotal: number;
   discountAmount: number;
+  voucherDiscountAmount?: number;
+  promotionDiscountAmount?: number;
+  promotionAllocations?: Array<{
+    cartItemId: string;
+    promotionName: string | null;
+    discountAmount: number;
+    stackableWithVoucher: boolean;
+  }>;
+  loyaltyDiscountAmount?: number;
+  loyaltyDiscountPercent?: number;
+  loyaltyTier?: string;
+  loyaltyTierLabel?: string;
   finalTotal: number;
 }
 
@@ -40,10 +61,14 @@ export interface CartItemPricing {
   variantId: string;
   quantity: number;
   unitPrice: number;
+  categoryIds: string[];
+  ancestorCategoryIds: string[];
 }
 
 export interface CartTotalsResult {
   cartId: string;
   subtotal: number;
   items: CartItemPricing[];
+  memberTier: string;
+  userBirthday?: Date | null;
 }

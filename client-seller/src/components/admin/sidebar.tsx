@@ -6,8 +6,10 @@ import {
   FileText,
   Wallet,
   Ticket,
+  BadgePercent,
   Sparkles,
   Image,
+  Store,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -18,10 +20,13 @@ export function Sidebar() {
     { icon: LayoutDashboard, label: "Tổng quan", to: "/dashboard" },
     { icon: Package, label: "Sản phẩm", to: "/products" },
     { icon: ShoppingCart, label: "Đơn hàng", to: "/orders" },
+    { icon: Store, label: "Bán tại cửa hàng", to: "/physical-sales" },
     { icon: Users, label: "Người dùng", to: "/users" },
     { icon: Wallet, label: "Hoàn tiền", to: "/refunds" },
     { icon: FileText, label: "Nhật ký", to: "/logs" },
     { icon: Ticket, label: "Mã giảm giá", to: "/voucher" },
+    { icon: BadgePercent, label: "Sự kiện", to: "/promotions" },
+    { icon: Wallet, label: "Hạng thành viên", to: "/loyalty" },
     { icon: Image, label: "Biểu ngữ", to: "/banner" },
   ];
 

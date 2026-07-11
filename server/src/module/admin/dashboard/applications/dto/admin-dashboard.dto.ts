@@ -16,6 +16,10 @@ export type AdminDashboardRange = {
 export type AdminDashboardOverview = {
   range: AdminDashboardRange;
   revenue: AdminDashboardMoney;
+  revenueByChannel: {
+    online: AdminDashboardMoney;
+    physicalStore: AdminDashboardMoney;
+  };
   orders: AdminDashboardCount;
   itemsSold: AdminDashboardCount;
   /**

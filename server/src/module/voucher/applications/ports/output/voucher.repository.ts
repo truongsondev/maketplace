@@ -9,6 +9,18 @@ export interface IDiscountVoucherRepository {
     userId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<number>;
+  countUserUsageForYear(
+    discountId: string,
+    userId: string,
+    year: number,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number>;
+  countUserVoucherOrdersForYear(
+    discountId: string,
+    userId: string,
+    year: number,
+    tx?: Prisma.TransactionClient,
+  ): Promise<number>;
   getCartTotals(
     userId: string,
     cartItemIds?: string[],
@@ -27,6 +39,7 @@ export interface IDiscountVoucherRepository {
     discountId: string;
     userId: string;
     orderId: string;
+    usageYear?: number | null;
     tx: Prisma.TransactionClient;
   }): Promise<void>;
   incrementUsedCountIfAvailable(discountId: string, tx: Prisma.TransactionClient): Promise<boolean>;

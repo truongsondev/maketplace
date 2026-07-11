@@ -67,6 +67,14 @@ export class AdminVoucherRulesService {
       endAt,
       isActive: input.isActive ?? true,
       bannerImageUrl: input.bannerImageUrl?.trim() || null,
+      scopeType: input.scopeType ?? 'ALL_PRODUCTS',
+      includeDescendants: input.includeDescendants ?? false,
+      minAmountBasis: input.minAmountBasis ?? 'ELIGIBLE_SUBTOTAL',
+      includedCategoryIds: [...new Set(input.includedCategoryIds ?? [])],
+      excludedCategoryIds: [...new Set(input.excludedCategoryIds ?? [])],
+      includedProductIds: [...new Set(input.includedProductIds ?? [])],
+      excludedProductIds: [...new Set(input.excludedProductIds ?? [])],
+      memberTiers: [...new Set(input.memberTiers ?? [])].filter((tier) => ['MEMBER', 'SILVER', 'GOLD'].includes(tier)),
     };
   }
 }

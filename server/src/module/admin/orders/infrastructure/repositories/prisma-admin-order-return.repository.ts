@@ -153,13 +153,23 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
         id: true,
         status: true,
         totalPrice: true,
+        subtotalPrice: true,
         returnStatus: true,
         payment: {
           select: {
             status: true,
           },
         },
-        items: { select: { id: true } },
+        items: {
+          select: {
+            id: true,
+            price: true,
+            returns: {
+              where: { status: { in: ['RT_APPROVED', 'RT_SHIPPING'] } },
+              select: { quantity: true, requestType: true },
+            },
+          },
+        },
       },
     });
 
@@ -180,6 +190,19 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       throw new BadRequestError('Order has no items');
     }
 
+    const refundableGross = order.items.reduce(
+      (sum, item) =>
+        sum +
+        item.returns
+          .filter((row) => row.requestType === 'RETURN_REFUND')
+          .reduce((itemSum, row) => itemSum + Number(item.price) * row.quantity, 0),
+      0,
+    );
+    const subtotal = Number(order.subtotalPrice);
+    const paidTotal = Number(order.totalPrice);
+    const refundableAmount =
+      subtotal > 0 ? Math.min(paidTotal, Math.round((refundableGross / subtotal) * paidTotal)) : 0;
+
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.return.updateMany({
         where: { orderItemId: { in: itemIds }, status: { in: ['RT_APPROVED', 'RT_SHIPPING'] } },
@@ -195,7 +218,10 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
         select: { id: true, status: true, returnStatus: true },
       });
 
-      if (order.payment?.status === 'PAID' || order.payment?.status === 'SUCCESS') {
+      if (
+        refundableAmount > 0 &&
+        (order.payment?.status === 'PAID' || order.payment?.status === 'SUCCESS')
+      ) {
         await tx.refundTransaction.upsert({
           where: {
             orderId_type: {
@@ -206,13 +232,14 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
           create: {
             orderId: params.orderId,
             type: 'RETURN_REFUND',
-            amount: order.totalPrice,
+            amount: refundableAmount,
             status: 'PENDING',
             initiatedBy: 'ADMIN',
             reason: 'Return completed by admin',
             idempotencyKey: `return-${params.orderId}`,
           },
           update: {
+            amount: refundableAmount,
             reason: 'Return completed by admin',
           },
         });

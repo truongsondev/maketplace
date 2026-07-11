@@ -29,7 +29,10 @@ export function BodyProfileModal() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setDismissed(sessionStorage.getItem(DISMISS_KEY) === "true");
+    const readTimer = window.setTimeout(() => {
+      setDismissed(sessionStorage.getItem(DISMISS_KEY) === "true");
+    }, 0);
+    return () => window.clearTimeout(readTimer);
   }, []);
 
   const validation = useMemo(() => {

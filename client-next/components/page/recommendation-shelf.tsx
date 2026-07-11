@@ -17,6 +17,7 @@ type RecommendationShelfKind = "home" | "product" | "cart" | "personalized";
 
 type RecommendationShelfProps = {
   kind: RecommendationShelfKind;
+  fallbackKind?: RecommendationShelfKind;
   productId?: string;
   limit?: number;
   enabled?: boolean;
@@ -27,35 +28,48 @@ type RecommendationShelfProps = {
 
 export function RecommendationShelf({
   kind,
+  fallbackKind,
   productId,
   limit = 8,
   enabled = true,
   placement,
-  emptyMessage = "Chưa có gợi ý phù hợp lúc này.",
 }: RecommendationShelfProps) {
   const impressionKeyRef = useRef<string | null>(null);
 
-  const homeQuery = useHomeRecommendations(limit, enabled && kind === "home");
+  const homeQuery = useHomeRecommendations(
+    limit,
+    enabled && (kind === "home" || fallbackKind === "home"),
+  );
   const productQuery = useProductRecommendations(
     productId ?? "",
     limit,
-    enabled && kind === "product",
+    enabled && (kind === "product" || fallbackKind === "product"),
   );
-  const cartQuery = useCartRecommendations(limit, enabled && kind === "cart");
+  const cartQuery = useCartRecommendations(
+    limit,
+    enabled && (kind === "cart" || fallbackKind === "cart"),
+  );
   const personalizedQuery = usePersonalizedRecommendations(
     limit,
-    enabled && kind === "personalized",
+    enabled && (kind === "personalized" || fallbackKind === "personalized"),
   );
 
-  const query =
-    kind === "home"
+  const getQuery = (targetKind?: RecommendationShelfKind) =>
+    targetKind === "home"
       ? homeQuery
-      : kind === "product"
+      : targetKind === "product"
         ? productQuery
-        : kind === "cart"
+        : targetKind === "cart"
           ? cartQuery
           : personalizedQuery;
 
+  const primaryQuery = getQuery(kind);
+  const fallbackQuery = fallbackKind ? getQuery(fallbackKind) : null;
+  const primaryItems = primaryQuery.data?.items ?? [];
+  const fallbackItems = fallbackQuery?.data?.items ?? [];
+  const shouldUseFallback =
+    primaryItems.length === 0 && fallbackItems.length > 0;
+  const query = shouldUseFallback ? fallbackQuery! : primaryQuery;
   const feed = query.data;
   const items = useMemo(() => feed?.items ?? [], [feed?.items]);
 
@@ -67,7 +81,7 @@ export function RecommendationShelf({
     impressionKeyRef.current = impressionKey;
 
     void trackingService.track({
-      eventType: "VIEW_PRODUCT",
+      eventType: "RECOMMENDATION_IMPRESSION",
       placement,
       source: "recommendation_impression",
       metadata: {
@@ -79,7 +93,7 @@ export function RecommendationShelf({
 
   const handleRecommendationClick = (item: RecommendationItem) => {
     void trackingService.track({
-      eventType: "VIEW_PRODUCT",
+      eventType: "RECOMMENDATION_CLICK",
       productId: item.id,
       placement,
       source: "recommendation_click",
@@ -90,6 +104,13 @@ export function RecommendationShelf({
       },
     });
   };
+
+  const isLoading = primaryQuery.isLoading || Boolean(fallbackQuery?.isLoading);
+  const hasError = primaryQuery.isError && (fallbackQuery?.isError ?? true);
+
+  if (!isLoading && !hasError && items.length === 0) {
+    return null;
+  }
 
   return (
     <motion.section
@@ -112,7 +133,7 @@ export function RecommendationShelf({
       </div>
 
       <div className="mx-auto mt-8 w-full max-w-330 px-4 md:px-6 lg:px-8">
-        {query.isLoading ? (
+        {isLoading && items.length === 0 ? (
           <div className="flex gap-4 overflow-hidden">
             {Array.from({ length: Math.min(limit, 4) }).map((_, index) => (
               <div
@@ -121,14 +142,10 @@ export function RecommendationShelf({
               />
             ))}
           </div>
-        ) : query.isError ? (
+        ) : hasError ? (
           <div className="flex items-center gap-2 border border-black/10 bg-white/70 p-5 text-sm text-neutral-600 dark:border-white/10 dark:bg-black dark:text-neutral-300">
             <Loader2 className="size-4" />
             Không tải được gợi ý lúc này.
-          </div>
-        ) : items.length === 0 ? (
-          <div className="border border-black/10 bg-white/70 p-5 text-sm text-neutral-600 dark:border-white/10 dark:bg-black dark:text-neutral-300">
-            {emptyMessage}
           </div>
         ) : (
           <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 [scrollbar-width:none] md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 [&::-webkit-scrollbar]:hidden">

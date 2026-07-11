@@ -8,9 +8,19 @@ import { BadRequestError } from '../../../../../error-handlling/badRequestError'
 import { ForbiddenError } from '../../../../../error-handlling/forbiddenError';
 import type { AdminOrderReturnsController } from '../../interface-adapter/controller/admin-order-returns.controller';
 import type { AdminOrderAnalyticsController } from '../../interface-adapter/controller/admin-order-analytics.controller';
+import type { CodSettlementService } from '../../../../payment/applications/services/cod-settlement.service';
+import { awardLoyaltyForOrder, LoyaltyMutationService } from '../../../../user-profile/loyalty.service';
 
 type AdminOrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'completed' | 'canceled';
 type OrderSort = 'new' | 'old';
+type AdminOrderRequestType = 'all' | 'cancel' | 'return' | 'refund';
+type AdminOrderRequestStatus =
+  | 'all'
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'completed'
+  | 'failed';
 
 function parsePositiveInt(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -99,6 +109,110 @@ function mapTabToStatuses(tab: AdminOrderTab | undefined): OrderStatus[] | undef
   return undefined;
 }
 
+function parseRequestType(value: unknown): AdminOrderRequestType {
+  if (
+    value === 'cancel' ||
+    value === 'return' ||
+    value === 'refund' ||
+    value === 'all' ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return (value || 'all') as AdminOrderRequestType;
+  }
+  throw new BadRequestError('requestType is invalid');
+}
+
+function parseRequestStatus(value: unknown): AdminOrderRequestStatus {
+  if (
+    value === 'pending' ||
+    value === 'approved' ||
+    value === 'rejected' ||
+    value === 'completed' ||
+    value === 'failed' ||
+    value === 'all' ||
+    value === undefined ||
+    value === null ||
+    value === ''
+  ) {
+    return (value || 'all') as AdminOrderRequestStatus;
+  }
+  throw new BadRequestError('requestStatus is invalid');
+}
+
+function buildRequestTypeWhere(type: AdminOrderRequestType): Prisma.OrderWhereInput | undefined {
+  if (type === 'all') return undefined;
+  if (type === 'cancel') return { cancelRequest: { isNot: null } };
+  if (type === 'return') {
+    return {
+      OR: [
+        { returnStatus: { not: null } },
+        { items: { some: { returns: { some: {} } } } },
+      ],
+    };
+  }
+  return {
+    refundTransactions: {
+      some: { type: { in: ['CANCEL_REFUND', 'RETURN_REFUND'] } },
+    },
+  };
+}
+
+function buildRequestStatusWhere(
+  status: AdminOrderRequestStatus,
+): Prisma.OrderWhereInput | undefined {
+  if (status === 'all') return undefined;
+  if (status === 'pending') {
+    return {
+      OR: [
+        { cancelRequest: { is: { status: 'REQUESTED' } } },
+        { returnStatus: 'REQUESTED' },
+        { refundTransactions: { some: { status: { in: ['PENDING', 'RETRYING'] } } } },
+      ],
+    };
+  }
+  if (status === 'approved') {
+    return {
+      OR: [
+        { cancelRequest: { is: { status: 'APPROVED' } } },
+        { returnStatus: { in: ['APPROVED', 'SHIPPING'] } },
+      ],
+    };
+  }
+  if (status === 'rejected') {
+    return {
+      OR: [
+        { cancelRequest: { is: { status: 'REJECTED' } } },
+        { returnStatus: 'REJECTED' },
+      ],
+    };
+  }
+  if (status === 'completed') {
+    return {
+      OR: [
+        { cancelRequest: { is: { status: 'COMPLETED' } } },
+        { returnStatus: 'COMPLETED' },
+        { refundTransactions: { some: { status: 'SUCCESS' } } },
+      ],
+    };
+  }
+  return {
+    refundTransactions: {
+      some: { status: 'FAILED' },
+    },
+  };
+}
+
+function buildRequestFilterWhere(input: {
+  requestType: AdminOrderRequestType;
+  requestStatus: AdminOrderRequestStatus;
+}): Prisma.OrderWhereInput[] {
+  return [buildRequestTypeWhere(input.requestType), buildRequestStatusWhere(input.requestStatus)].filter(
+    (where): where is Prisma.OrderWhereInput => Boolean(where),
+  );
+}
+
 function pickPrimaryImageUrl(input: {
   variantImages?: Array<{ url: string; isPrimary: boolean; sortOrder: number }>;
   productImages?: Array<{ url: string; isPrimary: boolean; sortOrder: number }>;
@@ -152,6 +266,7 @@ export class AdminOrdersAPI {
     private readonly prisma: PrismaClient,
     private readonly returnsController: AdminOrderReturnsController,
     private readonly analyticsController: AdminOrderAnalyticsController,
+    private readonly codSettlementService: CodSettlementService,
   ) {
     this.initializeRoutes();
   }
@@ -177,8 +292,12 @@ export class AdminOrdersAPI {
     );
     this.router.get('/:orderId/confirm/check', asyncHandler(this.checkConfirmOrder.bind(this)));
     this.router.post('/:orderId/confirm', asyncHandler(this.confirmOrder.bind(this)));
+    this.router.post('/:orderId/pack', asyncHandler(this.packOrder.bind(this)));
     this.router.post('/:orderId/ship', asyncHandler(this.shipOrder.bind(this)));
     this.router.post('/:orderId/deliver', asyncHandler(this.deliverOrder.bind(this)));
+    this.router.post('/:orderId/delivery-failed', asyncHandler(this.deliveryFailed.bind(this)));
+    this.router.post('/:orderId/return-to-store', asyncHandler(this.returnToStore.bind(this)));
+    this.router.post('/:orderId/complete', asyncHandler(this.completeOrder.bind(this)));
     this.router.post('/:orderId/returns/approve', asyncHandler(this.approveReturns.bind(this)));
     this.router.post('/:orderId/returns/reject', asyncHandler(this.rejectReturns.bind(this)));
     this.router.post('/:orderId/returns/pickup', asyncHandler(this.pickupReturns.bind(this)));
@@ -203,8 +322,10 @@ export class AdminOrdersAPI {
     to: OrderStatus;
     allowedFrom: OrderStatus[];
     okIfAlreadyIn?: OrderStatus[];
+    orderData?: Prisma.OrderUpdateInput;
+    reason?: string;
   }): Promise<{ id: string; status: OrderStatus }> {
-    const { orderId, actorId, to, allowedFrom, okIfAlreadyIn } = params;
+    const { orderId, actorId, to, allowedFrom, okIfAlreadyIn, orderData, reason } = params;
 
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -235,7 +356,7 @@ export class AdminOrdersAPI {
     const updated = await this.prisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
         where: { id: orderId },
-        data: { status: to },
+        data: { ...orderData, status: to },
         select: { id: true, status: true },
       });
 
@@ -245,8 +366,25 @@ export class AdminOrdersAPI {
           oldStatus: order.status,
           newStatus: to,
           changedBy: actorId,
+          reason: reason?.slice(0, 500) || null,
         },
       });
+
+      await tx.auditLog.create({
+        data: {
+          actorType: 'ADMIN',
+          actorId,
+          targetType: 'Order',
+          targetId: orderId,
+          action: 'ADMIN_ORDER_STATUS_CHANGED',
+          oldData: { status: order.status } as Prisma.InputJsonValue,
+          newData: { status: to, reason: reason ?? null } as Prisma.InputJsonValue,
+        },
+      });
+
+      if (to === 'COMPLETED') {
+        await awardLoyaltyForOrder(tx, orderId);
+      }
 
       return updatedOrder;
     });
@@ -277,6 +415,7 @@ export class AdminOrdersAPI {
       select: {
         id: true,
         status: true,
+        payment: { select: { method: true, status: true } },
         items: {
           select: {
             id: true,
@@ -317,8 +456,15 @@ export class AdminOrdersAPI {
       reasons: string[];
     }> = [];
 
-    if (requirePaidStatus && order.status !== 'PAID') {
-      issues.push('Đơn hàng không ở trạng thái có thể xác nhận (yêu cầu: PAID).');
+    const isPendingCod =
+      order.status === 'PENDING' &&
+      order.payment?.method === 'COD' &&
+      order.payment.status === 'PENDING';
+    if (requirePaidStatus && order.status !== 'PAID' && !isPendingCod) {
+      issues.push('Đơn PayOS phải PAID; đơn COD phải đang chờ xác nhận.');
+    }
+    if (!requirePaidStatus && order.status === 'PENDING' && !isPendingCod) {
+      issues.push('Không thể xác nhận đơn online chưa thanh toán.');
     }
 
     if (order.items.length === 0) {
@@ -426,11 +572,18 @@ export class AdminOrdersAPI {
       orderId,
       actorId,
       to: 'CONFIRMED',
-      allowedFrom: ['PAID'],
+      allowedFrom: ['PAID', 'PENDING'],
       okIfAlreadyIn: ['CONFIRMED', 'SHIPPED', 'DELIVERED', 'RETURNED'],
     });
 
     res.status(200).json(ResponseFormatter.success(updated, 'Order confirmed'));
+  }
+
+  private async packOrder(req: Request, res: Response): Promise<void> {
+    const orderId = String(req.params.orderId || '');
+    if (!req.userId) throw new ForbiddenError('Authentication required');
+    const updated = await this.transitionStatus({ orderId, actorId: req.userId, to: 'PACKING', allowedFrom: ['CONFIRMED'], okIfAlreadyIn: ['PACKING', 'SHIPPED', 'DELIVERED', 'COMPLETED'] });
+    res.status(200).json(ResponseFormatter.success(updated, 'Order packing'));
   }
 
   private async shipOrder(req: Request, res: Response): Promise<void> {
@@ -446,12 +599,26 @@ export class AdminOrdersAPI {
       throw new ForbiddenError('Authentication required');
     }
 
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const carrierName = typeof body.carrierName === 'string' ? body.carrierName.trim() : '';
+    const trackingCode = typeof body.trackingCode === 'string' ? body.trackingCode.trim() : '';
+    const deliveryNote = typeof body.deliveryNote === 'string' ? body.deliveryNote.trim() : '';
+    if (carrierName.length > 120 || trackingCode.length > 120 || deliveryNote.length > 500) {
+      throw new BadRequestError('Shipping metadata exceeds allowed length');
+    }
+
     const updated = await this.transitionStatus({
       orderId,
       actorId,
       to: 'SHIPPED',
-      allowedFrom: ['CONFIRMED'],
+      allowedFrom: ['PACKING'],
       okIfAlreadyIn: ['SHIPPED', 'DELIVERED', 'RETURNED'],
+      orderData: {
+        shippedAt: new Date(),
+        carrierName: carrierName || null,
+        trackingCode: trackingCode || null,
+        deliveryNote: deliveryNote || null,
+      },
     });
 
     res.status(200).json(ResponseFormatter.success(updated, 'Order shipped'));
@@ -470,21 +637,67 @@ export class AdminOrdersAPI {
       throw new ForbiddenError('Authentication required');
     }
 
+    await this.codSettlementService.settleOnDelivery(orderId, actorId);
+
     const updated = await this.transitionStatus({
       orderId,
       actorId,
       to: 'DELIVERED',
       allowedFrom: ['SHIPPED'],
       okIfAlreadyIn: ['DELIVERED', 'RETURNED'],
+      orderData: { deliveredAt: new Date() },
     });
 
     res.status(200).json(ResponseFormatter.success(updated, 'Order delivered'));
+  }
+
+  private async deliveryFailed(req: Request, res: Response): Promise<void> {
+    const orderId = String(req.params.orderId || '');
+    if (!req.userId) throw new ForbiddenError('Authentication required');
+    const reason = String((req.body as Record<string, unknown>)?.reason || '').trim();
+    if (!reason) throw new BadRequestError('Failure reason is required');
+    const updated = await this.transitionStatus({ orderId, actorId: req.userId, to: 'DELIVERY_FAILED', allowedFrom: ['SHIPPED'], okIfAlreadyIn: ['DELIVERY_FAILED', 'RETURN_TO_STORE'], reason });
+    res.status(200).json(ResponseFormatter.success(updated, 'Delivery failure recorded'));
+  }
+
+  private async returnToStore(req: Request, res: Response): Promise<void> {
+    const orderId = String(req.params.orderId || '');
+    if (!req.userId) throw new ForbiddenError('Authentication required');
+    const result = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({ where: { id: orderId }, include: { payment: true, items: true } });
+      if (!order) throw new BadRequestError('Order not found');
+      if (order.status === 'RETURN_TO_STORE') return { id: order.id, status: order.status };
+      if (order.status !== 'DELIVERY_FAILED') throw new BadRequestError('Only failed delivery can return to store');
+      const claimed = await tx.order.updateMany({ where: { id: orderId, status: 'DELIVERY_FAILED' }, data: { status: 'RETURN_TO_STORE' } });
+      if (claimed.count !== 1) throw new BadRequestError('Order status changed, please retry');
+      if (order.payment?.method === 'COD' && order.payment.status === 'PENDING') {
+        for (const item of order.items) {
+          if (!item.variantId) continue;
+          const released = await tx.productVariant.updateMany({ where: { id: item.variantId, stockReserved: { gte: item.quantity } }, data: { stockReserved: { decrement: item.quantity }, stockAvailable: { increment: item.quantity } } });
+          if (released.count !== 1) throw new BadRequestError(`Reserved stock inconsistent for ${item.variantId}`);
+          await tx.inventoryLog.create({ data: { variantId: item.variantId, action: 'RELEASE', quantity: item.quantity, referenceType: 'ORDER_RETURN_TO_STORE', referenceId: orderId, actorId: req.userId, reason: 'COD delivery failed; stock returned to store', salesChannel: 'ONLINE' } });
+        }
+      }
+      await tx.orderStatusHistory.create({ data: { orderId, oldStatus: 'DELIVERY_FAILED', newStatus: 'RETURN_TO_STORE', changedBy: req.userId, reason: 'Goods received back at store' } });
+      await tx.auditLog.create({ data: { actorType: 'ADMIN', actorId: req.userId, targetType: 'Order', targetId: orderId, action: 'ORDER_RETURNED_TO_STORE' } });
+      return { id: order.id, status: 'RETURN_TO_STORE' as const };
+    });
+    res.status(200).json(ResponseFormatter.success(result, 'Goods returned to store'));
+  }
+
+  private async completeOrder(req: Request, res: Response): Promise<void> {
+    const orderId = String(req.params.orderId || '');
+    if (!req.userId) throw new ForbiddenError('Authentication required');
+    const updated = await this.transitionStatus({ orderId, actorId: req.userId, to: 'COMPLETED', allowedFrom: ['DELIVERED'], okIfAlreadyIn: ['COMPLETED'] });
+    res.status(200).json(ResponseFormatter.success(updated, 'Order completed'));
   }
 
   private async listOrders(req: Request, res: Response): Promise<void> {
     const tab = (req.query.tab as AdminOrderTab | undefined) ?? 'all';
     const search = (req.query.search as string | undefined)?.trim();
     const sort = (req.query.sort as OrderSort | undefined) ?? 'new';
+    const requestType = parseRequestType(req.query.requestType);
+    const requestStatus = parseRequestStatus(req.query.requestStatus);
 
     const page = parsePositiveInt(req.query.page, 1);
     const limit = Math.min(parsePositiveInt(req.query.limit, 10), 50);
@@ -493,8 +706,10 @@ export class AdminOrdersAPI {
     const range = parseDateRangeFilter(req.query);
 
     const statuses = mapTabToStatuses(tab);
+    const requestFilters = buildRequestFilterWhere({ requestType, requestStatus });
 
     const where: Prisma.OrderWhereInput = {
+      ...(requestFilters.length > 0 ? { AND: requestFilters } : {}),
       ...(statuses ? { status: { in: statuses } } : {}),
       ...(range.from || range.to
         ? {
@@ -531,23 +746,22 @@ export class AdminOrdersAPI {
               id: true,
               email: true,
               phone: true,
-              addresses: {
-                select: {
-                  id: true,
-                  recipient: true,
-                  phone: true,
-                  addressLine: true,
-                  ward: true,
-                  district: true,
-                  city: true,
-                  isDefault: true,
-                },
-                orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
-                take: 1,
-              },
+            },
+          },
+          shippingAddress: {
+            select: {
+              sourceAddressId: true,
+              recipientName: true,
+              phone: true,
+              addressLine: true,
+              ward: true,
+              district: true,
+              city: true,
+              snapshotSource: true,
             },
           },
           payment: { select: { method: true, status: true, paidAt: true } },
+          shipment: { select: { providerStatus: true, externalFee: true, updatedAt: true } },
           paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
           cancelRequest: {
             select: {
@@ -645,6 +859,17 @@ export class AdminOrdersAPI {
         status: o.status,
         returnStatus: o.returnStatus ?? null,
         totalPrice: o.totalPrice,
+        subtotalPrice: o.subtotalPrice,
+        discountAmount: o.discountAmount ?? 0,
+        shippingFee: o.shippingFee,
+        delivery: {
+          carrierName: o.carrierName,
+          trackingCode: o.trackingCode,
+          providerStatus: o.shipment?.providerStatus ?? null,
+          deliveryNote: o.deliveryNote,
+          shippedAt: o.shippedAt,
+          deliveredAt: o.deliveredAt,
+        },
         returns: {
           ...returnsSummary,
           details: returnDetails,
@@ -680,14 +905,14 @@ export class AdminOrdersAPI {
           phone: o.user.phone,
         },
         shipping: {
-          addressId: o.user.addresses[0]?.id ?? null,
-          recipient: o.user.addresses[0]?.recipient ?? userLabel,
-          phone: o.user.addresses[0]?.phone ?? o.user.phone ?? null,
-          addressLine: o.user.addresses[0]?.addressLine ?? null,
-          ward: o.user.addresses[0]?.ward ?? null,
-          district: o.user.addresses[0]?.district ?? null,
-          city: o.user.addresses[0]?.city ?? null,
-          source: o.user.addresses[0] ? 'LATEST_USER_ADDRESS' : 'USER_PROFILE_FALLBACK',
+          addressId: o.shippingAddress?.sourceAddressId ?? null,
+          recipient: o.shippingAddress?.recipientName ?? null,
+          phone: o.shippingAddress?.phone ?? null,
+          addressLine: o.shippingAddress?.addressLine ?? null,
+          ward: o.shippingAddress?.ward ?? null,
+          district: o.shippingAddress?.district ?? null,
+          city: o.shippingAddress?.city ?? null,
+          source: o.shippingAddress?.snapshotSource ?? 'LEGACY_MISSING_SNAPSHOT',
         },
         payment: {
           method: o.payment?.method ?? null,
@@ -698,7 +923,7 @@ export class AdminOrdersAPI {
           transactionPaidAt: o.paymentTransaction?.paidAt ?? null,
         },
         items: o.items.map((it) => {
-          const imageUrl = pickPrimaryImageUrl({
+          const imageUrl = it.imageUrl ?? pickPrimaryImageUrl({
             variantImages: it.variant?.images,
             productImages: it.product.images,
           });
@@ -706,11 +931,17 @@ export class AdminOrdersAPI {
             id: it.id,
             productId: it.productId,
             variantId: it.variantId,
-            name: it.product.name,
+            name: it.productName || it.product.name,
             imageUrl,
-            attributesText: safeAttributesToText(it.variant?.attributes),
+            attributesText: safeAttributesToText(it.variantAttributes ?? it.variant?.attributes),
             quantity: it.quantity,
-            price: it.price,
+            price: it.sellingUnitPrice || it.price,
+            lineSubtotal: it.lineSubtotal,
+            promotionDiscountAmount: it.promotionDiscountAmount,
+            voucherDiscountAmount: it.voucherDiscountAmount,
+            lineDiscountAmount: it.lineDiscountAmount,
+            lineTotal: it.lineTotal,
+            promotionName: it.promotionName,
           };
         }),
       };
@@ -736,12 +967,16 @@ export class AdminOrdersAPI {
     const tab = (req.query.tab as AdminOrderTab | undefined) ?? 'all';
     const search = (req.query.search as string | undefined)?.trim();
     const sort = (req.query.sort as OrderSort | undefined) ?? 'new';
+    const requestType = parseRequestType(req.query.requestType);
+    const requestStatus = parseRequestStatus(req.query.requestStatus);
 
     const range = parseDateRangeFilter(req.query);
 
     const statuses = mapTabToStatuses(tab);
+    const requestFilters = buildRequestFilterWhere({ requestType, requestStatus });
 
     const where: Prisma.OrderWhereInput = {
+      ...(requestFilters.length > 0 ? { AND: requestFilters } : {}),
       ...(statuses ? { status: { in: statuses } } : {}),
       ...(range.from || range.to
         ? {
@@ -777,6 +1012,7 @@ export class AdminOrdersAPI {
           select: {
             quantity: true,
             price: true,
+            productName: true,
             product: { select: { name: true } },
           },
         },
@@ -800,7 +1036,7 @@ export class AdminOrdersAPI {
 
     const lines = orders.map((order) => {
       const itemsSummary = order.items
-        .map((it) => `${it.product?.name ?? ''} x${it.quantity}`)
+        .map((it) => `${it.productName || it.product?.name || ''} x${it.quantity}`)
         .filter((v) => v.trim() !== '')
         .join(' | ');
 
@@ -943,6 +1179,42 @@ export class AdminOrdersAPI {
     const actorId = (req as any).userId as string | undefined;
 
     const result = await this.returnsController.complete(orderId, actorId);
+    await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: {
+          totalPrice: true,
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              lineTotal: true,
+              returns: {
+                where: { status: 'RT_COMPLETED' },
+                select: { quantity: true },
+              },
+            },
+          },
+        },
+      });
+      if (order) {
+        const refundAmount = order.items.reduce((sum, item) => {
+          const returnedQuantity = item.returns.reduce((qty, row) => qty + row.quantity, 0);
+          if (returnedQuantity <= 0 || item.quantity <= 0) return sum;
+          return sum + (Number(item.lineTotal) * returnedQuantity) / item.quantity;
+        }, 0);
+        if (refundAmount > 0) {
+          await new LoyaltyMutationService(tx).reverseForReference({
+            referenceType: 'ORDER',
+            referenceId: orderId,
+            amount: refundAmount,
+            totalAmount: Number(order.totalPrice),
+            idempotencyKey: `ORDER:${orderId}:RETURN_REFUND_REVERSE`,
+            description: 'Thu hồi điểm theo phần hàng trả/hoàn tiền',
+          });
+        }
+      }
+    });
     res
       .status(200)
       .json(
@@ -1374,6 +1646,15 @@ export class AdminOrdersAPI {
           data: { status: 'REFUNDED' },
         });
       }
+
+      await new LoyaltyMutationService(tx).reverseForReference({
+        referenceType: 'ORDER',
+        referenceId: orderId,
+        amount: Number(order.totalPrice),
+        totalAmount: Number(order.totalPrice),
+        idempotencyKey: `ORDER:${orderId}:CANCEL_REFUND_REVERSE`,
+        description: 'Thu hồi điểm từ đơn hàng đã hủy và hoàn tiền',
+      });
 
       return {
         orderId,

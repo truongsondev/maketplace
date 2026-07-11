@@ -241,6 +241,42 @@ services:
       - dev-network
     command: sh -c "npm ci && npx prisma generate && npm run payos:worker:dev"
 
+  birthday-voucher-worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: dev-birthday-voucher-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      BIRTHDAY_VOUCHER_INTERVAL_MS: ${BIRTHDAY_VOUCHER_INTERVAL_MS:-3600000}
+      BIRTHDAY_VOUCHER_BATCH_SIZE: ${BIRTHDAY_VOUCHER_BATCH_SIZE:-200}
+      BIRTHDAY_VOUCHER_LOCK_KEY: locks:birthday-voucher
+      BIRTHDAY_VOUCHER_LOCK_TTL_MS: 600000
+      DATABASE_URL: mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: app_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: root
+    env_file:
+      - ./server/.env.development
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/generated
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dev-network
+    command: sh -c "npm ci && npx prisma generate && npm run birthday-voucher:dev"
+
   # Admin Frontend (React - client-seller)
   admin-client:
     build:

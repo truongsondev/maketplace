@@ -1,5 +1,6 @@
 export interface BodyProfileResult {
   age: number | null;
+  birthday: Date | null;
   heightCm: number | null;
   weightKg: number | null;
   isComplete: boolean;
@@ -8,13 +9,15 @@ export interface BodyProfileResult {
 
 export interface UpdateBodyProfileCommand {
   userId: string;
-  age: number;
-  heightCm: number;
-  weightKg: number;
+  age?: number;
+  birthday?: Date | null;
+  heightCm?: number;
+  weightKg?: number;
 }
 
 export function toBodyProfileResult(user: {
   age: number | null;
+  birthday: Date | null;
   heightCm: unknown;
   weightKg: unknown;
   bodyProfileUpdatedAt: Date | null;
@@ -24,6 +27,7 @@ export function toBodyProfileResult(user: {
 
   return {
     age: user.age,
+    birthday: user.birthday,
     heightCm,
     weightKg,
     isComplete: user.age !== null && heightCm !== null && weightKg !== null,

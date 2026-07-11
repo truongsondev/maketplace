@@ -41,6 +41,17 @@ export interface OrderPaymentDto {
   transactionPaidAt: Date | null;
 }
 
+export interface OrderShippingAddressDto {
+  addressId: string | null;
+  recipient: string;
+  phone: string;
+  addressLine: string;
+  ward: string;
+  district: string;
+  city: string;
+  source: string;
+}
+
 export interface OrderItemDto {
   id: string;
   productId: string;
@@ -50,6 +61,12 @@ export interface OrderItemDto {
   attributesText: string;
   quantity: number;
   price: number;
+  lineSubtotal?: number;
+  promotionDiscountAmount?: number;
+  voucherDiscountAmount?: number;
+  lineDiscountAmount?: number;
+  lineTotal?: number;
+  promotionName?: string | null;
 }
 
 export interface MyOrderDto {
@@ -59,9 +76,20 @@ export interface MyOrderDto {
   status: OrderStatus;
   canceledReason: string | null;
   returnStatus: ReturnFlowStatus | null;
+  subtotalPrice: number;
+  discountAmount: number;
+  shippingFee: number;
   totalPrice: number;
+  delivery: {
+    carrierName: string | null;
+    trackingCode: string | null;
+    deliveryNote: string | null;
+    shippedAt: Date | null;
+    deliveredAt: Date | null;
+  };
   orderCode: string | null;
   payment: OrderPaymentDto;
+  shipping: OrderShippingAddressDto | null;
   cancelRequest: OrderCancelRequestDto | null;
   refund: OrderRefundDto | null;
   items: OrderItemDto[];

@@ -35,6 +35,7 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
         skip,
         take: params.limit,
         orderBy: [{ createdAt: 'desc' }],
+        include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true },
       }),
     ]);
 
@@ -45,7 +46,7 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
   }
 
   async getById(id: string): Promise<AdminVoucherSummary | null> {
-    const row = await this.prisma.discount.findUnique({ where: { id } });
+    const row = await this.prisma.discount.findUnique({ where: { id }, include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true } });
     return row ? this.toSummary(row) : null;
   }
 
@@ -53,6 +54,7 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
     try {
       const created = await this.prisma.discount.create({
         data: this.toWriteInput(input),
+        include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true },
       });
       return this.toSummary(created);
     } catch (error: unknown) {
@@ -63,9 +65,12 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
 
   async update(id: string, input: NormalizedAdminVoucherInput): Promise<AdminVoucherSummary> {
     try {
-      const updated = await this.prisma.discount.update({
-        where: { id },
-        data: this.toWriteInput(input),
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await Promise.all([
+          tx.discountIncludedCategory.deleteMany({ where: { discountId: id } }), tx.discountExcludedCategory.deleteMany({ where: { discountId: id } }),
+          tx.discountIncludedProduct.deleteMany({ where: { discountId: id } }), tx.discountExcludedProduct.deleteMany({ where: { discountId: id } }), tx.discountMemberTier.deleteMany({ where: { discountId: id } }),
+        ]);
+        return tx.discount.update({ where: { id }, data: this.toWriteInput(input), include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true } });
       });
       return this.toSummary(updated);
     } catch (error: unknown) {
@@ -79,6 +84,7 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
       const updated = await this.prisma.discount.update({
         where: { id },
         data: { isActive },
+        include: { includedCategories: true, excludedCategories: true, includedProducts: true, excludedProducts: true, memberTiers: true },
       });
       return this.toSummary(updated);
     } catch (error: unknown) {
@@ -98,7 +104,7 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
     }
   }
 
-  private toWriteInput(input: NormalizedAdminVoucherInput): Prisma.DiscountUncheckedCreateInput {
+  private toWriteInput(input: NormalizedAdminVoucherInput): Prisma.DiscountCreateInput {
     return {
       code: input.code,
       description: input.description,
@@ -117,7 +123,16 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
       startAt: input.startAt,
       endAt: input.endAt,
       isActive: input.isActive,
+      isBirthdayVoucher: input.code === 'BIRTHDAY',
       bannerImageUrl: input.bannerImageUrl,
+      scopeType: input.scopeType,
+      includeDescendants: input.includeDescendants,
+      minAmountBasis: input.minAmountBasis,
+      includedCategories: { create: input.includedCategoryIds.map((categoryId) => ({ category: { connect: { id: categoryId } } })) },
+      excludedCategories: { create: input.excludedCategoryIds.map((categoryId) => ({ category: { connect: { id: categoryId } } })) },
+      includedProducts: { create: input.includedProductIds.map((productId) => ({ product: { connect: { id: productId } } })) },
+      excludedProducts: { create: input.excludedProductIds.map((productId) => ({ product: { connect: { id: productId } } })) },
+      memberTiers: { create: input.memberTiers.map((tier) => ({ tier })) },
     };
   }
 
@@ -135,7 +150,16 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
     startAt: Date;
     endAt: Date;
     isActive: boolean;
+    isBirthdayVoucher?: boolean;
     bannerImageUrl: string | null;
+    scopeType: any;
+    includeDescendants: boolean;
+    minAmountBasis: any;
+    includedCategories?: Array<{ categoryId: string }>;
+    excludedCategories?: Array<{ categoryId: string }>;
+    includedProducts?: Array<{ productId: string }>;
+    excludedProducts?: Array<{ productId: string }>;
+    memberTiers?: Array<{ tier: string }>;
   }): AdminVoucherSummary {
     return {
       id: row.id,
@@ -151,7 +175,16 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
       startAt: row.startAt,
       endAt: row.endAt,
       isActive: row.isActive,
+      isBirthdayVoucher: row.isBirthdayVoucher ?? false,
       bannerImageUrl: row.bannerImageUrl,
+      scopeType: row.scopeType,
+      includeDescendants: row.includeDescendants,
+      minAmountBasis: row.minAmountBasis,
+      includedCategoryIds: row.includedCategories?.map((item) => item.categoryId) ?? [],
+      excludedCategoryIds: row.excludedCategories?.map((item) => item.categoryId) ?? [],
+      includedProductIds: row.includedProducts?.map((item) => item.productId) ?? [],
+      excludedProductIds: row.excludedProducts?.map((item) => item.productId) ?? [],
+      memberTiers: row.memberTiers?.map((item) => item.tier) ?? [],
     };
   }
 }

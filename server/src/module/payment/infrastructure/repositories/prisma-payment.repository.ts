@@ -42,6 +42,11 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     subtotalAmount: number;
     appliedVoucherCode?: string;
   }> {
+    const paymentMethod = input.paymentMethod ?? 'PAYOS';
+    if (paymentMethod === 'PAYOS' && !input.orderCode) {
+      throw new BadRequestError('orderCode is required for PayOS checkout');
+    }
+
     const result = await this.prisma.$transaction(async (tx) => {
       const checkoutPricing = await this.voucherCheckoutService.calculateForCheckout({
         userId: input.userId,
@@ -61,6 +66,16 @@ export class PrismaPaymentRepository implements IPaymentRepository {
           variant: {
             select: {
               price: true,
+              sku: true,
+              attributes: true,
+              images: { select: { url: true, isPrimary: true, sortOrder: true } },
+              product: {
+                select: {
+                  name: true,
+                  basePrice: true,
+                  images: { select: { url: true, isPrimary: true, sortOrder: true } },
+                },
+              },
             },
           },
         },
@@ -70,21 +85,43 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         throw new Error('Cart is empty');
       }
 
-      await this.reserveStockForCheckout(tx, cartItems);
-
       const order = await tx.order.create({
         data: {
           userId: input.userId,
+          subtotalPrice: checkoutPricing.subtotalAmount,
+          shippingFee: 0,
           totalPrice: checkoutPricing.payableAmount,
           status: 'PENDING',
           discountId: checkoutPricing.appliedVoucherId,
           discountAmount:
             checkoutPricing.discountAmount > 0 ? checkoutPricing.discountAmount : null,
+          itemsSubtotal: checkoutPricing.subtotalAmount,
+          productDiscount: checkoutPricing.promotionDiscountAmount,
+          promotionDiscount: checkoutPricing.promotionDiscountAmount,
+          voucherDiscount: checkoutPricing.voucherDiscountAmount,
+          grandTotal: checkoutPricing.payableAmount,
+          shippingAddress: {
+            create: {
+              recipientName: input.shipping.recipientName,
+              phone: input.shipping.phone,
+              addressLine: input.shipping.addressLine,
+              ward: input.shipping.ward,
+              district: input.shipping.district,
+              city: input.shipping.city,
+              sourceAddressId: input.shipping.sourceAddressId,
+              ghnProvinceId: input.shipping.ghnProvinceId ?? null,
+              ghnDistrictId: input.shipping.ghnDistrictId ?? null,
+              ghnWardCode: input.shipping.ghnWardCode ?? null,
+              snapshotSource: 'CHECKOUT',
+            },
+          },
         },
         select: {
           id: true,
         },
       });
+
+      await this.reserveStockForCheckout(tx, cartItems, order.id);
 
       await tx.orderItem.createMany({
         data: cartItems.map((item) => {
@@ -92,12 +129,45 @@ export class PrismaPaymentRepository implements IPaymentRepository {
             throw new Error(`Cart item ${item.id} missing required variant`);
           }
 
+          const unitPrice = Math.round(Number(item.variant.price));
+          const lineSubtotal = unitPrice * item.quantity;
+          const allocation = checkoutPricing.itemDiscounts?.find((row) => row.cartItemId === item.id);
+          const lineDiscountAmount = allocation?.discountAmount ?? 0;
+          const promotionDiscountAmount = allocation?.promotionDiscountAmount ?? 0;
+          const voucherDiscountAmount = allocation?.voucherDiscountAmount ?? 0;
+          const product = item.variant.product ?? { name: '', basePrice: item.variant.price, images: [] };
+          const images = [...(item.variant.images ?? []), ...(product.images ?? [])].sort(
+            (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder,
+          );
+          const attributes = item.variant.attributes as Prisma.InputJsonValue;
+
           return {
             orderId: order.id,
             productId: item.productId,
             variantId: item.variantId,
             quantity: item.quantity,
             price: item.variant.price,
+            productName: product.name,
+            productSlug: null,
+            sku: item.variant.sku ?? '',
+            variantName: Object.values((item.variant.attributes ?? {}) as Record<string, unknown>)
+              .filter(Boolean)
+              .join(' / ')
+              .slice(0, 255) || null,
+            variantAttributes: attributes ?? {},
+            imageUrl: images[0]?.url ?? null,
+            originalUnitPrice: product.basePrice,
+            sellingUnitPrice: Math.max(0, unitPrice - Math.floor(promotionDiscountAmount / item.quantity)),
+            lineSubtotal,
+            lineDiscountAmount,
+            promotionDiscountAmount,
+            voucherDiscountAmount,
+            lineTotal: lineSubtotal - lineDiscountAmount,
+            voucherEligible: allocation?.eligible ?? false,
+            promotionId: allocation?.promotion?.promotionId ?? null,
+            promotionName: allocation?.promotion?.promotionName ?? null,
+            promotionSnapshot: allocation?.promotion?.snapshot ?? Prisma.JsonNull,
+            snapshotSource: 'CHECKOUT',
           };
         }),
       });
@@ -106,35 +176,43 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         data: {
           orderId: order.id,
           amount: checkoutPricing.payableAmount,
-          method: 'PAYOS',
+          method: paymentMethod,
           status: 'PENDING',
         },
       });
 
-      await tx.paymentTransaction.create({
-        data: {
-          orderId: order.id,
-          orderCode: input.orderCode,
-          amount: checkoutPricing.payableAmount,
-          status: 'PENDING',
-          rawPayload: {
-            checkout: {
-              source: 'cart',
-              cartId: checkoutPricing.cartId,
-              cartItemIds: cartItems.map((i) => i.id),
-              subtotalAmount: checkoutPricing.subtotalAmount,
-              discountAmount: checkoutPricing.discountAmount,
-              payableAmount: checkoutPricing.payableAmount,
-              voucherCode: checkoutPricing.appliedVoucherCode ?? null,
-              items: cartItems.map((i) => ({
-                productId: i.productId,
-                variantId: i.variantId,
-                quantity: i.quantity,
-              })),
-            },
-          } as Prisma.InputJsonValue,
-        },
-      });
+      if (paymentMethod === 'PAYOS') {
+        await tx.paymentTransaction.create({
+          data: {
+            orderId: order.id,
+            orderCode: input.orderCode!,
+            amount: checkoutPricing.payableAmount,
+            status: 'PENDING',
+            rawPayload: {
+              checkout: {
+                source: 'cart',
+                cartId: checkoutPricing.cartId,
+                cartItemIds: cartItems.map((i) => i.id),
+                subtotalAmount: checkoutPricing.subtotalAmount,
+                promotionDiscountAmount: checkoutPricing.promotionDiscountAmount,
+                voucherDiscountAmount: checkoutPricing.voucherDiscountAmount,
+                loyaltyDiscountAmount: checkoutPricing.loyaltyDiscountAmount,
+                loyaltyDiscountPercent: checkoutPricing.loyaltyDiscountPercent,
+                loyaltyTier: checkoutPricing.loyaltyTier,
+                loyaltyTierLabel: checkoutPricing.loyaltyTierLabel,
+                discountAmount: checkoutPricing.discountAmount,
+                payableAmount: checkoutPricing.payableAmount,
+                voucherCode: checkoutPricing.appliedVoucherCode ?? null,
+                items: cartItems.map((i) => ({
+                  productId: i.productId,
+                  variantId: i.variantId,
+                  quantity: i.quantity,
+                })),
+              },
+            } as Prisma.InputJsonValue,
+          },
+        });
+      }
 
       await tx.auditLog.create({
         data: {
@@ -144,15 +222,31 @@ export class PrismaPaymentRepository implements IPaymentRepository {
           targetId: order.id,
           action: 'USER_CHECKOUT_CREATED',
           newData: {
-            orderCode: input.orderCode,
+            orderCode: input.orderCode ?? null,
+            paymentMethod,
             subtotalAmount: checkoutPricing.subtotalAmount,
             discountAmount: checkoutPricing.discountAmount,
+            promotionDiscountAmount: checkoutPricing.promotionDiscountAmount,
+            voucherDiscountAmount: checkoutPricing.voucherDiscountAmount,
+            loyaltyDiscountAmount: checkoutPricing.loyaltyDiscountAmount,
+            loyaltyDiscountPercent: checkoutPricing.loyaltyDiscountPercent,
+            loyaltyTier: checkoutPricing.loyaltyTier,
+            loyaltyTierLabel: checkoutPricing.loyaltyTierLabel,
             payableAmount: checkoutPricing.payableAmount,
             voucherCode: checkoutPricing.appliedVoucherCode ?? null,
             cartItemIds: cartItems.map((i) => i.id),
           } as Prisma.InputJsonValue,
         },
       });
+
+      if (paymentMethod === 'COD') {
+        await tx.cartItem.deleteMany({
+          where: {
+            cartId: checkoutPricing.cartId,
+            id: { in: cartItems.map((item) => item.id) },
+          },
+        });
+      }
 
       return {
         orderId: order.id,
@@ -393,6 +487,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       }
 
       if (input.status === 'PAID') {
+        await this.voucherCheckoutService.recordPromotionUsageForPaidOrder?.(tx, current.orderId);
         await this.voucherCheckoutService.recordUsageForPaidOrder(tx, current.orderId);
         lowStockNotifications = await this.consumeStockForPaidOrder(
           tx,
@@ -511,7 +606,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       }
 
       const previousStockOnHand = current.stockOnHand;
-      let nextStockOnHand = Math.max(0, previousStockOnHand - quantity);
+      const nextStockOnHand = previousStockOnHand - quantity;
 
       const updated = await tx.productVariant.updateMany({
         where: {
@@ -526,23 +621,22 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       });
 
       if (updated.count === 0) {
-        nextStockOnHand = Math.max(0, current.stockOnHand - quantity);
-        const nextReserved = Math.max(0, current.stockReserved - quantity);
-        const unreservedQuantity = Math.max(0, quantity - current.stockReserved);
-        const nextAvailable = Math.min(
-          nextStockOnHand,
-          Math.max(0, current.stockAvailable - unreservedQuantity),
-        );
-
-        await tx.productVariant.update({
-          where: { id: variantId },
-          data: {
-            stockOnHand: nextStockOnHand,
-            stockAvailable: nextAvailable,
-            stockReserved: nextReserved,
-          },
-        });
+        throw new BadRequestError(`Reserved stock is inconsistent for variant ${variantId}`);
       }
+
+      await tx.inventoryLog.create({
+        data: {
+          variantId,
+          action: 'SALE',
+          quantity,
+          beforeQuantity: previousStockOnHand,
+          afterQuantity: nextStockOnHand,
+          referenceType: 'ORDER',
+          referenceId: orderId,
+          reason: 'Consume reserved inventory after online payment',
+          salesChannel: 'ONLINE',
+        },
+      });
 
       if (shouldNotifyLowStock(previousStockOnHand, nextStockOnHand, current.minStock)) {
         lowStockNotifications.push({
@@ -564,6 +658,7 @@ export class PrismaPaymentRepository implements IPaymentRepository {
   private async reserveStockForCheckout(
     tx: Prisma.TransactionClient,
     cartItems: Array<{ variantId: string | null; quantity: number }>,
+    orderId: string,
   ): Promise<void> {
     const quantityByVariantId = new Map<string, number>();
     for (const item of cartItems) {
@@ -593,25 +688,42 @@ export class PrismaPaymentRepository implements IPaymentRepository {
         throw new BadRequestError('Sản phẩm không tồn tại hoặc đã bị xóa');
       }
 
-      const effectiveStockOnHand = Math.max(
-        current.stockOnHand,
-        current.stockAvailable + current.stockReserved,
-      );
-      const availableStock = Math.min(
-        current.stockAvailable,
-        effectiveStockOnHand - current.stockReserved,
-      );
+      const availableStock = current.stockOnHand - current.stockReserved;
+
+      if (current.stockAvailable !== availableStock) {
+        throw new BadRequestError(`Dữ liệu tồn kho không nhất quán cho SKU ${current.sku}`);
+      }
 
       if (availableStock < quantity) {
         throw new BadRequestError(`Không đủ tồn kho cho SKU ${current.sku}`);
       }
 
-      await tx.productVariant.update({
-        where: { id: variantId },
+      const reserved = await tx.productVariant.updateMany({
+        where: {
+          id: variantId,
+          stockOnHand: current.stockOnHand,
+          stockReserved: current.stockReserved,
+          stockAvailable: current.stockAvailable,
+        },
         data: {
-          stockOnHand: effectiveStockOnHand,
           stockReserved: { increment: quantity },
           stockAvailable: { decrement: quantity },
+        },
+      });
+      if (reserved.count !== 1) {
+        throw new BadRequestError(`Tồn kho vừa thay đổi cho SKU ${current.sku}, vui lòng thử lại`);
+      }
+      await tx.inventoryLog.create({
+        data: {
+          variantId,
+          action: 'RESERVE',
+          quantity,
+          beforeQuantity: current.stockOnHand,
+          afterQuantity: current.stockOnHand,
+          referenceType: 'ORDER',
+          referenceId: orderId,
+          reason: 'Reserve inventory for online checkout',
+          salesChannel: 'ONLINE',
         },
       });
     }
@@ -636,10 +748,20 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     }
 
     for (const [variantId, quantity] of quantityByVariantId.entries()) {
+      const current = await tx.productVariant.findUnique({
+        where: { id: variantId },
+        select: { stockReserved: true, stockAvailable: true, stockOnHand: true },
+      });
+      if (!current) continue;
+      if (current.stockReserved < quantity) {
+        throw new BadRequestError(`Reserved stock is inconsistent for variant ${variantId}`);
+      }
       const updated = await tx.productVariant.updateMany({
         where: {
           id: variantId,
-          stockReserved: { gte: quantity },
+          stockOnHand: current.stockOnHand,
+          stockReserved: current.stockReserved,
+          stockAvailable: current.stockAvailable,
         },
         data: {
           stockReserved: { decrement: quantity },
@@ -648,27 +770,21 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       });
 
       if (updated.count === 0) {
-        const current = await tx.productVariant.findUnique({
-          where: { id: variantId },
-          select: { stockReserved: true, stockAvailable: true, stockOnHand: true },
-        });
-
-        if (!current) continue;
-
-        const nextReserved = Math.max(0, current.stockReserved - quantity);
-        const nextAvailable = Math.min(
-          current.stockOnHand,
-          Math.max(0, current.stockAvailable + quantity),
-        );
-
-        await tx.productVariant.update({
-          where: { id: variantId },
-          data: {
-            stockReserved: nextReserved,
-            stockAvailable: nextAvailable,
-          },
-        });
+        throw new BadRequestError(`Inventory changed while releasing variant ${variantId}`);
       }
+      await tx.inventoryLog.create({
+        data: {
+          variantId,
+          action: 'RELEASE',
+          quantity,
+          beforeQuantity: current.stockOnHand,
+          afterQuantity: current.stockOnHand,
+          referenceType: 'ORDER',
+          referenceId: orderId,
+          reason: 'Release inventory after payment cancellation or expiration',
+          salesChannel: 'ONLINE',
+        },
+      });
     }
   }
 

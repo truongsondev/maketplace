@@ -10,6 +10,8 @@ function createRepositoryMock(
     findActive: jest.fn(async () => []),
     findByCode: jest.fn(async () => null),
     countUserUsage: jest.fn(async () => 0),
+    countUserUsageForYear: jest.fn(async () => 0),
+    countUserVoucherOrdersForYear: jest.fn(async () => 0),
     getCartTotals: jest.fn(async () => {
       throw new Error('not implemented');
     }),
@@ -92,7 +94,171 @@ describe('VoucherCheckoutService.recordUsageForPaidOrder', () => {
       discountId: 'discount-1',
       userId: 'user-1',
       orderId: 'order-1',
+      usageYear: null,
       tx,
     });
+  });
+});
+
+describe('VoucherCheckoutService.calculateForCheckout', () => {
+  it('applies promotion only to cart items inside the campaign scope', async () => {
+    const repo = createRepositoryMock({
+      getCartTotals: jest.fn(async () => ({
+        cartId: 'cart-1',
+        subtotal: 200_000,
+        memberTier: 'MEMBER',
+        items: [
+          {
+            id: 'cart-item-campaign',
+            productId: 'product-campaign',
+            variantId: 'variant-1',
+            quantity: 1,
+            unitPrice: 100_000,
+            categoryIds: [],
+            ancestorCategoryIds: [],
+          },
+          {
+            id: 'cart-item-regular',
+            productId: 'product-regular',
+            variantId: 'variant-2',
+            quantity: 1,
+            unitPrice: 100_000,
+            categoryIds: [],
+            ancestorCategoryIds: [],
+          },
+        ],
+      })),
+    });
+    const tx = {
+      promotion: {
+        findMany: jest.fn(async () => [
+          {
+            id: 'promo-campaign',
+            name: 'Campaign giảm 10%',
+            type: 'PERCENTAGE',
+            status: 'ACTIVE',
+            scopeType: 'INCLUDE_PRODUCTS',
+            includeDescendants: false,
+            value: 10,
+            maxDiscount: null,
+            priority: 1,
+            usageLimit: null,
+            usedCount: 0,
+            stackableWithVoucher: true,
+            startAt: new Date('2026-01-01T00:00:00.000Z'),
+            endAt: new Date('2099-01-01T00:00:00.000Z'),
+            includedProducts: [{ productId: 'product-campaign' }],
+            includedCategories: [],
+          },
+        ]),
+      },
+    };
+    const service = new VoucherCheckoutService(repo);
+
+    const result = await service.calculateForCheckout({
+      userId: 'user-1',
+      tx: tx as never,
+    });
+
+    expect(result.subtotalAmount).toBe(200_000);
+    expect(result.promotionDiscountAmount).toBe(10_000);
+    expect(result.payableAmount).toBe(190_000);
+    expect(result.itemDiscounts).toEqual([
+      expect.objectContaining({
+        cartItemId: 'cart-item-campaign',
+        promotionDiscountAmount: 10_000,
+      }),
+      expect.objectContaining({
+        cartItemId: 'cart-item-regular',
+        promotionDiscountAmount: 0,
+      }),
+    ]);
+  });
+
+  it('allows birthday voucher on the user birthday when unused this year', async () => {
+    const today = new Date();
+    const repo = createRepositoryMock({
+      findByCode: jest.fn(async () => ({
+        ...activeVoucher,
+        id: 'birthday-voucher',
+        code: 'BIRTHDAY',
+        value: 20_000,
+        isBirthdayVoucher: true,
+      })),
+      getCartTotals: jest.fn(async () => ({
+        cartId: 'cart-1',
+        subtotal: 100_000,
+        memberTier: 'MEMBER',
+        userBirthday: new Date(Date.UTC(1998, today.getMonth(), today.getDate())),
+        items: [
+          {
+            id: 'cart-item-1',
+            productId: 'product-1',
+            variantId: 'variant-1',
+            quantity: 1,
+            unitPrice: 100_000,
+            categoryIds: [],
+            ancestorCategoryIds: [],
+          },
+        ],
+      })),
+    });
+    const tx = { promotion: { findMany: jest.fn(async () => []) } };
+    const service = new VoucherCheckoutService(repo);
+
+    const result = await service.calculateForCheckout({
+      userId: 'user-1',
+      voucherCode: 'BIRTHDAY',
+      amount: 80_000,
+      tx: tx as never,
+    });
+
+    expect(result.voucherDiscountAmount).toBe(20_000);
+    expect(result.payableAmount).toBe(80_000);
+    expect(repo.countUserUsageForYear).toHaveBeenCalledWith(
+      'birthday-voucher',
+      'user-1',
+      today.getFullYear(),
+      tx as never,
+    );
+  });
+
+  it('rejects birthday voucher after it was used in the same year', async () => {
+    const today = new Date();
+    const repo = createRepositoryMock({
+      findByCode: jest.fn(async () => ({
+        ...activeVoucher,
+        id: 'birthday-voucher',
+        code: 'BIRTHDAY',
+        isBirthdayVoucher: true,
+      })),
+      countUserUsageForYear: jest.fn(async () => 1),
+      getCartTotals: jest.fn(async () => ({
+        cartId: 'cart-1',
+        subtotal: 100_000,
+        memberTier: 'MEMBER',
+        userBirthday: new Date(Date.UTC(1998, today.getMonth(), today.getDate())),
+        items: [
+          {
+            id: 'cart-item-1',
+            productId: 'product-1',
+            variantId: 'variant-1',
+            quantity: 1,
+            unitPrice: 100_000,
+            categoryIds: [],
+            ancestorCategoryIds: [],
+          },
+        ],
+      })),
+    });
+    const service = new VoucherCheckoutService(repo);
+
+    await expect(
+      service.calculateForCheckout({
+        userId: 'user-1',
+        voucherCode: 'BIRTHDAY',
+        tx: { promotion: { findMany: jest.fn(async () => []) } } as never,
+      }),
+    ).rejects.toThrow('Voucher sinh nhật năm nay đã được sử dụng');
   });
 });

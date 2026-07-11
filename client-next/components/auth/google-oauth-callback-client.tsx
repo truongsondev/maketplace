@@ -47,10 +47,20 @@ export function GoogleOAuthCallbackClient() {
 
         toast.success("Đăng nhập Google thành công");
         router.replace(resolveSafeRedirect(redirect));
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (cancelled) return;
+        const description =
+          typeof err === "object" &&
+          err !== null &&
+          "error" in err &&
+          typeof err.error === "object" &&
+          err.error !== null &&
+          "message" in err.error &&
+          typeof err.error.message === "string"
+            ? err.error.message
+            : "Vui lòng thử lại.";
         toast.error("Đăng nhập Google thất bại", {
-          description: err?.error?.message ?? "Vui lòng thử lại.",
+          description,
         });
         router.replace("/login");
       }

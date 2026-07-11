@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../../infrastructure/database';
 import {
   CreatePayosPaymentLinkUseCase,
+  CreateCodOrderUseCase,
   GetPaymentStatusUseCase,
   HandlePayosReturnUseCase,
   HandlePayosWebhookUseCase,
@@ -26,6 +27,7 @@ export function createPaymentModule(): Router {
     paymentRepository,
     shippingInfoService,
   );
+  const createCodOrderUseCase = new CreateCodOrderUseCase(paymentRepository, shippingInfoService);
   const handlePayosReturnUseCase = new HandlePayosReturnUseCase(
     paymentRepository,
     paymentSuccessNotifier,
@@ -41,6 +43,7 @@ export function createPaymentModule(): Router {
     handlePayosReturnUseCase,
     handlePayosWebhookUseCase,
     getPaymentStatusUseCase,
+    createCodOrderUseCase,
   );
 
   const paymentAPI = new PaymentAPI(controller);

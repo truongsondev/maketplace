@@ -3,7 +3,7 @@
  * Used for all API endpoints
  */
 
-export interface ApiSuccessResponse<T = any> {
+export interface ApiSuccessResponse<T = unknown> {
   success: true;
   data: T;
   message?: string;
@@ -15,12 +15,12 @@ export interface ApiErrorResponse {
   error: {
     code: string;
     message: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
     timestamp?: string;
   };
 }
 
-export interface ApiPaginatedResponse<T = any> {
+export interface ApiPaginatedResponse<T = unknown> {
   success: true;
   data: T[];
   pagination: {
@@ -33,7 +33,7 @@ export interface ApiPaginatedResponse<T = any> {
   timestamp?: string;
 }
 
-export type ApiResponse<T = any> = ApiSuccessResponse<T> | ApiErrorResponse;
+export type ApiResponse<T = unknown> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 /**
  * Response Formatter
@@ -52,7 +52,7 @@ export class ResponseFormatter {
   static error(
     code: string,
     message: string,
-    details?: Record<string, any>,
+    details?: Record<string, unknown>,
   ): ApiErrorResponse {
     return {
       success: false,
