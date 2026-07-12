@@ -37,6 +37,7 @@ enum OrderStatus {
   SHIPPED
   DELIVERING
   DELIVERY_FAILED
+  LOST
   RETURN_TO_STORE
   DELIVERED
   COMPLETED
@@ -142,6 +143,7 @@ enum ReturnRequestType {
 enum RefundType {
   CANCEL_REFUND
   RETURN_REFUND
+  LOST_SHIPMENT_REFUND
 }
 
 enum RefundStatus {

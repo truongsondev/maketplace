@@ -3,6 +3,7 @@ export type AdminOrderTab =
   | "pending"
   | "processing"
   | "shipped"
+  | "shipment-lost"
   | "waiting-return"
   | "return-in-transit"
   | "return-received"
@@ -32,6 +33,7 @@ export type OrderStatus =
   | "SHIPPED"
   | "DELIVERING"
   | "DELIVERY_FAILED"
+  | "LOST"
   | "RETURN_TO_STORE"
   | "DELIVERED"
   | "COMPLETED"
@@ -98,6 +100,14 @@ export interface AdminOrderListItem {
     processedAt: string | null;
   } | null;
   returnRefund?: {
+    id: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+    amount: string;
+    failureReason: string | null;
+    requestedAt: string;
+    processedAt: string | null;
+  } | null;
+  lostShipmentRefund?: {
     id: string;
     status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
     amount: string;
@@ -179,6 +189,7 @@ export interface AdminOrdersCountsResponse {
     pending: number;
     processing: number;
     shipped: number;
+    shipmentLost: number;
     waitingReturn: number;
     returnInTransit: number;
     returnReceived: number;

@@ -15,6 +15,7 @@ export type OrderStatus =
   | "AWAITING_PICKUP"
   | "SHIPPED"
   | "DELIVERING"
+  | "LOST"
   | "DELIVERED"
   | "CANCELLED"
   | "RETURNED";

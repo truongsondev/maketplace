@@ -35,7 +35,9 @@ function formatDate(value: string | null) {
 }
 
 function refundTypeText(type: AdminRefundType) {
-  return type === "CANCEL_REFUND" ? "Hoàn tiền hủy đơn" : "Hoàn tiền trả hàng";
+  if (type === "CANCEL_REFUND") return "Hoàn tiền hủy đơn";
+  if (type === "LOST_SHIPMENT_REFUND") return "Hoàn tiền hàng thất lạc";
+  return "Hoàn tiền trả hàng";
 }
 
 function refundStatusText(status: AdminRefundStatus) {
@@ -229,6 +231,7 @@ export default function RefundsPage() {
                 <option value="">Tất cả loại</option>
                 <option value="CANCEL_REFUND">Hoàn tiền hủy đơn</option>
                 <option value="RETURN_REFUND">Hoàn tiền trả hàng</option>
+                <option value="LOST_SHIPMENT_REFUND">Hoàn tiền hàng thất lạc</option>
               </select>
 
               <button

@@ -85,8 +85,8 @@ function parseRefundType(value: unknown): RefundType | undefined {
   }
 
   const type = String(value).toUpperCase() as RefundType;
-  if (!['CANCEL_REFUND', 'RETURN_REFUND'].includes(type)) {
-    throw new BadRequestError('type must be one of: CANCEL_REFUND, RETURN_REFUND');
+  if (!['CANCEL_REFUND', 'RETURN_REFUND', 'LOST_SHIPMENT_REFUND'].includes(type)) {
+    throw new BadRequestError('type must be one of: CANCEL_REFUND, RETURN_REFUND, LOST_SHIPMENT_REFUND');
   }
 
   return type;

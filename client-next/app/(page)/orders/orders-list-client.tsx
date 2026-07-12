@@ -66,6 +66,8 @@ function statusLabel(status: string) {
       return "Vận chuyển";
     case "DELIVERING":
       return "Đang giao";
+    case "LOST":
+      return "Thất lạc";
     case "DELIVERED":
       return "Hoàn thành";
     case "RETURNED":

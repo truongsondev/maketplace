@@ -12,7 +12,7 @@ import type { IAdminRefundRepository } from '../../applications/ports/output/adm
 function toSummary(row: {
   id: string;
   orderId: string;
-  type: 'CANCEL_REFUND' | 'RETURN_REFUND';
+  type: 'CANCEL_REFUND' | 'RETURN_REFUND' | 'LOST_SHIPMENT_REFUND';
   status: RefundStatus;
   amount: Prisma.Decimal;
   currency: string;

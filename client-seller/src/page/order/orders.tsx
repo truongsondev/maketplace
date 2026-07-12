@@ -91,6 +91,8 @@ function statusBadge(status: string) {
     case "DELIVERED":
       return "bg-purple-100 text-purple-700";
     case "DELIVERY_FAILED":
+    case "LOST":
+      return "bg-red-100 text-red-700";
     case "RETURN_TO_STORE":
       return "bg-orange-100 text-orange-700";
     case "CANCELLED":
@@ -124,6 +126,8 @@ function statusText(status: string) {
       return "Hoàn thành";
     case "DELIVERY_FAILED":
       return "Giao thất bại";
+    case "LOST":
+      return "Thất lạc";
     case "RETURN_TO_STORE":
       return "Đã hoàn về shop";
     case "CANCELLED":
@@ -142,6 +146,7 @@ const STATUS_ORDER: OrderStatus[] = [
   "AWAITING_PICKUP",
   "SHIPPED",
   "DELIVERING",
+  "LOST",
   "DELIVERED",
   "CANCELLED",
   "RETURNED",
@@ -780,6 +785,7 @@ export default function OrdersPage() {
     pending: 0,
     processing: 0,
     shipped: 0,
+    shipmentLost: 0,
     waitingReturn: 0,
     returnInTransit: 0,
     returnReceived: 0,
@@ -836,6 +842,11 @@ export default function OrdersPage() {
       },
       { key: "shipped" as const, label: "Đang giao", count: counts.shipped },
       {
+        key: "shipment-lost" as const,
+        label: "Giao hàng bị mất",
+        count: counts.shipmentLost,
+      },
+      {
         key: "waiting-return" as const,
         label: "Chờ hoàn hàng",
         count: counts.waitingReturn,
@@ -849,16 +860,6 @@ export default function OrdersPage() {
         key: "return-received" as const,
         label: "Shop đã nhận hàng hoàn",
         count: counts.returnReceived,
-      },
-      {
-        key: "return-lost" as const,
-        label: "Hàng hoàn bị mất",
-        count: counts.returnLost,
-      },
-      {
-        key: "return-damaged" as const,
-        label: "Hàng hoàn bị hư hỏng",
-        count: counts.returnDamaged,
       },
       {
         key: "completed" as const,
@@ -1215,6 +1216,17 @@ export default function OrdersPage() {
       fetchOrders();
     } catch (e) {
       toast.error("Từ chối trả hàng thất bại");
+      console.error(e);
+    }
+  };
+
+  const handleConfirmLostShipmentRefund = async (orderId: string) => {
+    try {
+      await orderService.confirmLostShipmentRefund(orderId);
+      toast.success("Đã xác nhận thất lạc và tạo yêu cầu hoàn tiền");
+      await Promise.all([fetchCounts(), fetchOrders()]);
+    } catch (e) {
+      toast.error("Không thể tạo yêu cầu hoàn tiền cho đơn thất lạc");
       console.error(e);
     }
   };
@@ -1853,6 +1865,18 @@ export default function OrdersPage() {
                               onClick: () => handlePrintGhn(order.id),
                             },
                           );
+                        }
+
+                        const isLostShipment =
+                          order.delivery.providerStatus?.trim().toLowerCase() === "lost";
+                        const isPrepaid = ["PAID", "SUCCESS"].includes(order.payment.status ?? "");
+                        if (isLostShipment && isPrepaid && !order.lostShipmentRefund) {
+                          secondaryActions.push({
+                            key: `confirm-lost-refund-${order.id}`,
+                            label: "Xác nhận mất & tạo hoàn tiền",
+                            onClick: () => handleConfirmLostShipmentRefund(order.id),
+                            tone: "danger",
+                          });
                         }
 
                         if (hasReturnRequest) {

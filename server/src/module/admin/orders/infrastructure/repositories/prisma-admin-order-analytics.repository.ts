@@ -85,6 +85,7 @@ const ALL_ORDER_STATUSES: OrderStatus[] = [
   'SHIPPED',
   'DELIVERING',
   'DELIVERY_FAILED',
+  'LOST',
   'RETURN_TO_STORE',
   'DELIVERED',
   'CANCELLED',

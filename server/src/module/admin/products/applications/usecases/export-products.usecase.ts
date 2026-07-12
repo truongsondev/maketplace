@@ -77,8 +77,12 @@ export class ExportProductsUseCase implements IExportProductsUseCase {
       ].join(',');
     });
 
-    // Combine header and rows
-    return [headers.join(','), ...rows].join('\n');
+    // Excel on Windows commonly guesses CSV files as an ANSI code page unless
+    // the UTF-8 byte-order mark is present. Keep the BOM at the very beginning
+    // so Vietnamese product/category names are decoded correctly, and use CRLF
+    // line endings for broad spreadsheet compatibility.
+    const utf8Bom = '\uFEFF';
+    return utf8Bom + [headers.join(','), ...rows].join('\r\n');
   }
 
   private escapeCSV(value: string): string {

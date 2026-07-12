@@ -143,12 +143,43 @@ export class GhnShippingService {
         },
       });
 
+      const normalizedStatus = status.trim().toLowerCase();
+      const previousStatus = current.providerStatus?.trim().toLowerCase();
+      if (normalizedStatus === 'lost' && previousStatus !== 'lost') {
+        const admins = await tx.userRole.findMany({
+          where: { role: { code: 'ADMIN' } },
+          select: { userId: true },
+          distinct: ['userId'],
+        });
+        const orderLabel = current.order.trackingCode || current.order.id;
+        if (admins.length > 0) {
+          await tx.notification.createMany({
+            data: admins.map((admin) => ({
+              userId: admin.userId,
+              content: `[SHIPMENT_LOST|${orderId}] Cảnh báo: GHN báo đơn hàng #${orderLabel} bị thất lạc. Cần xác minh và xử lý hoàn tiền.`,
+              isRead: false,
+            })),
+          });
+        }
+        await tx.auditLog.create({
+          data: {
+            actorType: 'SYSTEM',
+            targetType: 'OrderShipment',
+            targetId: current.id,
+            action: 'GHN_SHIPMENT_LOST_REPORTED',
+            oldData: json({ providerStatus: current.providerStatus }),
+            newData: json({ providerStatus: status, adminReceivers: admins.length }),
+          },
+        });
+      }
+
       const allowed = businessStatus === 'AWAITING_PICKUP'
         ? ['AWAITING_PICKUP'] : businessStatus === 'SHIPPED'
           ? ['AWAITING_PICKUP', 'SHIPPED'] : businessStatus === 'DELIVERING'
             ? ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING'] : businessStatus === 'DELIVERED'
               ? ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'] : businessStatus === 'DELIVERY_FAILED'
-                ? ['SHIPPED', 'DELIVERING'] : businessStatus === 'RETURN_TO_STORE'
+                ? ['SHIPPED', 'DELIVERING'] : businessStatus === 'LOST'
+                  ? ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'] : businessStatus === 'RETURN_TO_STORE'
                   ? ['DELIVERY_FAILED'] : [];
       if (!businessStatus || !allowed.includes(current.order.status)) return current;
       const changed = await tx.order.updateMany({

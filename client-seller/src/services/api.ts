@@ -425,6 +425,10 @@ export const orderService = {
     await apiClient.post(`/admin/orders/${orderId}/ship/ghn`);
   },
 
+  confirmLostShipmentRefund: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/shipment-lost/confirm-refund`);
+  },
+
   syncGhnShipment: async (orderId: string): Promise<void> => {
     await apiClient.post(`/admin/orders/${orderId}/shipment/sync`);
   },

@@ -16,6 +16,7 @@ type AdminOrderTab =
   | 'pending'
   | 'processing'
   | 'shipped'
+  | 'shipment-lost'
   | 'waiting-return'
   | 'return-in-transit'
   | 'return-received'
@@ -121,6 +122,9 @@ function mapTabToStatuses(tab: AdminOrderTab | undefined): OrderStatus[] | undef
 }
 
 function buildTabWhere(tab: AdminOrderTab | undefined): Prisma.OrderWhereInput | undefined {
+  if (tab === 'shipment-lost') {
+    return { shipment: { is: { providerStatus: { in: ['lost', 'LOST'] } } } };
+  }
   if (tab === 'waiting-return') {
     return {
       returnStatus: { in: ['APPROVED', 'PICKING'] },
@@ -211,7 +215,7 @@ function buildRequestTypeWhere(type: AdminOrderRequestType): Prisma.OrderWhereIn
   }
   return {
     refundTransactions: {
-      some: { type: { in: ['CANCEL_REFUND', 'RETURN_REFUND'] } },
+      some: { type: { in: ['CANCEL_REFUND', 'RETURN_REFUND', 'LOST_SHIPMENT_REFUND'] } },
     },
   };
 }
@@ -354,6 +358,7 @@ export class AdminOrdersAPI {
     this.router.post('/:orderId/deliver', asyncHandler(this.deliverOrder.bind(this)));
     this.router.post('/:orderId/delivery-failed', asyncHandler(this.deliveryFailed.bind(this)));
     this.router.post('/:orderId/return-to-store', asyncHandler(this.returnToStore.bind(this)));
+    this.router.post('/:orderId/shipment-lost/confirm-refund', asyncHandler(this.confirmLostShipmentRefund.bind(this)));
     this.router.post('/:orderId/complete', asyncHandler(this.completeOrder.bind(this)));
     this.router.post('/:orderId/returns/approve', asyncHandler(this.approveReturns.bind(this)));
     this.router.post('/:orderId/returns/reject', asyncHandler(this.rejectReturns.bind(this)));
@@ -978,6 +983,16 @@ export class AdminOrdersAPI {
               processedAt: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.processedAt,
             }
           : null,
+        lostShipmentRefund: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')
+          ? {
+              id: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')!.id,
+              status: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')!.status,
+              amount: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')!.amount,
+              failureReason: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')!.failureReason,
+              requestedAt: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')!.requestedAt,
+              processedAt: o.refundTransactions.find(row => row.type === 'LOST_SHIPMENT_REFUND')!.processedAt,
+            }
+          : null,
         user: {
           id: o.user.id,
           label: userLabel,
@@ -1158,11 +1173,17 @@ export class AdminOrdersAPI {
             }
           : {}),
     };
-    const [rows, waitingReturn, returnInTransit, returnReceived, returnLost, returnDamaged] = await Promise.all([
+    const [rows, shipmentLost, waitingReturn, returnInTransit, returnReceived, returnLost, returnDamaged] = await Promise.all([
       this.prisma.order.groupBy({
         by: ['status'],
         where: dateWhere,
         _count: { _all: true },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          shipment: { is: { providerStatus: { in: ['lost', 'LOST'] } } },
+        },
       }),
       this.prisma.order.count({
         where: {
@@ -1236,6 +1257,7 @@ export class AdminOrdersAPI {
             pending,
             processing,
             shipped,
+            shipmentLost,
             waitingReturn,
             returnInTransit,
             returnReceived,
@@ -1247,6 +1269,72 @@ export class AdminOrdersAPI {
           'OK',
         ),
       );
+  }
+
+  private async confirmLostShipmentRefund(req: Request, res: Response): Promise<void> {
+    const rawOrderId = (req.params as { orderId?: string | string[] }).orderId;
+    const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+    const actorId = req.userId;
+    HttpErrorHandler.validateRequired({ orderId, actorId }, 'orderId, actorId');
+    if (!orderId || !actorId) throw new BadRequestError('orderId and actorId are required');
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        totalPrice: true,
+        userId: true,
+        shipment: { select: { providerStatus: true } },
+        payment: { select: { status: true } },
+        paymentTransaction: { select: { orderCode: true } },
+      },
+    });
+    if (!order) throw new BadRequestError('Order not found');
+    if (order.shipment?.providerStatus?.trim().toLowerCase() !== 'lost') {
+      throw new BadRequestError('GHN has not reported this shipment as lost');
+    }
+    if (!order.payment || !['PAID', 'SUCCESS'].includes(order.payment.status)) {
+      throw new BadRequestError('Only prepaid orders require a lost-shipment refund');
+    }
+
+    const refund = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.refundTransaction.findUnique({
+        where: { orderId_type: { orderId, type: 'LOST_SHIPMENT_REFUND' } },
+        select: { id: true },
+      });
+      const created = await tx.refundTransaction.upsert({
+        where: { orderId_type: { orderId, type: 'LOST_SHIPMENT_REFUND' } },
+        create: {
+          orderId,
+          type: 'LOST_SHIPMENT_REFUND',
+          amount: order.totalPrice,
+          status: 'PENDING',
+          reason: 'GHN xác nhận thất lạc trong quá trình giao hàng',
+          initiatedBy: 'ADMIN',
+          idempotencyKey: `lost-shipment-refund:${orderId}`,
+        },
+        update: {},
+      });
+      if (!existing) {
+        await tx.notification.create({
+          data: {
+            userId: order.userId,
+            content: `[LOST_SHIPMENT_REFUND|${orderId}] Đơn hàng #${order.paymentTransaction?.orderCode ?? orderId} được xác nhận thất lạc. Yêu cầu hoàn tiền đang được xử lý.`,
+            isRead: false,
+          },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorType: 'ADMIN', actorId, targetType: 'Order', targetId: orderId,
+          action: 'ADMIN_CONFIRMED_LOST_SHIPMENT_REFUND',
+          newData: { refundId: created.id, amount: created.amount.toString(), status: created.status },
+        },
+      });
+      return created;
+    });
+
+    res.status(200).json(ResponseFormatter.success(refund, 'Lost shipment refund queued'));
   }
 
   private async approveReturns(req: Request, res: Response): Promise<void> {

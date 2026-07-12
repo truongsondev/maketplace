@@ -1,5 +1,8 @@
 export type AdminRefundStatus = "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
-export type AdminRefundType = "CANCEL_REFUND" | "RETURN_REFUND";
+export type AdminRefundType =
+  | "CANCEL_REFUND"
+  | "RETURN_REFUND"
+  | "LOST_SHIPMENT_REFUND";
 
 export interface AdminRefundItem {
   id: string;
