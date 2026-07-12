@@ -10402,11 +10402,43 @@ function mapTabToStatuses(tab) {
 function buildTabWhere(tab) {
   if (tab === "waiting-return") {
     return {
-      items: {
-        some: {
-          returns: { some: { status: "RT_APPROVED", requestType: "RETURN_REFUND" } }
+      returnStatus: { in: ["APPROVED", "PICKING"] },
+      items: { some: { returns: { some: { status: "RT_APPROVED", requestType: "RETURN_REFUND" } } } }
+    };
+  }
+  if (tab === "return-received") {
+    return {
+      returnStatus: "SHIPPING",
+      returnShipment: { is: { providerStatus: { in: ["delivered", "DELIVERED"] } } }
+    };
+  }
+  if (tab === "return-in-transit") {
+    return {
+      returnStatus: "SHIPPING",
+      returnShipment: {
+        is: {
+          providerStatus: {
+            in: [
+              "picked",
+              "storing",
+              "transporting",
+              "sorting",
+              "delivering",
+              "money_collect_delivering"
+            ]
+          }
         }
       }
+    };
+  }
+  if (tab === "return-lost") {
+    return {
+      returnShipment: { is: { providerStatus: { in: ["lost", "LOST"] } } }
+    };
+  }
+  if (tab === "return-damaged") {
+    return {
+      returnShipment: { is: { providerStatus: { in: ["damage", "DAMAGE"] } } }
     };
   }
   const statuses = mapTabToStatuses(tab);
@@ -11223,7 +11255,7 @@ var AdminOrdersAPI = class {
         }
       } : {}
     };
-    const [rows, waitingReturn] = await Promise.all([
+    const [rows, waitingReturn, returnInTransit, returnReceived, returnLost, returnDamaged] = await Promise.all([
       this.prisma.order.groupBy({
         by: ["status"],
         where: dateWhere,
@@ -11232,11 +11264,47 @@ var AdminOrdersAPI = class {
       this.prisma.order.count({
         where: {
           ...dateWhere,
-          items: {
-            some: {
-              returns: { some: { status: "RT_APPROVED", requestType: "RETURN_REFUND" } }
+          returnStatus: { in: ["APPROVED", "PICKING"] },
+          items: { some: { returns: { some: { status: "RT_APPROVED", requestType: "RETURN_REFUND" } } } }
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnStatus: "SHIPPING",
+          returnShipment: {
+            is: {
+              providerStatus: {
+                in: [
+                  "picked",
+                  "storing",
+                  "transporting",
+                  "sorting",
+                  "delivering",
+                  "money_collect_delivering"
+                ]
+              }
             }
           }
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnStatus: "SHIPPING",
+          returnShipment: { is: { providerStatus: { in: ["delivered", "DELIVERED"] } } }
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnShipment: { is: { providerStatus: { in: ["lost", "LOST"] } } }
+        }
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnShipment: { is: { providerStatus: { in: ["damage", "DAMAGE"] } } }
         }
       })
     ]);
@@ -11254,7 +11322,22 @@ var AdminOrdersAPI = class {
     const canceled = counts.CANCELLED ?? 0;
     const all = Object.values(counts).reduce((sum, n) => sum + n, 0);
     res.status(200).json(
-      ResponseFormatter.success({ all, pending, processing, shipped, waitingReturn, completed, canceled }, "OK")
+      ResponseFormatter.success(
+        {
+          all,
+          pending,
+          processing,
+          shipped,
+          waitingReturn,
+          returnInTransit,
+          returnReceived,
+          returnLost,
+          returnDamaged,
+          completed,
+          canceled
+        },
+        "OK"
+      )
     );
   }
   async approveReturns(req, res) {
@@ -18404,8 +18487,20 @@ var GhnShippingService = class {
     if (!status || !orderCode && !clientOrderCode) throw new BadRequestError("Invalid GHN webhook payload");
     const shipment = orderCode ? await this.prisma.orderShipment.findUnique({ where: { providerOrderCode: orderCode } }) : await this.prisma.orderShipment.findUnique({ where: { orderId: clientOrderCode } });
     if (!shipment) {
-      logger17.warn("GHN webhook shipment not found", { orderCode, clientOrderCode, status });
-      return null;
+      const returnOrderId = clientOrderCode.startsWith("RT-") ? clientOrderCode.slice(3) : clientOrderCode;
+      const returnShipment = orderCode ? await this.prisma.returnShipment.findUnique({ where: { providerOrderCode: orderCode } }) : await this.prisma.returnShipment.findUnique({ where: { orderId: returnOrderId } });
+      if (!returnShipment) {
+        logger17.warn("GHN webhook shipment not found", { orderCode, clientOrderCode, status });
+        return null;
+      }
+      const rawTime2 = stringField(payload, "Time", "time");
+      const parsed2 = rawTime2 ? new Date(rawTime2) : /* @__PURE__ */ new Date();
+      return this.applyReturnProviderStatus(
+        returnShipment.orderId,
+        status,
+        payload,
+        Number.isNaN(parsed2.getTime()) ? /* @__PURE__ */ new Date() : parsed2
+      );
     }
     const rawTime = stringField(payload, "Time", "time");
     const parsed = rawTime ? new Date(rawTime) : /* @__PURE__ */ new Date();
@@ -18568,6 +18663,12 @@ var GhnShippingService = class {
     if (!shipment) throw new BadRequestError("\u0110\u01A1n h\xE0ng ch\u01B0a c\xF3 v\u1EADn \u0111\u01A1n ho\xE0n GHN");
     const detail = await this.client.detail(shipment.providerOrderCode);
     const status = stringField(detail, "status");
+    return this.applyReturnProviderStatus(orderId, status, detail, /* @__PURE__ */ new Date());
+  }
+  async applyReturnProviderStatus(orderId, status, payload, eventTime) {
+    const shipment = await this.prisma.returnShipment.findUnique({ where: { orderId } });
+    if (!shipment) throw new BadRequestError("\u0110\u01A1n h\xE0ng ch\u01B0a c\xF3 v\u1EADn \u0111\u01A1n ho\xE0n GHN");
+    if (shipment.lastSyncedAt && eventTime <= shipment.lastSyncedAt) return shipment;
     const normalized = status.toLowerCase();
     const pickingStatuses = ["picking", "money_collect_picking"];
     const shippingStatuses = ["picked", "storing", "transporting", "sorting", "delivering", "money_collect_delivering"];
@@ -18587,10 +18688,10 @@ var GhnShippingService = class {
         where: { orderId },
         data: {
           providerStatus: status || shipment.providerStatus,
-          externalFee: numberField(detail, "total_fee", "fee"),
-          rawLatestStatus: json(detail),
-          lastSyncedAt: /* @__PURE__ */ new Date(),
-          ...normalized === "delivered" ? { deliveredAt: /* @__PURE__ */ new Date() } : {}
+          externalFee: numberField(payload, "TotalFee", "Fee", "total_fee", "fee"),
+          rawLatestStatus: json(payload),
+          lastSyncedAt: eventTime,
+          ...normalized === "delivered" ? { deliveredAt: eventTime } : {}
         }
       });
     });

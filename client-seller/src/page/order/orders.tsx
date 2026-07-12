@@ -243,6 +243,37 @@ function returnFlowStatusText(order: AdminOrderListItem) {
   return returnStatusText(order.returnStatus);
 }
 
+function returnItemStatusText(
+  status: NonNullable<AdminOrderListItem["returns"]>["details"] extends Array<infer T>
+    ? T extends { status: infer S }
+      ? S
+      : string
+    : string,
+  order: AdminOrderListItem,
+) {
+  if (
+    status === "RT_SHIPPING" &&
+    order.returnShipment?.providerStatus?.trim().toLowerCase() === "delivered"
+  ) {
+    return "Shop đã nhận hàng hoàn, chờ xác nhận";
+  }
+
+  switch (status) {
+    case "RT_REQUESTED":
+      return "Chờ duyệt";
+    case "RT_APPROVED":
+      return "Đã duyệt, chờ GHN lấy hàng";
+    case "RT_SHIPPING":
+      return "Đang vận chuyển hàng hoàn về shop";
+    case "RT_REJECTED":
+      return "Đã từ chối";
+    case "RT_COMPLETED":
+      return "Đã hoàn tất trả hàng";
+    default:
+      return status;
+  }
+}
+
 function returnReasonText(code?: string | null) {
   switch (code) {
     case "WRONG_MODEL":
@@ -722,6 +753,10 @@ export default function OrdersPage() {
     processing: 0,
     shipped: 0,
     waitingReturn: 0,
+    returnInTransit: 0,
+    returnReceived: 0,
+    returnLost: 0,
+    returnDamaged: 0,
     completed: 0,
     canceled: 0,
   });
@@ -776,6 +811,26 @@ export default function OrdersPage() {
         key: "waiting-return" as const,
         label: "Chờ hoàn hàng",
         count: counts.waitingReturn,
+      },
+      {
+        key: "return-in-transit" as const,
+        label: "Đang hoàn hàng",
+        count: counts.returnInTransit,
+      },
+      {
+        key: "return-received" as const,
+        label: "Shop đã nhận hàng hoàn",
+        count: counts.returnReceived,
+      },
+      {
+        key: "return-lost" as const,
+        label: "Hàng hoàn bị mất",
+        count: counts.returnLost,
+      },
+      {
+        key: "return-damaged" as const,
+        label: "Hàng hoàn bị hư hỏng",
+        count: counts.returnDamaged,
       },
       {
         key: "completed" as const,
@@ -1207,7 +1262,7 @@ export default function OrdersPage() {
       await orderService.syncGhnReturnShipment(orderId);
       toast.success("Đã đồng bộ vận đơn hoàn GHN");
       setDetailModal(undefined);
-      await fetchOrders();
+      await Promise.all([fetchCounts(), fetchOrders()]);
     } catch (e) {
       toast.error("Không thể đồng bộ vận đơn hoàn GHN");
       console.error(e);
@@ -2339,7 +2394,9 @@ export default function OrdersPage() {
                             {returnReasonText(item.reasonCode)}
                           </span>
                         </p>
-                        <p>Trạng thái: {item.status}</p>
+                        <p>
+                          Trạng thái: {returnItemStatusText(item.status, detailModal)}
+                        </p>
                         {item.reason ? (
                           <p className="md:col-span-2">
                             Mô tả thêm: {item.reason}

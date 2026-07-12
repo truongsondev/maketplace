@@ -4,6 +4,10 @@ export type AdminOrderTab =
   | "processing"
   | "shipped"
   | "waiting-return"
+  | "return-in-transit"
+  | "return-received"
+  | "return-lost"
+  | "return-damaged"
   | "completed"
   | "canceled";
 
@@ -176,6 +180,10 @@ export interface AdminOrdersCountsResponse {
     processing: number;
     shipped: number;
     waitingReturn: number;
+    returnInTransit: number;
+    returnReceived: number;
+    returnLost: number;
+    returnDamaged: number;
     completed: number;
     canceled: number;
   };

@@ -171,8 +171,23 @@ export class GhnShippingService {
       ? await this.prisma.orderShipment.findUnique({ where: { providerOrderCode: orderCode } })
       : await this.prisma.orderShipment.findUnique({ where: { orderId: clientOrderCode } });
     if (!shipment) {
-      logger.warn('GHN webhook shipment not found', { orderCode, clientOrderCode, status });
-      return null;
+      const returnOrderId = clientOrderCode.startsWith('RT-') ? clientOrderCode.slice(3) : clientOrderCode;
+      const returnShipment = orderCode
+        ? await this.prisma.returnShipment.findUnique({ where: { providerOrderCode: orderCode } })
+        : await this.prisma.returnShipment.findUnique({ where: { orderId: returnOrderId } });
+      if (!returnShipment) {
+        logger.warn('GHN webhook shipment not found', { orderCode, clientOrderCode, status });
+        return null;
+      }
+
+      const rawTime = stringField(payload, 'Time', 'time');
+      const parsed = rawTime ? new Date(rawTime) : new Date();
+      return this.applyReturnProviderStatus(
+        returnShipment.orderId,
+        status,
+        payload,
+        Number.isNaN(parsed.getTime()) ? new Date() : parsed,
+      );
     }
     const rawTime = stringField(payload, 'Time', 'time');
     const parsed = rawTime ? new Date(rawTime) : new Date();
@@ -346,6 +361,19 @@ export class GhnShippingService {
     if (!shipment) throw new BadRequestError('Đơn hàng chưa có vận đơn hoàn GHN');
     const detail = await this.client.detail(shipment.providerOrderCode);
     const status = stringField(detail, 'status');
+    return this.applyReturnProviderStatus(orderId, status, detail, new Date());
+  }
+
+  private async applyReturnProviderStatus(
+    orderId: string,
+    status: string,
+    payload: Record<string, unknown>,
+    eventTime: Date,
+  ) {
+    const shipment = await this.prisma.returnShipment.findUnique({ where: { orderId } });
+    if (!shipment) throw new BadRequestError('Đơn hàng chưa có vận đơn hoàn GHN');
+    if (shipment.lastSyncedAt && eventTime <= shipment.lastSyncedAt) return shipment;
+
     const normalized = status.toLowerCase();
     const pickingStatuses = ['picking', 'money_collect_picking'];
     const shippingStatuses = ['picked', 'storing', 'transporting', 'sorting', 'delivering', 'money_collect_delivering'];
@@ -365,10 +393,10 @@ export class GhnShippingService {
         where: { orderId },
         data: {
           providerStatus: status || shipment.providerStatus,
-          externalFee: numberField(detail, 'total_fee', 'fee'),
-          rawLatestStatus: json(detail),
-          lastSyncedAt: new Date(),
-          ...(normalized === 'delivered' ? { deliveredAt: new Date() } : {}),
+          externalFee: numberField(payload, 'TotalFee', 'Fee', 'total_fee', 'fee'),
+          rawLatestStatus: json(payload),
+          lastSyncedAt: eventTime,
+          ...(normalized === 'delivered' ? { deliveredAt: eventTime } : {}),
         },
       });
     });

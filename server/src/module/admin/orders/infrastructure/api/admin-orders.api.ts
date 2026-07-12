@@ -11,7 +11,18 @@ import type { AdminOrderAnalyticsController } from '../../interface-adapter/cont
 import type { CodSettlementService } from '../../../../payment/applications/services/cod-settlement.service';
 import { awardLoyaltyForOrder, LoyaltyMutationService } from '../../../../user-profile/loyalty.service';
 
-type AdminOrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'waiting-return' | 'completed' | 'canceled';
+type AdminOrderTab =
+  | 'all'
+  | 'pending'
+  | 'processing'
+  | 'shipped'
+  | 'waiting-return'
+  | 'return-in-transit'
+  | 'return-received'
+  | 'return-lost'
+  | 'return-damaged'
+  | 'completed'
+  | 'canceled';
 type OrderSort = 'new' | 'old';
 type AdminOrderRequestType = 'all' | 'cancel' | 'return' | 'refund';
 type AdminOrderRequestStatus =
@@ -112,11 +123,43 @@ function mapTabToStatuses(tab: AdminOrderTab | undefined): OrderStatus[] | undef
 function buildTabWhere(tab: AdminOrderTab | undefined): Prisma.OrderWhereInput | undefined {
   if (tab === 'waiting-return') {
     return {
-      items: {
-        some: {
-          returns: { some: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } },
+      returnStatus: { in: ['APPROVED', 'PICKING'] },
+      items: { some: { returns: { some: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } } } },
+    };
+  }
+  if (tab === 'return-received') {
+    return {
+      returnStatus: 'SHIPPING',
+      returnShipment: { is: { providerStatus: { in: ['delivered', 'DELIVERED'] } } },
+    };
+  }
+  if (tab === 'return-in-transit') {
+    return {
+      returnStatus: 'SHIPPING',
+      returnShipment: {
+        is: {
+          providerStatus: {
+            in: [
+              'picked',
+              'storing',
+              'transporting',
+              'sorting',
+              'delivering',
+              'money_collect_delivering',
+            ],
+          },
         },
       },
+    };
+  }
+  if (tab === 'return-lost') {
+    return {
+      returnShipment: { is: { providerStatus: { in: ['lost', 'LOST'] } } },
+    };
+  }
+  if (tab === 'return-damaged') {
+    return {
+      returnShipment: { is: { providerStatus: { in: ['damage', 'DAMAGE'] } } },
     };
   }
   const statuses = mapTabToStatuses(tab);
@@ -1115,7 +1158,7 @@ export class AdminOrdersAPI {
             }
           : {}),
     };
-    const [rows, waitingReturn] = await Promise.all([
+    const [rows, waitingReturn, returnInTransit, returnReceived, returnLost, returnDamaged] = await Promise.all([
       this.prisma.order.groupBy({
         by: ['status'],
         where: dateWhere,
@@ -1124,11 +1167,47 @@ export class AdminOrdersAPI {
       this.prisma.order.count({
         where: {
           ...dateWhere,
-          items: {
-            some: {
-              returns: { some: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } },
+          returnStatus: { in: ['APPROVED', 'PICKING'] },
+          items: { some: { returns: { some: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } } } },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnStatus: 'SHIPPING',
+          returnShipment: {
+            is: {
+              providerStatus: {
+                in: [
+                  'picked',
+                  'storing',
+                  'transporting',
+                  'sorting',
+                  'delivering',
+                  'money_collect_delivering',
+                ],
+              },
             },
           },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnStatus: 'SHIPPING',
+          returnShipment: { is: { providerStatus: { in: ['delivered', 'DELIVERED'] } } },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnShipment: { is: { providerStatus: { in: ['lost', 'LOST'] } } },
+        },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          returnShipment: { is: { providerStatus: { in: ['damage', 'DAMAGE'] } } },
         },
       }),
     ]);
@@ -1151,7 +1230,22 @@ export class AdminOrdersAPI {
     res
       .status(200)
       .json(
-        ResponseFormatter.success({ all, pending, processing, shipped, waitingReturn, completed, canceled }, 'OK'),
+        ResponseFormatter.success(
+          {
+            all,
+            pending,
+            processing,
+            shipped,
+            waitingReturn,
+            returnInTransit,
+            returnReceived,
+            returnLost,
+            returnDamaged,
+            completed,
+            canceled,
+          },
+          'OK',
+        ),
       );
   }
 
