@@ -131,11 +131,17 @@ export class PrismaPaymentRepository implements IPaymentRepository {
 
           const unitPrice = Math.round(Number(item.variant.price));
           const lineSubtotal = unitPrice * item.quantity;
-          const allocation = checkoutPricing.itemDiscounts?.find((row) => row.cartItemId === item.id);
+          const allocation = checkoutPricing.itemDiscounts?.find(
+            (row) => row.cartItemId === item.id,
+          );
           const lineDiscountAmount = allocation?.discountAmount ?? 0;
           const promotionDiscountAmount = allocation?.promotionDiscountAmount ?? 0;
           const voucherDiscountAmount = allocation?.voucherDiscountAmount ?? 0;
-          const product = item.variant.product ?? { name: '', basePrice: item.variant.price, images: [] };
+          const product = item.variant.product ?? {
+            name: '',
+            basePrice: item.variant.price,
+            images: [],
+          };
           const images = [...(item.variant.images ?? []), ...(product.images ?? [])].sort(
             (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder,
           );
@@ -150,14 +156,18 @@ export class PrismaPaymentRepository implements IPaymentRepository {
             productName: product.name,
             productSlug: null,
             sku: item.variant.sku ?? '',
-            variantName: Object.values((item.variant.attributes ?? {}) as Record<string, unknown>)
-              .filter(Boolean)
-              .join(' / ')
-              .slice(0, 255) || null,
+            variantName:
+              Object.values((item.variant.attributes ?? {}) as Record<string, unknown>)
+                .filter(Boolean)
+                .join(' / ')
+                .slice(0, 255) || null,
             variantAttributes: attributes ?? {},
             imageUrl: images[0]?.url ?? null,
             originalUnitPrice: product.basePrice,
-            sellingUnitPrice: Math.max(0, unitPrice - Math.floor(promotionDiscountAmount / item.quantity)),
+            sellingUnitPrice: Math.max(
+              0,
+              unitPrice - Math.floor(promotionDiscountAmount / item.quantity),
+            ),
             lineSubtotal,
             lineDiscountAmount,
             promotionDiscountAmount,
@@ -691,11 +701,11 @@ export class PrismaPaymentRepository implements IPaymentRepository {
       const availableStock = current.stockOnHand - current.stockReserved;
 
       if (current.stockAvailable !== availableStock) {
-        throw new BadRequestError(`Dữ liệu tồn kho không nhất quán cho SKU ${current.sku}`);
+        throw new BadRequestError(`Lỗi tồn kho`);
       }
 
       if (availableStock < quantity) {
-        throw new BadRequestError(`Không đủ tồn kho cho SKU ${current.sku}`);
+        throw new BadRequestError(`Lỗi tồn kho`);
       }
 
       const reserved = await tx.productVariant.updateMany({
@@ -803,7 +813,9 @@ export class PrismaPaymentRepository implements IPaymentRepository {
     }
 
     const raw =
-      paymentRawPayload && typeof paymentRawPayload === 'object' && !Array.isArray(paymentRawPayload)
+      paymentRawPayload &&
+      typeof paymentRawPayload === 'object' &&
+      !Array.isArray(paymentRawPayload)
         ? (paymentRawPayload as Record<string, unknown>)
         : null;
     const checkout =

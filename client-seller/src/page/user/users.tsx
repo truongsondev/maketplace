@@ -264,7 +264,11 @@ export default function UsersPage() {
           reason,
         );
       } else {
-        await submitRoleChange(pendingAction.user, pendingAction.nextRole, reason);
+        await submitRoleChange(
+          pendingAction.user,
+          pendingAction.nextRole,
+          reason,
+        );
       }
       setPendingAction(null);
       setActionReason("");
@@ -881,7 +885,7 @@ export default function UsersPage() {
               onChange={(e) => setActionReason(e.target.value)}
               rows={4}
               className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
-              placeholder="Nhập lý do để lưu vào audit log..."
+              placeholder="Nhập lý do"
               autoFocus
             />
 

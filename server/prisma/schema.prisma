@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -28,7 +27,6 @@ enum OAuthProvider {
   FACEBOOK
   APPLE
 }
-
 
 enum OrderStatus {
   PENDING
@@ -168,7 +166,7 @@ enum CancelRequestStatus {
 }
 
 enum DiscountType {
-  PERCENTAGE   // Giảm theo %
+  PERCENTAGE // Giảm theo %
   FIXED_AMOUNT // Giảm số tiền cố định
 }
 
@@ -283,42 +281,42 @@ enum VirtualTryOnStatus {
 
 /// Bảng người dùng gốc - lưu thông tin xác thực cốt lõi
 model User {
-  id            String     @id @default(uuid()) @db.VarChar(36)
-  email         String?    @unique @db.VarChar(255)
-  phone         String?    @unique @db.VarChar(20)
-  passwordHash  String?    @map("password_hash") @db.VarChar(255)
-  emailVerified Boolean    @default(false) @map("email_verified")
-  status        UserStatus @default(ACTIVE)
-  lastLogin     DateTime?  @map("last_login")
-  age           Int?
-  birthday      DateTime?  @db.Date
-  heightCm      Decimal?   @map("height_cm") @db.Decimal(5, 2)
-  weightKg      Decimal?   @map("weight_kg") @db.Decimal(5, 2)
-  bodyProfileUpdatedAt DateTime? @map("body_profile_updated_at")
+  id                   String     @id @default(uuid()) @db.VarChar(36)
+  email                String?    @unique @db.VarChar(255)
+  phone                String?    @unique @db.VarChar(20)
+  passwordHash         String?    @map("password_hash") @db.VarChar(255)
+  emailVerified        Boolean    @default(false) @map("email_verified")
+  status               UserStatus @default(ACTIVE)
+  lastLogin            DateTime?  @map("last_login")
+  age                  Int?
+  birthday             DateTime?  @db.Date
+  heightCm             Decimal?   @map("height_cm") @db.Decimal(5, 2)
+  weightKg             Decimal?   @map("weight_kg") @db.Decimal(5, 2)
+  bodyProfileUpdatedAt DateTime?  @map("body_profile_updated_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  addresses                  UserAddress[]
-  refreshTokens              RefreshToken[]
-  oauthAccounts              OAuthAccount[]
-  emailVerificationTokens    EmailVerificationToken[]
-  passwordResetTokens        PasswordResetToken[]
-  userRoles                  UserRole[]
-  cart                       Cart?
-  orders                     Order[]
-  notifications              Notification[]
-  activityLogs               UserActivityLog[]
-  wishlist                   Wishlist[]
-  reviews                    Review[]
-  recommendationEvents       RecommendationEvent[]
-  recommendationCaches       RecommendationCache[]
-  userEmbeddings             UserEmbedding[]
-  chatSessions               ChatSession[]
-  virtualTryOnRequests       VirtualTryOnRequest[]
-  loyaltyAccount            LoyaltyAccount?
-  birthdayVoucherGrants     BirthdayVoucherGrant[]
+  addresses               UserAddress[]
+  refreshTokens           RefreshToken[]
+  oauthAccounts           OAuthAccount[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  userRoles               UserRole[]
+  cart                    Cart?
+  orders                  Order[]
+  notifications           Notification[]
+  activityLogs            UserActivityLog[]
+  wishlist                Wishlist[]
+  reviews                 Review[]
+  recommendationEvents    RecommendationEvent[]
+  recommendationCaches    RecommendationCache[]
+  userEmbeddings          UserEmbedding[]
+  chatSessions            ChatSession[]
+  virtualTryOnRequests    VirtualTryOnRequest[]
+  loyaltyAccount          LoyaltyAccount?
+  birthdayVoucherGrants   BirthdayVoucherGrant[]
 
   @@map("users")
 }
@@ -428,17 +426,17 @@ model UserRole {
 
 /// Địa chỉ người dùng - quản lý nhiều địa chỉ giao hàng
 model UserAddress {
-  id          String  @id @default(uuid()) @db.VarChar(36)
-  userId      String  @map("user_id") @db.VarChar(36)
-  recipient   String  @db.VarChar(255)
-  phone       String  @db.VarChar(20)
-  addressLine String  @map("address_line") @db.Text
-  ward        String  @db.VarChar(100)
-  district    String  @db.VarChar(100)
-  city        String  @db.VarChar(100)
-  isDefault   Boolean @default(false) @map("is_default")
-  ghnProvinceId Int?  @map("ghn_province_id")
-  ghnDistrictId Int?  @map("ghn_district_id")
+  id            String  @id @default(uuid()) @db.VarChar(36)
+  userId        String  @map("user_id") @db.VarChar(36)
+  recipient     String  @db.VarChar(255)
+  phone         String  @db.VarChar(20)
+  addressLine   String  @map("address_line") @db.Text
+  ward          String  @db.VarChar(100)
+  district      String  @db.VarChar(100)
+  city          String  @db.VarChar(100)
+  isDefault     Boolean @default(false) @map("is_default")
+  ghnProvinceId Int?    @map("ghn_province_id")
+  ghnDistrictId Int?    @map("ghn_district_id")
   ghnWardCode   String? @map("ghn_ward_code") @db.VarChar(20)
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -456,51 +454,51 @@ model UserAddress {
 
 /// Sản phẩm - thông tin cơ bản; tồn kho & giá thực tế nằm ở ProductVariant
 model Product {
-  id          String  @id @default(uuid()) @db.VarChar(36)
+  id            String        @id @default(uuid()) @db.VarChar(36)
   /// Loại sản phẩm (áo/quần/phụ kiện...). Nullable để migrate dần.
-  productTypeId String? @map("product_type_id") @db.VarChar(36)
-  name        String  @db.VarChar(255)
-  description String? @db.Text
+  productTypeId String?       @map("product_type_id") @db.VarChar(36)
+  name          String        @db.VarChar(255)
+  description   String?       @db.Text
   /// Giá hiển thị / khởi điểm; giá bán thực tế lấy từ ProductVariant.price
-  basePrice   Decimal @map("base_price") @db.Decimal(10, 2)
+  basePrice     Decimal       @map("base_price") @db.Decimal(10, 2)
   /// Trạng thái catalog (đi đường dài). Migrate dần, mặc định ACTIVE.
-  status      ProductStatus @default(ACTIVE)
-  isSale      Boolean @default(false) @map("is_sale")
-  isDeleted   Boolean @default(false) @map("is_deleted")
+  status        ProductStatus @default(ACTIVE)
+  isSale        Boolean       @default(false) @map("is_sale")
+  isDeleted     Boolean       @default(false) @map("is_deleted")
   /// Soft-delete chuẩn (nullable để migrate dần).
-  deletedAt   DateTime? @map("deleted_at")
+  deletedAt     DateTime?     @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  productType      ProductType?          @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
-  variants         ProductVariant[]
-  images           ProductImage[]
-  categories       ProductCategory[]
-  tags             ProductTag[]
-  cartItems        CartItem[]
-  orderItems       OrderItem[]
-  wishlist         Wishlist[]
-  reviews          Review[]
-  priceHistory     ProductPriceHistory[]
+  productType          ProductType?               @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
+  variants             ProductVariant[]
+  images               ProductImage[]
+  categories           ProductCategory[]
+  tags                 ProductTag[]
+  cartItems            CartItem[]
+  orderItems           OrderItem[]
+  wishlist             Wishlist[]
+  reviews              Review[]
+  priceHistory         ProductPriceHistory[]
   recommendationEvents RecommendationEvent[]
-  similaritySources ProductSimilarity[]   @relation("ProductSimilaritySource")
-  similarityTargets ProductSimilarity[]   @relation("ProductSimilarityTarget")
+  similaritySources    ProductSimilarity[]        @relation("ProductSimilaritySource")
+  similarityTargets    ProductSimilarity[]        @relation("ProductSimilarityTarget")
   recommendationCaches RecommendationCache[]
-  productEmbeddings ProductEmbedding[]
+  productEmbeddings    ProductEmbedding[]
   virtualTryOnRequests VirtualTryOnRequest[]
-  sizeChartRules SizeChartRule[]
-  discountIncludes DiscountIncludedProduct[]
-  discountExcludes DiscountExcludedProduct[]
-  promotionIncludes PromotionIncludedProduct[]
+  sizeChartRules       SizeChartRule[]
+  discountIncludes     DiscountIncludedProduct[]
+  discountExcludes     DiscountExcludedProduct[]
+  promotionIncludes    PromotionIncludedProduct[]
 
-  attributeValues  ProductAttributeValue[]
+  attributeValues ProductAttributeValue[]
 
-  @@fulltext([name])
   @@index([createdAt])
   @@index([productTypeId, status])
   @@index([deletedAt])
+  @@fulltext([name])
   @@map("products")
 }
 
@@ -510,42 +508,42 @@ model Product {
 
 /// Biến thể sản phẩm - quản lý SKU, size/màu, tồn kho
 model ProductVariant {
-  id             String  @id @default(uuid()) @db.VarChar(36)
-  productId      String  @map("product_id") @db.VarChar(36)
-  sku            String  @unique @db.VarChar(100)
+  id             String        @id @default(uuid()) @db.VarChar(36)
+  productId      String        @map("product_id") @db.VarChar(36)
+  sku            String        @unique @db.VarChar(100)
   /// Canonical key cho tổ hợp biến thể (vd: color=red|size=m). Nullable để backfill dần.
-  optionKey      String? @map("option_key") @db.VarChar(500)
+  optionKey      String?       @map("option_key") @db.VarChar(500)
   status         VariantStatus @default(ACTIVE)
-  isDefault      Boolean @default(false) @map("is_default")
+  isDefault      Boolean       @default(false) @map("is_default")
   /// Thuộc tính biến thể: {"color": "đỏ", "size": "M"}
-  attributes     Json    @default("{}")
-  price          Decimal @db.Decimal(10, 2)
-  stockAvailable Int     @default(0) @map("stock_available")
+  attributes     Json          @default("{}")
+  price          Decimal       @db.Decimal(10, 2)
+  stockAvailable Int           @default(0) @map("stock_available")
   /// Chuẩn dài hạn: stockOnHand (giữ song song để migrate)
-  stockOnHand    Int     @default(0) @map("stock_on_hand")
-  stockReserved  Int     @default(0) @map("stock_reserved")
-  minStock       Int     @default(5) @map("min_stock")
-  isDeleted      Boolean @default(false) @map("is_deleted")
-  deletedAt      DateTime? @map("deleted_at")
+  stockOnHand    Int           @default(0) @map("stock_on_hand")
+  stockReserved  Int           @default(0) @map("stock_reserved")
+  minStock       Int           @default(5) @map("min_stock")
+  isDeleted      Boolean       @default(false) @map("is_deleted")
+  deletedAt      DateTime?     @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  images        ProductImage[]
-  inventoryLogs InventoryLog[]
-  priceHistory  ProductPriceHistory[]
+  product           Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  images            ProductImage[]
+  inventoryLogs     InventoryLog[]
+  priceHistory      ProductPriceHistory[]
   physicalSaleItems PhysicalSaleItem[]
 
   attributeValues VariantAttributeValue[]
 
+  @@unique([productId, optionKey])
   @@index([productId])
   @@index([productId, status])
   @@index([deletedAt])
-  @@unique([productId, optionKey])
   @@map("product_variants")
 }
 
@@ -583,17 +581,18 @@ model Category {
 
   parentId String? @map("parent_id") @db.VarChar(36)
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
   // Relations
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children Category[] @relation("CategoryHierarchy")
-  products ProductCategory[]
-  discountIncludes DiscountIncludedCategory[]
-  discountExcludes DiscountExcludedCategory[]
+  parent            Category?                   @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          Category[]                  @relation("CategoryHierarchy")
+  products          ProductCategory[]
+  discountIncludes  DiscountIncludedCategory[]
+  discountExcludes  DiscountExcludedCategory[]
   promotionIncludes PromotionIncludedCategory[]
+
   @@index([parentId])
   @@index([deletedAt])
   @@map("categories")
@@ -605,8 +604,8 @@ model ProductCategory {
   categoryId String @map("category_id") @db.VarChar(36)
 
   /// Merchandising
-  isPrimary  Boolean @default(false) @map("is_primary")
-  sortOrder  Int     @default(0) @map("sort_order")
+  isPrimary Boolean @default(false) @map("is_primary")
+  sortOrder Int     @default(0) @map("sort_order")
 
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -621,17 +620,17 @@ model ProductCategory {
 // ============================================================================
 
 model ProductType {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  code        String   @unique @db.VarChar(100)
-  name        String   @db.VarChar(255)
-  description String?  @db.Text
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  code        String    @unique @db.VarChar(100)
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
   deletedAt   DateTime? @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  products   Product[]
-  attributes ProductTypeAttribute[]
+  products       Product[]
+  attributes     ProductTypeAttribute[]
   sizeChartRules SizeChartRule[]
 
   @@index([deletedAt])
@@ -666,19 +665,19 @@ model SizeChartRule {
 // ============================================================================
 
 model AttributeDefinition {
-  id        String           @id @default(uuid()) @db.VarChar(36)
-  code      String           @unique @db.VarChar(100)
-  name      String           @db.VarChar(255)
-  scope     AttributeScope
-  dataType  AttributeDataType @map("data_type")
-  unit      String?          @db.VarChar(50)
+  id       String            @id @default(uuid()) @db.VarChar(36)
+  code     String            @unique @db.VarChar(100)
+  name     String            @db.VarChar(255)
+  scope    AttributeScope
+  dataType AttributeDataType @map("data_type")
+  unit     String?           @db.VarChar(50)
 
   deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
-  options   AttributeOption[]
-  typeMaps  ProductTypeAttribute[]
+  options       AttributeOption[]
+  typeMaps      ProductTypeAttribute[]
   productValues ProductAttributeValue[]
   variantValues VariantAttributeValue[]
 
@@ -688,22 +687,22 @@ model AttributeDefinition {
 }
 
 model AttributeOption {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  attributeId String   @map("attribute_id") @db.VarChar(36)
-  value       String   @db.VarChar(100)
-  label       String   @db.VarChar(255)
-  sortOrder   Int      @default(0) @map("sort_order")
-  swatchHex   String?  @map("swatch_hex") @db.VarChar(16)
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  attributeId String  @map("attribute_id") @db.VarChar(36)
+  value       String  @db.VarChar(100)
+  label       String  @db.VarChar(255)
+  sortOrder   Int     @default(0) @map("sort_order")
+  swatchHex   String? @map("swatch_hex") @db.VarChar(16)
 
   deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
 
-  productValues ProductAttributeValue[]
+  productValues           ProductAttributeValue[]
   productMultiSelectJoins ProductAttributeValueOption[]
-  variantValues VariantAttributeValue[]
+  variantValues           VariantAttributeValue[]
 
   @@unique([attributeId, value])
   @@index([attributeId, sortOrder])
@@ -715,10 +714,10 @@ model ProductTypeAttribute {
   productTypeId String @map("product_type_id") @db.VarChar(36)
   attributeId   String @map("attribute_id") @db.VarChar(36)
 
-  isRequired    Boolean @default(false) @map("is_required")
-  isFilterable  Boolean @default(false) @map("is_filterable")
-  isVariantAxis Boolean @default(false) @map("is_variant_axis")
-  variantAxisOrder Int? @map("variant_axis_order")
+  isRequired       Boolean @default(false) @map("is_required")
+  isFilterable     Boolean @default(false) @map("is_filterable")
+  isVariantAxis    Boolean @default(false) @map("is_variant_axis")
+  variantAxisOrder Int?    @map("variant_axis_order")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -736,19 +735,19 @@ model ProductTypeAttribute {
 // ============================================================================
 
 model ProductAttributeValue {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  productId   String   @map("product_id") @db.VarChar(36)
-  attributeId String   @map("attribute_id") @db.VarChar(36)
+  id          String @id @default(uuid()) @db.VarChar(36)
+  productId   String @map("product_id") @db.VarChar(36)
+  attributeId String @map("attribute_id") @db.VarChar(36)
 
-  textValue    String?  @map("text_value") @db.Text
-  numberValue  Decimal? @map("number_value") @db.Decimal(18, 4)
-  booleanValue Boolean? @map("boolean_value")
+  textValue    String?   @map("text_value") @db.Text
+  numberValue  Decimal?  @map("number_value") @db.Decimal(18, 4)
+  booleanValue Boolean?  @map("boolean_value")
   dateValue    DateTime? @map("date_value")
-  optionId     String?  @map("option_id") @db.VarChar(36)
+  optionId     String?   @map("option_id") @db.VarChar(36)
 
   deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   product   Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
   attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
@@ -779,23 +778,23 @@ model ProductAttributeValueOption {
 // ============================================================================
 
 model VariantAttributeValue {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  variantId   String   @map("variant_id") @db.VarChar(36)
-  attributeId String   @map("attribute_id") @db.VarChar(36)
+  id          String @id @default(uuid()) @db.VarChar(36)
+  variantId   String @map("variant_id") @db.VarChar(36)
+  attributeId String @map("attribute_id") @db.VarChar(36)
 
-  textValue    String?  @map("text_value") @db.Text
-  numberValue  Decimal? @map("number_value") @db.Decimal(18, 4)
-  booleanValue Boolean? @map("boolean_value")
+  textValue    String?   @map("text_value") @db.Text
+  numberValue  Decimal?  @map("number_value") @db.Decimal(18, 4)
+  booleanValue Boolean?  @map("boolean_value")
   dateValue    DateTime? @map("date_value")
-  optionId     String?  @map("option_id") @db.VarChar(36)
+  optionId     String?   @map("option_id") @db.VarChar(36)
 
   deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
-  variant   ProductVariant       @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  attribute AttributeDefinition  @relation(fields: [attributeId], references: [id], onDelete: Cascade)
-  option    AttributeOption?     @relation(fields: [optionId], references: [id], onDelete: SetNull)
+  variant   ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  option    AttributeOption?    @relation(fields: [optionId], references: [id], onDelete: SetNull)
 
   @@unique([variantId, attributeId])
   @@index([attributeId, optionId])
@@ -870,43 +869,43 @@ model CartItem {
 
 /// Đơn hàng
 model Order {
-  id             String      @id @default(uuid()) @db.VarChar(36)
-  userId         String      @map("user_id") @db.VarChar(36)
-  subtotalPrice  Decimal     @default(0) @map("subtotal_price") @db.Decimal(10, 2)
-  shippingFee    Decimal     @default(0) @map("shipping_fee") @db.Decimal(10, 2)
-  totalPrice     Decimal     @map("total_price") @db.Decimal(10, 2)
-  status         OrderStatus @default(PENDING)
-  returnStatus   ReturnFlowStatus? @map("return_status")
-  discountId     String?     @map("discount_id") @db.VarChar(36)
-  discountAmount Decimal?    @map("discount_amount") @db.Decimal(10, 2)
-  itemsSubtotal Decimal      @default(0) @map("items_subtotal") @db.Decimal(10, 2)
-  productDiscount Decimal    @default(0) @map("product_discount") @db.Decimal(10, 2)
-  promotionDiscount Decimal  @default(0) @map("promotion_discount") @db.Decimal(10, 2)
-  voucherDiscount Decimal    @default(0) @map("voucher_discount") @db.Decimal(10, 2)
-  grandTotal Decimal         @default(0) @map("grand_total") @db.Decimal(10, 2)
-  carrierName    String?     @map("carrier_name") @db.VarChar(120)
-  trackingCode   String?     @map("tracking_code") @db.VarChar(120)
-  deliveryNote   String?     @map("delivery_note") @db.VarChar(500)
-  shippedAt      DateTime?   @map("shipped_at")
-  deliveredAt    DateTime?   @map("delivered_at")
+  id                String            @id @default(uuid()) @db.VarChar(36)
+  userId            String            @map("user_id") @db.VarChar(36)
+  subtotalPrice     Decimal           @default(0) @map("subtotal_price") @db.Decimal(10, 2)
+  shippingFee       Decimal           @default(0) @map("shipping_fee") @db.Decimal(10, 2)
+  totalPrice        Decimal           @map("total_price") @db.Decimal(10, 2)
+  status            OrderStatus       @default(PENDING)
+  returnStatus      ReturnFlowStatus? @map("return_status")
+  discountId        String?           @map("discount_id") @db.VarChar(36)
+  discountAmount    Decimal?          @map("discount_amount") @db.Decimal(10, 2)
+  itemsSubtotal     Decimal           @default(0) @map("items_subtotal") @db.Decimal(10, 2)
+  productDiscount   Decimal           @default(0) @map("product_discount") @db.Decimal(10, 2)
+  promotionDiscount Decimal           @default(0) @map("promotion_discount") @db.Decimal(10, 2)
+  voucherDiscount   Decimal           @default(0) @map("voucher_discount") @db.Decimal(10, 2)
+  grandTotal        Decimal           @default(0) @map("grand_total") @db.Decimal(10, 2)
+  carrierName       String?           @map("carrier_name") @db.VarChar(120)
+  trackingCode      String?           @map("tracking_code") @db.VarChar(120)
+  deliveryNote      String?           @map("delivery_note") @db.VarChar(500)
+  shippedAt         DateTime?         @map("shipped_at")
+  deliveredAt       DateTime?         @map("delivered_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user          User                 @relation(fields: [userId], references: [id])
-  items         OrderItem[]
-  payment       Payment?
+  user               User                  @relation(fields: [userId], references: [id])
+  items              OrderItem[]
+  payment            Payment?
   paymentTransaction PaymentTransaction?
   refundTransactions RefundTransaction[]
-  cancelRequest OrderCancelRequest?
-  statusHistory OrderStatusHistory[]
-  shippingAddress OrderShippingAddress?
-  discount      Discount?            @relation(fields: [discountId], references: [id])
-  discountUsage DiscountUsage?
-  promotionUsages PromotionUsage[]
-  shipment     OrderShipment?
-  returnShipment ReturnShipment?
+  cancelRequest      OrderCancelRequest?
+  statusHistory      OrderStatusHistory[]
+  shippingAddress    OrderShippingAddress?
+  discount           Discount?             @relation(fields: [discountId], references: [id])
+  discountUsage      DiscountUsage?
+  promotionUsages    PromotionUsage[]
+  shipment           OrderShipment?
+  returnShipment     ReturnShipment?
 
   @@index([status])
   @@index([userId])
@@ -985,38 +984,38 @@ model ReturnShipment {
 
 /// Chi tiết đơn hàng
 model OrderItem {
-  id        String  @id @default(uuid()) @db.VarChar(36)
-  orderId   String  @map("order_id") @db.VarChar(36)
-  productId String  @map("product_id") @db.VarChar(36)
-  variantId String? @map("variant_id") @db.VarChar(36)
-  quantity  Int
-  price     Decimal @db.Decimal(10, 2)
-  productName String @default("") @map("product_name") @db.VarChar(255)
-  productSlug String? @map("product_slug") @db.VarChar(255)
-  sku String @default("") @db.VarChar(100)
-  variantName String? @map("variant_name") @db.VarChar(255)
-  variantAttributes Json? @map("variant_attributes")
-  imageUrl String? @map("image_url") @db.VarChar(1000)
-  originalUnitPrice Decimal @default(0) @map("original_unit_price") @db.Decimal(10, 2)
-  sellingUnitPrice Decimal @default(0) @map("selling_unit_price") @db.Decimal(10, 2)
-  lineSubtotal Decimal @default(0) @map("line_subtotal") @db.Decimal(10, 2)
-  lineDiscountAmount Decimal @default(0) @map("line_discount_amount") @db.Decimal(10, 2)
+  id                      String  @id @default(uuid()) @db.VarChar(36)
+  orderId                 String  @map("order_id") @db.VarChar(36)
+  productId               String  @map("product_id") @db.VarChar(36)
+  variantId               String? @map("variant_id") @db.VarChar(36)
+  quantity                Int
+  price                   Decimal @db.Decimal(10, 2)
+  productName             String  @default("") @map("product_name") @db.VarChar(255)
+  productSlug             String? @map("product_slug") @db.VarChar(255)
+  sku                     String  @default("") @db.VarChar(100)
+  variantName             String? @map("variant_name") @db.VarChar(255)
+  variantAttributes       Json?   @map("variant_attributes")
+  imageUrl                String? @map("image_url") @db.VarChar(1000)
+  originalUnitPrice       Decimal @default(0) @map("original_unit_price") @db.Decimal(10, 2)
+  sellingUnitPrice        Decimal @default(0) @map("selling_unit_price") @db.Decimal(10, 2)
+  lineSubtotal            Decimal @default(0) @map("line_subtotal") @db.Decimal(10, 2)
+  lineDiscountAmount      Decimal @default(0) @map("line_discount_amount") @db.Decimal(10, 2)
   promotionDiscountAmount Decimal @default(0) @map("promotion_discount_amount") @db.Decimal(10, 2)
-  voucherDiscountAmount Decimal @default(0) @map("voucher_discount_amount") @db.Decimal(10, 2)
-  lineTotal Decimal @default(0) @map("line_total") @db.Decimal(10, 2)
-  voucherEligible Boolean @default(false) @map("voucher_eligible")
-  promotionId String? @map("promotion_id") @db.VarChar(36)
-  promotionName String? @map("promotion_name") @db.VarChar(255)
-  promotionSnapshot Json? @map("promotion_snapshot")
-  snapshotSource String @default("CHECKOUT") @map("snapshot_source") @db.VarChar(40)
+  voucherDiscountAmount   Decimal @default(0) @map("voucher_discount_amount") @db.Decimal(10, 2)
+  lineTotal               Decimal @default(0) @map("line_total") @db.Decimal(10, 2)
+  voucherEligible         Boolean @default(false) @map("voucher_eligible")
+  promotionId             String? @map("promotion_id") @db.VarChar(36)
+  promotionName           String? @map("promotion_name") @db.VarChar(255)
+  promotionSnapshot       Json?   @map("promotion_snapshot")
+  snapshotSource          String  @default("CHECKOUT") @map("snapshot_source") @db.VarChar(40)
 
   // Relations
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product         @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
-  promotion Promotion? @relation(fields: [promotionId], references: [id])
-  returns Return[]
-  reviews Review[] @relation("OrderItemReviews")
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  promotion Promotion?      @relation(fields: [promotionId], references: [id])
+  returns   Return[]
+  reviews   Review[]        @relation("OrderItemReviews")
 
   @@unique([orderId, productId, variantId])
   @@index([productId])
@@ -1048,20 +1047,20 @@ model Payment {
 
 /// Giao dịch thanh toan online (idempotent qua trang thai PENDING)
 model PaymentTransaction {
-  id                   String                   @id @default(uuid()) @db.VarChar(36)
-  orderId               String                   @unique @map("order_id") @db.VarChar(36)
-  orderCode             String                   @unique @map("order_code") @db.VarChar(64)
-  amount                Decimal                  @db.Decimal(10, 2)
-  status                PaymentTransactionStatus @default(PENDING)
-  bankCode              String?                  @map("bank_code") @db.VarChar(20)
-  gatewayReference      String?                  @unique @map("vnp_transaction_no") @db.VarChar(64)
-  gatewayCode           String?                  @map("vnp_response_code") @db.VarChar(10)
-  gatewayStatus         String?                  @map("vnp_transaction_status") @db.VarChar(10)
-  paidAt                DateTime?                @map("paid_at")
-  rawPayload            Json?                    @map("raw_payload")
+  id               String                   @id @default(uuid()) @db.VarChar(36)
+  orderId          String                   @unique @map("order_id") @db.VarChar(36)
+  orderCode        String                   @unique @map("order_code") @db.VarChar(64)
+  amount           Decimal                  @db.Decimal(10, 2)
+  status           PaymentTransactionStatus @default(PENDING)
+  bankCode         String?                  @map("bank_code") @db.VarChar(20)
+  gatewayReference String?                  @unique @map("vnp_transaction_no") @db.VarChar(64)
+  gatewayCode      String?                  @map("vnp_response_code") @db.VarChar(10)
+  gatewayStatus    String?                  @map("vnp_transaction_status") @db.VarChar(10)
+  paidAt           DateTime?                @map("paid_at")
+  rawPayload       Json?                    @map("raw_payload")
 
-  createdAt             DateTime                 @default(now()) @map("created_at")
-  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1077,12 +1076,12 @@ model PaymentTransaction {
 
 /// Lịch sử thay đổi giá - phục vụ analytics và audit
 model ProductPriceHistory {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  productId String   @map("product_id") @db.VarChar(36)
-  variantId String?  @map("variant_id") @db.VarChar(36)
-  oldPrice  Decimal  @map("old_price") @db.Decimal(10, 2)
-  newPrice  Decimal  @map("new_price") @db.Decimal(10, 2)
-  changedBy String?  @map("changed_by") @db.VarChar(36)
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  productId String  @map("product_id") @db.VarChar(36)
+  variantId String? @map("variant_id") @db.VarChar(36)
+  oldPrice  Decimal @map("old_price") @db.Decimal(10, 2)
+  newPrice  Decimal @map("new_price") @db.Decimal(10, 2)
+  changedBy String? @map("changed_by") @db.VarChar(36)
 
   changedAt DateTime @default(now()) @map("changed_at")
 
@@ -1101,37 +1100,37 @@ model ProductPriceHistory {
 
 /// Mã giảm giá
 model Discount {
-  id             String       @id @default(uuid()) @db.VarChar(36)
-  code           String       @unique @db.VarChar(50)
-  description    String?      @db.VarChar(500)
-  type           DiscountType
-  value          Decimal      @db.Decimal(10, 2)
-  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(10, 2)
-  minOrderAmount Decimal?     @map("min_order_amount") @db.Decimal(10, 2)
-  maxUsage       Int?         @map("max_usage")
-  userUsageLimit Int?         @map("user_usage_limit")
-  usedCount      Int          @default(0) @map("used_count")
-  startAt        DateTime     @map("start_at")
-  endAt          DateTime     @map("end_at")
-  isActive       Boolean      @default(true) @map("is_active")
-  isBirthdayVoucher Boolean   @default(false) @map("is_birthday_voucher")
-  bannerImageUrl String?      @map("banner_image_url") @db.VarChar(1000)
-  scopeType VoucherScopeType @default(ALL_PRODUCTS) @map("scope_type")
-  includeDescendants Boolean @default(false) @map("include_descendants")
-  minAmountBasis VoucherMinAmountBasis @default(ELIGIBLE_SUBTOTAL) @map("min_amount_basis")
+  id                 String                @id @default(uuid()) @db.VarChar(36)
+  code               String                @unique @db.VarChar(50)
+  description        String?               @db.VarChar(500)
+  type               DiscountType
+  value              Decimal               @db.Decimal(10, 2)
+  maxDiscount        Decimal?              @map("max_discount") @db.Decimal(10, 2)
+  minOrderAmount     Decimal?              @map("min_order_amount") @db.Decimal(10, 2)
+  maxUsage           Int?                  @map("max_usage")
+  userUsageLimit     Int?                  @map("user_usage_limit")
+  usedCount          Int                   @default(0) @map("used_count")
+  startAt            DateTime              @map("start_at")
+  endAt              DateTime              @map("end_at")
+  isActive           Boolean               @default(true) @map("is_active")
+  isBirthdayVoucher  Boolean               @default(false) @map("is_birthday_voucher")
+  bannerImageUrl     String?               @map("banner_image_url") @db.VarChar(1000)
+  scopeType          VoucherScopeType      @default(ALL_PRODUCTS) @map("scope_type")
+  includeDescendants Boolean               @default(false) @map("include_descendants")
+  minAmountBasis     VoucherMinAmountBasis @default(ELIGIBLE_SUBTOTAL) @map("min_amount_basis")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  usages    DiscountUsage[]
-  birthdayGrants BirthdayVoucherGrant[]
-  orders    Order[]
+  usages             DiscountUsage[]
+  birthdayGrants     BirthdayVoucherGrant[]
+  orders             Order[]
   includedCategories DiscountIncludedCategory[]
   excludedCategories DiscountExcludedCategory[]
-  includedProducts DiscountIncludedProduct[]
-  excludedProducts DiscountExcludedProduct[]
-  memberTiers DiscountMemberTier[]
+  includedProducts   DiscountIncludedProduct[]
+  excludedProducts   DiscountExcludedProduct[]
+  memberTiers        DiscountMemberTier[]
 
   @@index([isActive, startAt, endAt])
   @@map("discounts")
@@ -1155,33 +1154,33 @@ model Banner {
 
 /// Lịch sử sử dụng mã giảm giá
 model DiscountUsage {
-  id         String   @id @default(uuid()) @db.VarChar(36)
-  discountId String   @map("discount_id") @db.VarChar(36)
-  userId     String   @map("user_id") @db.VarChar(36)
-  orderId    String   @unique @map("order_id") @db.VarChar(36)
-  usageYear  Int?     @map("usage_year")
+  id         String @id @default(uuid()) @db.VarChar(36)
+  discountId String @map("discount_id") @db.VarChar(36)
+  userId     String @map("user_id") @db.VarChar(36)
+  orderId    String @unique @map("order_id") @db.VarChar(36)
+  usageYear  Int?   @map("usage_year")
 
   // Relations
   discount Discount @relation(fields: [discountId], references: [id])
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@unique([discountId, userId, usageYear])
   @@index([discountId])
   @@index([userId])
-  @@unique([discountId, userId, usageYear])
   @@map("discount_usages")
 }
 
 model BirthdayVoucherGrant {
-  id             String   @id @default(uuid()) @db.VarChar(36)
-  userId         String   @map("user_id") @db.VarChar(36)
-  discountId     String   @map("discount_id") @db.VarChar(36)
+  id             String    @id @default(uuid()) @db.VarChar(36)
+  userId         String    @map("user_id") @db.VarChar(36)
+  discountId     String    @map("discount_id") @db.VarChar(36)
   year           Int
-  birthdayDate   DateTime @map("birthday_date") @db.Date
-  email          String   @db.VarChar(255)
+  birthdayDate   DateTime  @map("birthday_date") @db.Date
+  email          String    @db.VarChar(255)
   emailSentAt    DateTime? @map("email_sent_at")
-  idempotencyKey String   @unique @map("idempotency_key") @db.VarChar(120)
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(120)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
@@ -1198,17 +1197,17 @@ model BirthdayVoucherGrant {
 
 /// Lịch sử nhập/xuất kho - theo dõi ở cấpđộ variant
 model InventoryLog {
-  id          String          @id @default(uuid()) @db.VarChar(36)
-  variantId   String          @map("variant_id") @db.VarChar(36)
-  action      InventoryAction
-  quantity    Int
-  referenceId String?         @map("reference_id") @db.VarChar(36)
-  beforeQuantity Int?         @map("before_quantity")
-  afterQuantity  Int?         @map("after_quantity")
-  referenceType  String?      @map("reference_type") @db.VarChar(50)
-  actorId        String?      @map("actor_id") @db.VarChar(36)
-  reason         String?      @db.VarChar(500)
-  salesChannel   SalesChannel @default(INTERNAL) @map("sales_channel")
+  id             String          @id @default(uuid()) @db.VarChar(36)
+  variantId      String          @map("variant_id") @db.VarChar(36)
+  action         InventoryAction
+  quantity       Int
+  referenceId    String?         @map("reference_id") @db.VarChar(36)
+  beforeQuantity Int?            @map("before_quantity")
+  afterQuantity  Int?            @map("after_quantity")
+  referenceType  String?         @map("reference_type") @db.VarChar(50)
+  actorId        String?         @map("actor_id") @db.VarChar(36)
+  reason         String?         @db.VarChar(500)
+  salesChannel   SalesChannel    @default(INTERNAL) @map("sales_channel")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1225,18 +1224,18 @@ model InventoryLog {
 
 /// Yêu cầu trả hàng - liên kết với từng order_item
 model Return {
-  id                String       @id @default(uuid()) @db.VarChar(36)
-  orderItemId       String       @map("order_item_id") @db.VarChar(36)
-  quantity          Int
-  requestType       ReturnRequestType @default(RETURN_REFUND) @map("request_type")
-  requestedVariantId String?          @map("requested_variant_id") @db.VarChar(36)
-  reason            String?      @db.Text
-  reasonCode        String?      @map("reason_code") @db.VarChar(50)
-  evidenceImages    Json?        @map("evidence_images")
-  bankAccountName   String?      @map("bank_account_name") @db.VarChar(255)
-  bankAccountNumber String?      @map("bank_account_number") @db.VarChar(50)
-  bankName          String?      @map("bank_name") @db.VarChar(120)
-  status            ReturnStatus @default(RT_REQUESTED)
+  id                 String            @id @default(uuid()) @db.VarChar(36)
+  orderItemId        String            @map("order_item_id") @db.VarChar(36)
+  quantity           Int
+  requestType        ReturnRequestType @default(RETURN_REFUND) @map("request_type")
+  requestedVariantId String?           @map("requested_variant_id") @db.VarChar(36)
+  reason             String?           @db.Text
+  reasonCode         String?           @map("reason_code") @db.VarChar(50)
+  evidenceImages     Json?             @map("evidence_images")
+  bankAccountName    String?           @map("bank_account_name") @db.VarChar(255)
+  bankAccountNumber  String?           @map("bank_account_number") @db.VarChar(50)
+  bankName           String?           @map("bank_name") @db.VarChar(120)
+  status             ReturnStatus      @default(RT_REQUESTED)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1313,45 +1312,54 @@ model UserActivityLog {
 }
 
 model DiscountIncludedCategory {
-  discountId String @map("discount_id") @db.VarChar(36)
-  categoryId String @map("category_id") @db.VarChar(36)
-  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  discountId String   @map("discount_id") @db.VarChar(36)
+  categoryId String   @map("category_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@id([discountId, categoryId])
   @@index([categoryId])
   @@map("discount_included_categories")
 }
+
 model DiscountExcludedCategory {
-  discountId String @map("discount_id") @db.VarChar(36)
-  categoryId String @map("category_id") @db.VarChar(36)
-  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  discountId String   @map("discount_id") @db.VarChar(36)
+  categoryId String   @map("category_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@id([discountId, categoryId])
   @@index([categoryId])
   @@map("discount_excluded_categories")
 }
+
 model DiscountIncludedProduct {
-  discountId String @map("discount_id") @db.VarChar(36)
-  productId String @map("product_id") @db.VarChar(36)
-  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  discountId String   @map("discount_id") @db.VarChar(36)
+  productId  String   @map("product_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@id([discountId, productId])
   @@index([productId])
   @@map("discount_included_products")
 }
+
 model DiscountExcludedProduct {
-  discountId String @map("discount_id") @db.VarChar(36)
-  productId String @map("product_id") @db.VarChar(36)
-  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  discountId String   @map("discount_id") @db.VarChar(36)
+  productId  String   @map("product_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
   @@id([discountId, productId])
   @@index([productId])
   @@map("discount_excluded_products")
 }
+
 model DiscountMemberTier {
-  discountId String @map("discount_id") @db.VarChar(36)
-  tier String @db.VarChar(30)
-  discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  discountId String   @map("discount_id") @db.VarChar(36)
+  tier       String   @db.VarChar(30)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
   @@id([discountId, tier])
   @@map("discount_member_tiers")
 }
@@ -1429,11 +1437,11 @@ model RecommendationEvent {
 }
 
 model ProductSimilarity {
-  productId        String   @map("product_id") @db.VarChar(36)
-  relatedProductId String   @map("related_product_id") @db.VarChar(36)
-  algorithm        String   @db.VarChar(50)
-  score            Decimal  @db.Decimal(8, 4)
-  rank             Int      @default(0)
+  productId        String  @map("product_id") @db.VarChar(36)
+  relatedProductId String  @map("related_product_id") @db.VarChar(36)
+  algorithm        String  @db.VarChar(50)
+  score            Decimal @db.Decimal(8, 4)
+  rank             Int     @default(0)
   metadata         Json?
 
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -1488,12 +1496,12 @@ model ProductEmbedding {
 }
 
 model UserEmbedding {
-  userId        String  @id @map("user_id") @db.VarChar(36)
-  embedding     Json
-  modelVersion  String  @map("model_version") @db.VarChar(80)
-  dimensions    Int
-  lastEventAt   DateTime? @map("last_event_at")
-  metadata      Json?
+  userId       String    @id @map("user_id") @db.VarChar(36)
+  embedding    Json
+  modelVersion String    @map("model_version") @db.VarChar(80)
+  dimensions   Int
+  lastEventAt  DateTime? @map("last_event_at")
+  metadata     Json?
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1504,12 +1512,12 @@ model UserEmbedding {
 }
 
 model RecommendationExperiment {
-  id          String  @id @default(uuid()) @db.VarChar(36)
-  key         String  @unique @db.VarChar(80)
-  name        String  @db.VarChar(255)
-  description String? @db.VarChar(500)
-  status      String  @db.VarChar(40)
-  traffic     Int     @default(100)
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  key         String    @unique @db.VarChar(80)
+  name        String    @db.VarChar(255)
+  description String?   @db.VarChar(500)
+  status      String    @db.VarChar(40)
+  traffic     Int       @default(100)
   variants    Json
   metadata    Json?
   startAt     DateTime? @map("start_at")
@@ -1523,12 +1531,12 @@ model RecommendationExperiment {
 }
 
 model RecommendationMetricSnapshot {
-  id         String   @id @default(uuid()) @db.VarChar(36)
-  metricDate DateTime @map("metric_date")
-  metricName String   @map("metric_name") @db.VarChar(120)
-  metricValue Decimal @map("metric_value") @db.Decimal(14, 4)
-  dimensions Json?
-  metadata   Json?
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  metricDate  DateTime @map("metric_date")
+  metricName  String   @map("metric_name") @db.VarChar(120)
+  metricValue Decimal  @map("metric_value") @db.Decimal(14, 4)
+  dimensions  Json?
+  metadata    Json?
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1537,33 +1545,33 @@ model RecommendationMetricSnapshot {
 }
 
 model VirtualTryOnRequest {
-  id              String             @id @default(uuid()) @db.VarChar(36)
-  userId          String             @map("user_id") @db.VarChar(36)
-  productId       String             @map("product_id") @db.VarChar(36)
-  productImageUrl String             @map("product_image_url") @db.VarChar(1000)
-  humanImageUrl   String             @map("human_image_url") @db.VarChar(1000)
-  outputImageUrl  String?            @map("output_image_url") @db.VarChar(1000)
-  outputPublicId  String?            @map("output_public_id") @db.VarChar(255)
-  provider        String             @default("replicate") @db.VarChar(80)
-  modelName       String             @default("cuuupid/idm-vton") @map("model_name") @db.VarChar(160)
-  providerJobId   String?            @map("provider_job_id") @db.VarChar(160)
-  status          VirtualTryOnStatus @default(PENDING)
-  category        String             @db.VarChar(40)
-  garmentDes      String             @map("garment_des") @db.VarChar(500)
-  crop            Boolean            @default(false)
-  forceDc         Boolean            @default(false) @map("force_dc")
-  maskOnly        Boolean            @default(false) @map("mask_only")
-  steps           Int                @default(30)
-  seed            Int?
-  latencyMs       Int?               @map("latency_ms")
-  estimatedCostUsd Decimal?          @map("estimated_cost_usd") @db.Decimal(10, 4)
-  errorCode       String?            @map("error_code") @db.VarChar(80)
-  errorMessage    String?            @map("error_message") @db.VarChar(500)
-  startedAt       DateTime?          @map("started_at")
-  completedAt     DateTime?          @map("completed_at")
-  deletedAt       DateTime?          @map("deleted_at")
-  createdAt       DateTime           @default(now()) @map("created_at")
-  updatedAt       DateTime           @updatedAt @map("updated_at")
+  id               String             @id @default(uuid()) @db.VarChar(36)
+  userId           String             @map("user_id") @db.VarChar(36)
+  productId        String             @map("product_id") @db.VarChar(36)
+  productImageUrl  String             @map("product_image_url") @db.VarChar(1000)
+  humanImageUrl    String             @map("human_image_url") @db.VarChar(1000)
+  outputImageUrl   String?            @map("output_image_url") @db.VarChar(1000)
+  outputPublicId   String?            @map("output_public_id") @db.VarChar(255)
+  provider         String             @default("replicate") @db.VarChar(80)
+  modelName        String             @default("cuuupid/idm-vton") @map("model_name") @db.VarChar(160)
+  providerJobId    String?            @map("provider_job_id") @db.VarChar(160)
+  status           VirtualTryOnStatus @default(PENDING)
+  category         String             @db.VarChar(40)
+  garmentDes       String             @map("garment_des") @db.VarChar(500)
+  crop             Boolean            @default(false)
+  forceDc          Boolean            @default(false) @map("force_dc")
+  maskOnly         Boolean            @default(false) @map("mask_only")
+  steps            Int                @default(30)
+  seed             Int?
+  latencyMs        Int?               @map("latency_ms")
+  estimatedCostUsd Decimal?           @map("estimated_cost_usd") @db.Decimal(10, 4)
+  errorCode        String?            @map("error_code") @db.VarChar(80)
+  errorMessage     String?            @map("error_message") @db.VarChar(500)
+  startedAt        DateTime?          @map("started_at")
+  completedAt      DateTime?          @map("completed_at")
+  deletedAt        DateTime?          @map("deleted_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -1602,20 +1610,20 @@ model Wishlist {
 
 /// Đánh giá sản phẩm - mỗi user chỉ đánh giá 1 lần/sản phẩm
 model Review {
-  id        String  @id @default(uuid()) @db.VarChar(36)
-  userId    String  @map("user_id") @db.VarChar(36)
-  productId String  @map("product_id") @db.VarChar(36)
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  userId      String  @map("user_id") @db.VarChar(36)
+  productId   String  @map("product_id") @db.VarChar(36)
   orderItemId String? @map("order_item_id") @db.VarChar(36)
-  rating    Int // 1-5
-  comment   String? @db.Text
+  rating      Int // 1-5
+  comment     String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  user    User    @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
-  orderItem OrderItem? @relation("OrderItemReviews", fields: [orderItemId], references: [id], onDelete: Cascade)
-  images   ReviewImage[]
+  user      User          @relation(fields: [userId], references: [id])
+  product   Product       @relation(fields: [productId], references: [id])
+  orderItem OrderItem?    @relation("OrderItemReviews", fields: [orderItemId], references: [id], onDelete: Cascade)
+  images    ReviewImage[]
 
   @@unique([userId, orderItemId])
   @@index([productId])
@@ -1624,11 +1632,11 @@ model Review {
 }
 
 model ReviewImage {
-  id       String @id @default(uuid()) @db.VarChar(36)
-  reviewId String @map("review_id") @db.VarChar(36)
-  url      String @db.VarChar(1000)
-  publicId String? @map("public_id") @db.VarChar(255)
-  sortOrder Int @default(0) @map("sort_order")
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  reviewId  String  @map("review_id") @db.VarChar(36)
+  url       String  @db.VarChar(1000)
+  publicId  String? @map("public_id") @db.VarChar(255)
+  sortOrder Int     @default(0) @map("sort_order")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1703,9 +1711,9 @@ model OrderCancelRequest {
   completedAt       DateTime?           @map("completed_at")
   rejectionReason   String?             @map("rejection_reason") @db.VarChar(500)
 
-  bankAccountName   String              @map("bank_account_name") @db.VarChar(255)
-  bankAccountNumber String              @map("bank_account_number") @db.VarChar(50)
-  bankName          String              @map("bank_name") @db.VarChar(120)
+  bankAccountName   String @map("bank_account_name") @db.VarChar(255)
+  bankAccountNumber String @map("bank_account_number") @db.VarChar(50)
+  bankName          String @map("bank_name") @db.VarChar(120)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1732,20 +1740,20 @@ model LoyaltyAccount {
 }
 
 model LoyaltyTransaction {
-  id             String                 @id @default(uuid()) @db.VarChar(36)
-  accountId      String                 @map("account_id") @db.VarChar(36)
-  type           LoyaltyTransactionType
-  points         Int
-  balanceAfter   Int                    @map("balance_after")
-  referenceType  String?                @map("reference_type") @db.VarChar(50)
-  referenceId    String?                @map("reference_id") @db.VarChar(36)
-  idempotencyKey String                 @unique @map("idempotency_key") @db.VarChar(120)
-  description    String?                @db.VarChar(255)
-  expiresAt      DateTime?              @map("expires_at")
-  expiredAt      DateTime?              @map("expired_at")
-  sourcePoints   Int?                   @map("source_points")
-  sourceTransactionId String?           @map("source_transaction_id") @db.VarChar(36)
-  createdAt      DateTime               @default(now()) @map("created_at")
+  id                  String                 @id @default(uuid()) @db.VarChar(36)
+  accountId           String                 @map("account_id") @db.VarChar(36)
+  type                LoyaltyTransactionType
+  points              Int
+  balanceAfter        Int                    @map("balance_after")
+  referenceType       String?                @map("reference_type") @db.VarChar(50)
+  referenceId         String?                @map("reference_id") @db.VarChar(36)
+  idempotencyKey      String                 @unique @map("idempotency_key") @db.VarChar(120)
+  description         String?                @db.VarChar(255)
+  expiresAt           DateTime?              @map("expires_at")
+  expiredAt           DateTime?              @map("expired_at")
+  sourcePoints        Int?                   @map("source_points")
+  sourceTransactionId String?                @map("source_transaction_id") @db.VarChar(36)
+  createdAt           DateTime               @default(now()) @map("created_at")
 
   account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
@@ -1756,46 +1764,46 @@ model LoyaltyTransaction {
 }
 
 model LoyaltyConfig {
-  id                 Int      @id @default(1)
-  spendPerPoint      Int      @default(10000) @map("spend_per_point")
-  pointValidityDays  Int      @default(365) @map("point_validity_days")
-  silverMinPoints     Int      @default(1000) @map("silver_min_points")
-  goldMinPoints       Int      @default(5000) @map("gold_min_points")
-  isActive           Boolean  @default(true) @map("is_active")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  id                Int      @id @default(1)
+  spendPerPoint     Int      @default(10000) @map("spend_per_point")
+  pointValidityDays Int      @default(365) @map("point_validity_days")
+  silverMinPoints   Int      @default(1000) @map("silver_min_points")
+  goldMinPoints     Int      @default(5000) @map("gold_min_points")
+  isActive          Boolean  @default(true) @map("is_active")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   @@map("loyalty_config")
 }
 
 model Promotion {
-  id                   String              @id @default(uuid()) @db.VarChar(36)
-  name                 String              @db.VarChar(255)
-  slug                 String              @unique @db.VarChar(255)
-  title                String              @db.VarChar(255)
-  subtitle             String?             @db.VarChar(255)
-  description          String?             @db.Text
-  bannerImageUrl       String?             @map("banner_image_url") @db.VarChar(1000)
-  mobileBannerImageUrl String?             @map("mobile_banner_image_url") @db.VarChar(1000)
+  id                   String                @id @default(uuid()) @db.VarChar(36)
+  name                 String                @db.VarChar(255)
+  slug                 String                @unique @db.VarChar(255)
+  title                String                @db.VarChar(255)
+  subtitle             String?               @db.VarChar(255)
+  description          String?               @db.Text
+  bannerImageUrl       String?               @map("banner_image_url") @db.VarChar(1000)
+  mobileBannerImageUrl String?               @map("mobile_banner_image_url") @db.VarChar(1000)
   campaignType         PromotionCampaignType @default(CUSTOM) @map("campaign_type")
   type                 PromotionType
-  status               PromotionStatus     @default(DRAFT)
-  scopeType            PromotionScopeType   @default(ALL_PRODUCTS) @map("scope_type")
-  includeDescendants   Boolean             @default(false) @map("include_descendants")
-  value                Decimal             @db.Decimal(10, 2)
-  maxDiscount          Decimal?            @map("max_discount") @db.Decimal(10, 2)
-  priority             Int                 @default(0)
-  displayPriority      Int                 @default(0) @map("display_priority")
-  isFeatured           Boolean             @default(false) @map("is_featured")
-  ctaLabel             String?             @map("cta_label") @db.VarChar(100)
-  ctaUrl               String?             @map("cta_url") @db.VarChar(1000)
-  memberTiers          Json?               @map("member_tiers")
-  usageLimit           Int?                @map("usage_limit")
-  usedCount            Int                 @default(0) @map("used_count")
-  stackableWithVoucher Boolean             @default(true) @map("stackable_with_voucher")
-  startAt              DateTime            @map("start_at")
-  endAt                DateTime            @map("end_at")
-  createdAt            DateTime            @default(now()) @map("created_at")
-  updatedAt            DateTime            @updatedAt @map("updated_at")
+  status               PromotionStatus       @default(DRAFT)
+  scopeType            PromotionScopeType    @default(ALL_PRODUCTS) @map("scope_type")
+  includeDescendants   Boolean               @default(false) @map("include_descendants")
+  value                Decimal               @db.Decimal(10, 2)
+  maxDiscount          Decimal?              @map("max_discount") @db.Decimal(10, 2)
+  priority             Int                   @default(0)
+  displayPriority      Int                   @default(0) @map("display_priority")
+  isFeatured           Boolean               @default(false) @map("is_featured")
+  ctaLabel             String?               @map("cta_label") @db.VarChar(100)
+  ctaUrl               String?               @map("cta_url") @db.VarChar(1000)
+  memberTiers          Json?                 @map("member_tiers")
+  usageLimit           Int?                  @map("usage_limit")
+  usedCount            Int                   @default(0) @map("used_count")
+  stackableWithVoucher Boolean               @default(true) @map("stackable_with_voucher")
+  startAt              DateTime              @map("start_at")
+  endAt                DateTime              @map("end_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
 
   includedCategories PromotionIncludedCategory[]
   includedProducts   PromotionIncludedProduct[]
@@ -1833,12 +1841,12 @@ model PromotionIncludedProduct {
 }
 
 model PromotionUsage {
-  id              String   @id @default(uuid()) @db.VarChar(36)
-  promotionId     String   @map("promotion_id") @db.VarChar(36)
-  orderId         String   @map("order_id") @db.VarChar(36)
-  discountAmount  Decimal  @map("discount_amount") @db.Decimal(10, 2)
-  idempotencyKey  String   @unique @map("idempotency_key") @db.VarChar(120)
-  createdAt       DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  promotionId    String   @map("promotion_id") @db.VarChar(36)
+  orderId        String   @map("order_id") @db.VarChar(36)
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  idempotencyKey String   @unique @map("idempotency_key") @db.VarChar(120)
+  createdAt      DateTime @default(now()) @map("created_at")
 
   promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
   order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1849,40 +1857,44 @@ model PromotionUsage {
 }
 
 model PhysicalSale {
-  id            String   @id @default(uuid()) @db.VarChar(36)
-  cashierId     String   @map("cashier_id") @db.VarChar(36)
-  paymentMethod String   @map("payment_method") @db.VarChar(30)
-  totalAmount   Decimal  @map("total_amount") @db.Decimal(10, 2)
-  code          String   @unique @db.VarChar(40)
-  idempotencyKey String  @unique @map("idempotency_key") @db.VarChar(120)
-  status        PhysicalSaleStatus @default(COMPLETED)
-  customerId    String?  @map("customer_id") @db.VarChar(36)
-  customerPhone String?  @map("customer_phone") @db.VarChar(20)
-  paidAt        DateTime @default(now()) @map("paid_at")
-  cancelledAt   DateTime? @map("cancelled_at")
-  cancelledBy   String? @map("cancelled_by") @db.VarChar(36)
-  cancelReason  String? @map("cancel_reason") @db.VarChar(500)
-  note          String?  @db.VarChar(500)
-  createdAt     DateTime @default(now()) @map("created_at")
-  items         PhysicalSaleItem[]
+  id             String             @id @default(uuid()) @db.VarChar(36)
+  cashierId      String             @map("cashier_id") @db.VarChar(36)
+  paymentMethod  String             @map("payment_method") @db.VarChar(30)
+  totalAmount    Decimal            @map("total_amount") @db.Decimal(10, 2)
+  code           String             @unique @db.VarChar(40)
+  idempotencyKey String             @unique @map("idempotency_key") @db.VarChar(120)
+  status         PhysicalSaleStatus @default(COMPLETED)
+  customerId     String?            @map("customer_id") @db.VarChar(36)
+  customerName   String?            @map("customer_name") @db.VarChar(255)
+  customerPhone  String?            @map("customer_phone") @db.VarChar(20)
+  paidAt         DateTime           @default(now()) @map("paid_at")
+  cancelledAt    DateTime?          @map("cancelled_at")
+  cancelledBy    String?            @map("cancelled_by") @db.VarChar(36)
+  cancelReason   String?            @map("cancel_reason") @db.VarChar(500)
+  note           String?            @db.VarChar(500)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  items          PhysicalSaleItem[]
+
   @@index([createdAt])
   @@index([cashierId])
+  @@index([customerPhone])
   @@map("physical_sales")
 }
 
 model PhysicalSaleItem {
-  id        String  @id @default(uuid()) @db.VarChar(36)
-  saleId    String  @map("sale_id") @db.VarChar(36)
-  variantId String  @map("variant_id") @db.VarChar(36)
-  quantity  Int
-  unitPrice Decimal @map("unit_price") @db.Decimal(10, 2)
-  productName String @map("product_name") @db.VarChar(255)
-  sku String @db.VarChar(100)
-  variantAttributes Json? @map("variant_attributes")
-  imageUrl String? @map("image_url") @db.VarChar(1000)
-  lineTotal Decimal @map("line_total") @db.Decimal(10, 2)
-  sale      PhysicalSale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  variant   ProductVariant @relation(fields: [variantId], references: [id])
+  id                String         @id @default(uuid()) @db.VarChar(36)
+  saleId            String         @map("sale_id") @db.VarChar(36)
+  variantId         String         @map("variant_id") @db.VarChar(36)
+  quantity          Int
+  unitPrice         Decimal        @map("unit_price") @db.Decimal(10, 2)
+  productName       String         @map("product_name") @db.VarChar(255)
+  sku               String         @db.VarChar(100)
+  variantAttributes Json?          @map("variant_attributes")
+  imageUrl          String?        @map("image_url") @db.VarChar(1000)
+  lineTotal         Decimal        @map("line_total") @db.Decimal(10, 2)
+  sale              PhysicalSale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  variant           ProductVariant @relation(fields: [variantId], references: [id])
+
   @@index([saleId])
   @@index([variantId])
   @@map("physical_sale_items")

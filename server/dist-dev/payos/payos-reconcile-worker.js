@@ -2242,11 +2242,17 @@ var PrismaPaymentRepository = class {
           }
           const unitPrice = Math.round(Number(item.variant.price));
           const lineSubtotal = unitPrice * item.quantity;
-          const allocation = checkoutPricing.itemDiscounts?.find((row) => row.cartItemId === item.id);
+          const allocation = checkoutPricing.itemDiscounts?.find(
+            (row) => row.cartItemId === item.id
+          );
           const lineDiscountAmount = allocation?.discountAmount ?? 0;
           const promotionDiscountAmount = allocation?.promotionDiscountAmount ?? 0;
           const voucherDiscountAmount = allocation?.voucherDiscountAmount ?? 0;
-          const product = item.variant.product ?? { name: "", basePrice: item.variant.price, images: [] };
+          const product = item.variant.product ?? {
+            name: "",
+            basePrice: item.variant.price,
+            images: []
+          };
           const images = [...item.variant.images ?? [], ...product.images ?? []].sort(
             (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.sortOrder - b.sortOrder
           );
@@ -2264,7 +2270,10 @@ var PrismaPaymentRepository = class {
             variantAttributes: attributes ?? {},
             imageUrl: images[0]?.url ?? null,
             originalUnitPrice: product.basePrice,
-            sellingUnitPrice: Math.max(0, unitPrice - Math.floor(promotionDiscountAmount / item.quantity)),
+            sellingUnitPrice: Math.max(
+              0,
+              unitPrice - Math.floor(promotionDiscountAmount / item.quantity)
+            ),
             lineSubtotal,
             lineDiscountAmount,
             promotionDiscountAmount,
@@ -2719,7 +2728,7 @@ var PrismaPaymentRepository = class {
       }
       const availableStock = current.stockOnHand - current.stockReserved;
       if (current.stockAvailable !== availableStock) {
-        throw new BadRequestError(`D\u1EEF li\u1EC7u t\u1ED3n kho kh\xF4ng nh\u1EA5t qu\xE1n cho SKU ${current.sku}`);
+        throw new BadRequestError(`L\u1ED7i t\u1ED3n kho`);
       }
       if (availableStock < quantity) {
         throw new BadRequestError(`Kh\xF4ng \u0111\u1EE7 t\u1ED3n kho cho SKU ${current.sku}`);

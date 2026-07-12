@@ -127,7 +127,7 @@ export class LoyaltyMutationService {
         payment: { select: { status: true } },
       },
     });
-    if (!order || order.status !== 'COMPLETED') return 0;
+    if (!order || !['DELIVERED', 'COMPLETED'].includes(order.status)) return 0;
     if (!['PAID', 'SUCCESS'].includes(order.payment?.status ?? '')) return 0;
 
     const config = await getConfig(this.db);
@@ -155,7 +155,7 @@ export class LoyaltyMutationService {
     });
   }
 
-  async awardForPhysicalSale(saleId: string): Promise<number> {
+  async awardForPhysicalSale(saleId: string, idempotencyKey?: string): Promise<number> {
     const sale = await this.db.physicalSale.findUnique({
       where: { id: saleId },
       select: { id: true, status: true, customerId: true, totalAmount: true },
@@ -178,7 +178,7 @@ export class LoyaltyMutationService {
       points,
       referenceType: 'PHYSICAL_SALE',
       referenceId: sale.id,
-      idempotencyKey: `PHYSICAL_SALE:${sale.id}:EARN`,
+      idempotencyKey: idempotencyKey ?? `PHYSICAL_SALE:${sale.id}:EARN`,
       description: 'Tích điểm từ giao dịch tại cửa hàng',
       expiresAt,
       sourcePoints: points,

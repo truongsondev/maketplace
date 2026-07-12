@@ -302,9 +302,37 @@ function paymentStatusText(status?: string | null) {
       return "Thất bại";
     case "EXPIRED":
       return "Hết hạn";
+    case "REFUNDED":
+      return "Đã hoàn tiền";
     default:
       return status;
   }
+}
+
+function orderStatusText(order: AdminOrderListItem) {
+  if (order.status !== "RETURNED") return statusText(order.status);
+
+  if (order.returnStatus !== "COMPLETED") return "Đang trả hàng";
+
+  const refundStatus = order.returnRefund?.status;
+  const paymentStatus =
+    order.payment.status ?? order.payment.transactionStatus;
+
+  if (refundStatus === "SUCCESS" || paymentStatus === "REFUNDED") {
+    return "Đã trả hàng và hoàn tiền";
+  }
+  if (refundStatus === "FAILED") return "Trả hàng xong, hoàn tiền thất bại";
+  if (refundStatus === "PENDING" || refundStatus === "RETRYING") {
+    return "Đã trả hàng, chờ hoàn tiền";
+  }
+  return "Đã hoàn tất trả hàng";
+}
+
+function orderStatusBadge(order: AdminOrderListItem) {
+  if (order.status === "RETURNED" && order.returnStatus === "COMPLETED") {
+    return "bg-emerald-100 text-emerald-700";
+  }
+  return statusBadge(order.status);
 }
 
 function invoiceStatusText(order: AdminOrderListItem) {
@@ -2007,11 +2035,11 @@ export default function OrdersPage() {
 
                             <div className="col-span-1 flex items-center">
                               <span
-                                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
-                                  order.status,
+                                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${orderStatusBadge(
+                                  order,
                                 )}`}
                               >
-                                {statusText(order.status)}
+                                {orderStatusText(order)}
                               </span>
                             </div>
 
@@ -2186,11 +2214,11 @@ export default function OrdersPage() {
 
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <span
-                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${statusBadge(
-                    detailModal.status,
+                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${orderStatusBadge(
+                    detailModal,
                   )}`}
                 >
-                  {statusText(detailModal.status)}
+                  {orderStatusText(detailModal)}
                 </span>
                 {isOrderPaid(detailModal) ? (
                   <button

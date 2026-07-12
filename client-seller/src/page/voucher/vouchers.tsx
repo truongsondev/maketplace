@@ -47,6 +47,7 @@ function createInitialForm(): VoucherUpsertCommand {
 
   return {
     code: "",
+    isBirthdayVoucher: false,
     description: "",
     type: "PERCENTAGE",
     value: 10,
@@ -143,7 +144,11 @@ function getVoucherStatusBadge(status: VoucherDisplayStatus): {
   }
 }
 
-function formatVoucherTypeLabel(type: VoucherType): string {
+function formatVoucherTypeLabel(
+  type: VoucherType,
+  isBirthdayVoucher = false,
+): string {
+  if (isBirthdayVoucher) return "Sinh nhật";
   if (type === "PERCENTAGE") {
     return "Phần trăm";
   }
@@ -769,6 +774,7 @@ export default function VouchersPage() {
     setEditingId(item.id);
     setForm({
       code: item.code,
+      isBirthdayVoucher: item.isBirthdayVoucher,
       description: item.description,
       type: item.type,
       value: item.value,
@@ -847,7 +853,7 @@ export default function VouchersPage() {
 
       let bannerImageUrl = form.bannerImageUrl?.trim() || null;
 
-      if (selectedBannerFile) {
+      if (selectedBannerFile && !form.isBirthdayVoucher) {
         toast.info("Đang tải ảnh banner lên Cloudinary...");
         setIsUploadingBanner(true);
         bannerImageUrl = await uploadVoucherBanner(
@@ -857,7 +863,7 @@ export default function VouchersPage() {
         setForm((prev) => ({ ...prev, bannerImageUrl }));
       }
 
-      if (!editingId && !bannerImageUrl) {
+      if (!editingId && !form.isBirthdayVoucher && !bannerImageUrl) {
         toast.error("Vui lòng tải ảnh banner cho voucher trước khi tạo");
         return;
       }
@@ -866,8 +872,25 @@ export default function VouchersPage() {
         ...form,
         code: normalizedCode,
         description: form.description?.trim() || null,
-        bannerImageUrl,
+        bannerImageUrl: form.isBirthdayVoucher ? null : bannerImageUrl,
       };
+
+      if (payload.isBirthdayVoucher) {
+        const year = new Date().getFullYear();
+        payload.type = "FIXED_AMOUNT";
+        payload.maxDiscount = null;
+        payload.minOrderAmount = null;
+        payload.maxUsage = null;
+        payload.userUsageLimit = 1;
+        payload.startAt = new Date(year, 0, 1).toISOString();
+        payload.endAt = new Date(year, 11, 30, 23, 59, 59, 999).toISOString();
+        payload.scopeType = "ALL_PRODUCTS";
+        payload.includedCategoryIds = [];
+        payload.excludedCategoryIds = [];
+        payload.includedProductIds = [];
+        payload.excludedProductIds = [];
+        payload.memberTiers = [];
+      }
 
       if (payload.type === "FIXED_AMOUNT") {
         payload.maxDiscount = null;
@@ -1065,19 +1088,55 @@ export default function VouchersPage() {
                 <label className="block text-sm text-gray-700">
                   Loại
                   <select
-                    value={form.type}
-                    onChange={(e) =>
+                    value={form.isBirthdayVoucher ? "BIRTHDAY" : form.type}
+                    onChange={(e) => {
+                      const isBirthdayVoucher = e.target.value === "BIRTHDAY";
                       setForm((prev) => ({
                         ...prev,
-                        type: e.target.value as VoucherType,
-                      }))
-                    }
+                        isBirthdayVoucher,
+                        type: isBirthdayVoucher
+                          ? "FIXED_AMOUNT"
+                          : (e.target.value as VoucherType),
+                        bannerImageUrl: isBirthdayVoucher
+                          ? null
+                          : prev.bannerImageUrl,
+                      }));
+                      if (isBirthdayVoucher) setSelectedBannerFile(null);
+                    }}
                     className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
                   >
                     <option value="PERCENTAGE">Phần trăm</option>
                     <option value="FIXED_AMOUNT">Số tiền cố định</option>
+                    <option value="BIRTHDAY">Sinh nhật</option>
                   </select>
                 </label>
+
+                {form.isBirthdayVoucher ? (
+                  <label className="block text-sm text-gray-700">
+                    Giá trị giảm
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.value}
+                      onChange={(e) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          value: Number(e.target.value),
+                        }))
+                      }
+                      className="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3"
+                    />
+                  </label>
+                ) : null}
+
+                {form.isBirthdayVoucher ? (
+                  <p className="self-end rounded-lg bg-pink-50 px-3 py-2 text-sm text-pink-700">
+                    Mỗi tài khoản dùng 1 lần · Hiệu lực 01/01–30/12 năm hiện tại
+                  </p>
+                ) : null}
+
+                {!form.isBirthdayVoucher ? (
+                  <>
 
                 <label className="block text-sm text-gray-700">
                   Phạm vi áp dụng
@@ -1398,6 +1457,8 @@ export default function VouchersPage() {
                     className="mt-1 min-h-20 w-full rounded-lg border border-gray-300 px-3 py-2"
                   />
                 </label>
+                  </>
+                ) : null}
               </div>
 
               <div className="mt-5 flex items-center gap-3">
@@ -1480,7 +1541,10 @@ export default function VouchersPage() {
                               {item.code}
                             </td>
                             <td className="px-3 py-2">
-                              {formatVoucherTypeLabel(item.type)}
+                              {formatVoucherTypeLabel(
+                                item.type,
+                                item.isBirthdayVoucher,
+                              )}
                             </td>
                             <td className="px-3 py-2">
                               {item.type === "PERCENTAGE"

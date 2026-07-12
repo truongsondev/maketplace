@@ -123,7 +123,7 @@ export class PrismaAdminVoucherRepository implements IAdminVoucherRepository {
       startAt: input.startAt,
       endAt: input.endAt,
       isActive: input.isActive,
-      isBirthdayVoucher: input.code === 'BIRTHDAY',
+      isBirthdayVoucher: input.isBirthdayVoucher,
       bannerImageUrl: input.bannerImageUrl,
       scopeType: input.scopeType,
       includeDescendants: input.includeDescendants,

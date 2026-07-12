@@ -7,6 +7,7 @@ import { mapGhnStatus } from './ghn-status-mapper.service';
 import type { GhnConfig } from '../../infrastructure/ghn/ghn.config';
 import { GhnClient } from '../../infrastructure/ghn/ghn.client';
 import { GhnAddressResolverService } from './ghn-address-resolver.service';
+import { awardLoyaltyForOrder } from '../../../user-profile/loyalty.service';
 
 const logger = createLogger('GhnShipping');
 
@@ -124,7 +125,7 @@ export class GhnShippingService {
     if (eventTime && shipment.lastWebhookTime && eventTime <= shipment.lastWebhookTime) return shipment;
 
     const businessStatus = mapGhnStatus(status);
-    if (businessStatus === 'DELIVERED' && ['SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'].includes(shipment.order.status)) {
+    if (businessStatus === 'DELIVERED' && ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'].includes(shipment.order.status)) {
       await this.codSettlement.settleOnDelivery(orderId, null, 'SYSTEM');
     }
 
@@ -146,7 +147,7 @@ export class GhnShippingService {
         ? ['AWAITING_PICKUP'] : businessStatus === 'SHIPPED'
           ? ['AWAITING_PICKUP', 'SHIPPED'] : businessStatus === 'DELIVERING'
             ? ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING'] : businessStatus === 'DELIVERED'
-              ? ['SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'] : businessStatus === 'DELIVERY_FAILED'
+              ? ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'] : businessStatus === 'DELIVERY_FAILED'
                 ? ['SHIPPED', 'DELIVERING'] : businessStatus === 'RETURN_TO_STORE'
                   ? ['DELIVERY_FAILED'] : [];
       if (!businessStatus || !allowed.includes(current.order.status)) return current;
@@ -157,6 +158,9 @@ export class GhnShippingService {
       if (changed.count === 1) {
         await tx.orderStatusHistory.create({ data: { orderId, oldStatus: current.order.status, newStatus: businessStatus, changedBy: null, reason: `GHN status: ${status}` } });
         await tx.auditLog.create({ data: { actorType: 'SYSTEM', targetType: 'Order', targetId: orderId, action: 'GHN_STATUS_APPLIED', newData: json({ providerStatus: status, orderStatus: businessStatus }) } });
+        if (businessStatus === 'DELIVERED') {
+          await awardLoyaltyForOrder(tx, orderId);
+        }
       }
       return tx.orderShipment.findUnique({ where: { orderId } });
     });

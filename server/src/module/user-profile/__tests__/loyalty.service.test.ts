@@ -10,7 +10,7 @@ describe('awardLoyaltyForOrder', () => {
           userId: 'user-1',
           totalPrice: 250000,
           grandTotal: 250000,
-          status: 'COMPLETED',
+          status: 'DELIVERED',
           payment: { status: 'PAID' },
         })),
       },

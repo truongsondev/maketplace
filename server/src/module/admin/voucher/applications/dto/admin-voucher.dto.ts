@@ -28,6 +28,7 @@ export interface AdminVoucherSummary {
 
 export interface AdminVoucherInput {
   code: string;
+  isBirthdayVoucher?: boolean;
   description?: string | null;
   type: DiscountType;
   value: number;
@@ -51,6 +52,7 @@ export interface AdminVoucherInput {
 
 export interface NormalizedAdminVoucherInput {
   code: string;
+  isBirthdayVoucher: boolean;
   description: string | null;
   type: DiscountType;
   value: number;

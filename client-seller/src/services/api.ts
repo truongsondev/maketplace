@@ -81,9 +81,13 @@ function unwrapAdminData<T>(response: { data: { data?: T } | T }): T {
 
 export const physicalSaleService = {
   catalog: async (search = "") => unwrapAdminData<never[]>(await apiClient.get("/admin/products/physical-sales/catalog", { params: { search } })),
-  list: async () => unwrapAdminData<never[]>(await apiClient.get("/admin/products/physical-sales")),
-  create: async (input: { paymentMethod: string; items: Array<{ variantId: string; quantity: number }>; idempotencyKey: string }) =>
+  list: async (search = "") => unwrapAdminData<never[]>(await apiClient.get("/admin/products/physical-sales", { params: { search } })),
+  create: async (input: { paymentMethod: string; customerName: string; customerPhone: string; items: Array<{ variantId: string; quantity: number }>; idempotencyKey: string }) =>
     unwrapAdminData<unknown>(await apiClient.post("/admin/products/physical-sales", input, { headers: { "Idempotency-Key": input.idempotencyKey } })),
+  update: async (id: string, input: { paymentMethod: string; customerName: string; customerPhone: string; items: Array<{ variantId: string; quantity: number }> }) =>
+    unwrapAdminData<unknown>(await apiClient.put(`/admin/products/physical-sales/${id}`, input)),
+  remove: async (id: string, reason: string) =>
+    unwrapAdminData<unknown>(await apiClient.delete(`/admin/products/physical-sales/${id}`, { data: { reason } })),
   cancel: async (id: string, reason: string) => unwrapAdminData<unknown>(await apiClient.post(`/admin/products/physical-sales/${id}/cancel`, { reason })),
 };
 
@@ -555,13 +559,13 @@ export const loyaltyAdminService = {
   },
 
   adjust: async (input: {
-    userId: string;
+    email: string;
     points: number;
     reason: string;
     idempotencyKey: string;
   }): Promise<{ success: boolean; data: { changed: number } }> => {
     const response = await apiClient.post(
-      `/admin/loyalty/accounts/${input.userId}/adjust`,
+      "/admin/loyalty/accounts/by-email/adjust",
       input,
       { headers: { "Idempotency-Key": input.idempotencyKey } },
     );

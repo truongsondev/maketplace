@@ -3,6 +3,7 @@ import type { CancelReason, OrderStatus } from '@/generated/prisma/enums';
 import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import { createLogger } from '../../../../shared/util/logger';
 import { adminNotificationHub } from '../../../../module/admin/notifications/infrastructure/realtime/admin-notification-hub';
+import { awardLoyaltyForOrder } from '../../../user-profile/loyalty.service';
 import type {
   CancelMyOrderResult,
   ConfirmReceivedResult,
@@ -1084,6 +1085,8 @@ export class PrismaOrderRepository implements IOrderRepository {
           } as Prisma.InputJsonValue,
         },
       });
+
+      await awardLoyaltyForOrder(tx, orderId);
 
       return updatedOrder;
     });

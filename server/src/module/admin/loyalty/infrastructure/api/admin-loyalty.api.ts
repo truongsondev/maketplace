@@ -13,6 +13,7 @@ export class AdminLoyaltyAPI {
     this.router.get('/config', asyncHandler(this.getConfig.bind(this)));
     this.router.put('/config', asyncHandler(this.updateConfig.bind(this)));
     this.router.get('/accounts', asyncHandler(this.listAccounts.bind(this)));
+    this.router.post('/accounts/by-email/adjust', asyncHandler(this.adjustByEmail.bind(this)));
     this.router.get('/accounts/:userId', asyncHandler(this.getAccount.bind(this)));
     this.router.post('/accounts/:userId/adjust', asyncHandler(this.adjust.bind(this)));
     this.router.post('/expire', asyncHandler(this.expire.bind(this)));
@@ -132,6 +133,42 @@ export class AdminLoyaltyAPI {
           targetId: userId,
           action: 'LOYALTY_POINTS_ADJUSTED',
           newData: { points, reason, changed },
+        },
+      });
+      return { changed };
+    });
+
+    res.status(200).json(ResponseFormatter.success(result, 'Loyalty points adjusted'));
+  }
+
+  private async adjustByEmail(req: Request, res: Response): Promise<void> {
+    if (!req.userId) throw new ForbiddenError('Authentication required');
+    const body = req.body as Record<string, unknown>;
+    const email = String(body.email || '').trim().toLowerCase();
+    const points = Number(body.points);
+    const reason = String(body.reason || '').trim();
+    const idempotencyKey = String(req.header('Idempotency-Key') || body.idempotencyKey || '').trim();
+    if (!email) throw new BadRequestError('email is required');
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+    if (!user) throw new BadRequestError('Không tìm thấy người dùng với email này');
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const changed = await new LoyaltyMutationService(tx).adjust({
+        userId: user.id,
+        points,
+        reason,
+        actorId: req.userId!,
+        idempotencyKey: idempotencyKey || undefined,
+      });
+      await tx.auditLog.create({
+        data: {
+          actorType: 'ADMIN', actorId: req.userId!, targetType: 'LOYALTY_ACCOUNT',
+          targetId: user.id, action: 'LOYALTY_POINTS_ADJUSTED',
+          newData: { email, points, reason, changed },
         },
       });
       return { changed };

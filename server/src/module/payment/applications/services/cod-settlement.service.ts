@@ -24,10 +24,10 @@ export class CodSettlementService {
       });
       if (!order) throw new BadRequestError('Order not found');
       if (order.status === 'DELIVERED') return false;
-      if (!['SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'].includes(order.status)) {
-        throw new BadRequestError('COD can only be collected for a shipped or re-delivered order');
-      }
       if (order.payment?.method !== 'COD') return false;
+      if (!['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'].includes(order.status)) {
+        throw new BadRequestError('COD can only be collected for an active delivery');
+      }
       if (order.payment.status === 'PAID' || order.payment.status === 'SUCCESS') return false;
       if (order.payment.status !== 'PENDING') {
         throw new BadRequestError(`COD payment cannot be settled from ${order.payment.status}`);

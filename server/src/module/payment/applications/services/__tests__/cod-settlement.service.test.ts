@@ -10,7 +10,7 @@ describe('CodSettlementService', () => {
     const tx = {
       order: {
         findUnique: jest.fn(async () => ({
-          status: 'SHIPPED',
+          status: 'AWAITING_PICKUP',
           payment: { method: 'COD', status: 'PENDING' },
           items: [{ variantId: 'variant-1', quantity: 2 }],
         })),
@@ -57,5 +57,23 @@ describe('CodSettlementService', () => {
     const service = new CodSettlementService(prisma, {} as VoucherCheckoutService);
 
     await expect(service.settleOnDelivery('order-1', 'admin-1')).resolves.toBe(false);
+  });
+
+  it('does not reject a non-COD order when GHN jumps directly to delivered', async () => {
+    const tx = {
+      order: {
+        findUnique: jest.fn(async () => ({
+          status: 'AWAITING_PICKUP',
+          payment: { method: 'PAYOS', status: 'PAID' },
+          items: [],
+        })),
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (client: typeof tx) => Promise<boolean>) => callback(tx)),
+    } as unknown as PrismaClient;
+    const service = new CodSettlementService(prisma, {} as VoucherCheckoutService);
+
+    await expect(service.settleOnDelivery('order-1', null, 'SYSTEM')).resolves.toBe(false);
   });
 });

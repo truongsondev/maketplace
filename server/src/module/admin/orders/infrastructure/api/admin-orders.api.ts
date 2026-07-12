@@ -439,7 +439,7 @@ export class AdminOrdersAPI {
         },
       });
 
-      if (to === 'COMPLETED') {
+      if (to === 'DELIVERED' || to === 'COMPLETED') {
         await awardLoyaltyForOrder(tx, orderId);
       }
 

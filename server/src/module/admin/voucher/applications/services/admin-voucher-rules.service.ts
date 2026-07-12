@@ -12,8 +12,13 @@ export class AdminVoucherRulesService {
       throw new BadRequestError('value must be greater than 0');
     }
 
-    const startAt = new Date(input.startAt);
-    const endAt = new Date(input.endAt);
+    const isBirthdayVoucher = input.isBirthdayVoucher === true;
+    const currentYear = new Date().getFullYear();
+    const birthdayStartAt = new Date(currentYear, 0, 1, 0, 0, 0, 0);
+    const birthdayEndAt = new Date(currentYear, 11, 30, 23, 59, 59, 999);
+
+    const startAt = isBirthdayVoucher ? birthdayStartAt : new Date(input.startAt);
+    const endAt = isBirthdayVoucher ? birthdayEndAt : new Date(input.endAt);
     if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
       throw new BadRequestError('Invalid startAt or endAt');
     }
@@ -25,7 +30,7 @@ export class AdminVoucherRulesService {
     const maxDiscount =
       input.maxDiscount !== undefined && input.maxDiscount !== null ? input.maxDiscount : null;
 
-    if (input.type === 'PERCENTAGE' && (!maxDiscount || maxDiscount <= 0)) {
+    if (!isBirthdayVoucher && input.type === 'PERCENTAGE' && (!maxDiscount || maxDiscount <= 0)) {
       throw new BadRequestError('maxDiscount is required for percentage voucher');
     }
 
@@ -53,28 +58,29 @@ export class AdminVoucherRulesService {
 
     return {
       code,
+      isBirthdayVoucher,
       description: input.description?.trim() || null,
-      type: input.type,
+      type: isBirthdayVoucher ? 'FIXED_AMOUNT' : input.type,
       value: input.value,
-      maxDiscount,
+      maxDiscount: isBirthdayVoucher ? null : maxDiscount,
       minOrderAmount:
-        input.minOrderAmount !== undefined && input.minOrderAmount !== null
+        !isBirthdayVoucher && input.minOrderAmount !== undefined && input.minOrderAmount !== null
           ? input.minOrderAmount
           : null,
-      maxUsage: input.maxUsage ?? null,
-      userUsageLimit: input.userUsageLimit ?? null,
+      maxUsage: isBirthdayVoucher ? null : input.maxUsage ?? null,
+      userUsageLimit: isBirthdayVoucher ? 1 : input.userUsageLimit ?? null,
       startAt,
       endAt,
       isActive: input.isActive ?? true,
-      bannerImageUrl: input.bannerImageUrl?.trim() || null,
-      scopeType: input.scopeType ?? 'ALL_PRODUCTS',
-      includeDescendants: input.includeDescendants ?? false,
+      bannerImageUrl: isBirthdayVoucher ? null : input.bannerImageUrl?.trim() || null,
+      scopeType: isBirthdayVoucher ? 'ALL_PRODUCTS' : input.scopeType ?? 'ALL_PRODUCTS',
+      includeDescendants: isBirthdayVoucher ? false : input.includeDescendants ?? false,
       minAmountBasis: input.minAmountBasis ?? 'ELIGIBLE_SUBTOTAL',
-      includedCategoryIds: [...new Set(input.includedCategoryIds ?? [])],
-      excludedCategoryIds: [...new Set(input.excludedCategoryIds ?? [])],
-      includedProductIds: [...new Set(input.includedProductIds ?? [])],
-      excludedProductIds: [...new Set(input.excludedProductIds ?? [])],
-      memberTiers: [...new Set(input.memberTiers ?? [])].filter((tier) => ['MEMBER', 'SILVER', 'GOLD'].includes(tier)),
+      includedCategoryIds: isBirthdayVoucher ? [] : [...new Set(input.includedCategoryIds ?? [])],
+      excludedCategoryIds: isBirthdayVoucher ? [] : [...new Set(input.excludedCategoryIds ?? [])],
+      includedProductIds: isBirthdayVoucher ? [] : [...new Set(input.includedProductIds ?? [])],
+      excludedProductIds: isBirthdayVoucher ? [] : [...new Set(input.excludedProductIds ?? [])],
+      memberTiers: isBirthdayVoucher ? [] : [...new Set(input.memberTiers ?? [])].filter((tier) => ['MEMBER', 'SILVER', 'GOLD'].includes(tier)),
     };
   }
 }

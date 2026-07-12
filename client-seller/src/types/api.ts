@@ -383,6 +383,7 @@ export interface VoucherItem {
   startAt: string;
   endAt: string;
   isActive: boolean;
+  isBirthdayVoucher: boolean;
   bannerImageUrl: string | null;
   scopeType: VoucherScopeType;
   includeDescendants: boolean;
@@ -418,6 +419,7 @@ export interface VoucherResponse {
 
 export interface VoucherUpsertCommand {
   code: string;
+  isBirthdayVoucher?: boolean;
   description?: string | null;
   type: VoucherType;
   value: number;

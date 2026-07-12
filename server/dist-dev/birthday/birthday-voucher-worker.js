@@ -2041,6 +2041,21 @@ var BirthdayVoucherCronService = class {
   logger = createLogger("BirthdayVoucherCronService");
   async ensureBirthdayVoucher(db = this.prisma) {
     const now = /* @__PURE__ */ new Date();
+    const configured = await db.discount.findFirst({
+      where: { isBirthdayVoucher: true, isActive: true },
+      orderBy: { updatedAt: "desc" }
+    });
+    const year = now.getFullYear();
+    if (configured) {
+      return db.discount.update({
+        where: { id: configured.id },
+        data: {
+          userUsageLimit: 1,
+          startAt: new Date(year, 0, 1, 0, 0, 0, 0),
+          endAt: new Date(year, 11, 30, 23, 59, 59, 999)
+        }
+      });
+    }
     return db.discount.upsert({
       where: { code: BIRTHDAY_VOUCHER_CODE },
       create: {
@@ -2051,10 +2066,10 @@ var BirthdayVoucherCronService = class {
         maxDiscount: null,
         minOrderAmount: null,
         maxUsage: null,
-        userUsageLimit: null,
+        userUsageLimit: 1,
         usedCount: 0,
-        startAt: /* @__PURE__ */ new Date("2000-01-01T00:00:00.000Z"),
-        endAt: /* @__PURE__ */ new Date("2099-12-31T23:59:59.000Z"),
+        startAt: new Date(year, 0, 1, 0, 0, 0, 0),
+        endAt: new Date(year, 11, 30, 23, 59, 59, 999),
         isActive: true,
         isBirthdayVoucher: true,
         scopeType: "ALL_PRODUCTS",
@@ -2064,7 +2079,9 @@ var BirthdayVoucherCronService = class {
       update: {
         isBirthdayVoucher: true,
         isActive: true,
-        updatedAt: now
+        userUsageLimit: 1,
+        startAt: new Date(year, 0, 1, 0, 0, 0, 0),
+        endAt: new Date(year, 11, 30, 23, 59, 59, 999)
       }
     });
   }
