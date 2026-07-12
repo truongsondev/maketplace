@@ -2,6 +2,10 @@ import { apiClient } from "@/lib/api-client";
 import type { ApiErrorResponse, ApiSuccessResponse } from "@/types/api.types";
 import type { ChatbotSessionPayload } from "@/types/chatbot.types";
 
+// Một lượt chat có thể gồm phân loại intent và sinh câu trả lời tuần tự.
+// Timeout mặc định 10 giây của apiClient ngắn hơn tổng thời gian xử lý Gemini.
+const CHATBOT_MESSAGE_TIMEOUT_MS = 60_000;
+
 function logChatbotError(action: string, error: unknown) {
   if (process.env.NODE_ENV === "production") {
     console.error(`[chatbot] ${action} failed`, error);
@@ -60,6 +64,7 @@ export const chatbotService = {
       const response = await apiClient.post<ChatbotSessionPayload>(
         `api/chatbot/sessions/${sessionId}/messages`,
         guestToken ? { content, guestToken } : { content },
+        { timeout: CHATBOT_MESSAGE_TIMEOUT_MS },
       );
 
       if (response.success) {
