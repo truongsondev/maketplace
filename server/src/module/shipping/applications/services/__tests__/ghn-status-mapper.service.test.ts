@@ -2,6 +2,9 @@ import { mapGhnStatus } from '../ghn-status-mapper.service';
 
 describe('mapGhnStatus', () => {
   it.each([
+    ['picking', 'AWAITING_PICKUP'],
+    ['transporting', 'SHIPPED'],
+    ['delivering', 'DELIVERING'],
     ['delivered', 'DELIVERED'],
     ['delivery_fail', 'DELIVERY_FAILED'],
     ['returned', 'RETURN_TO_STORE'],

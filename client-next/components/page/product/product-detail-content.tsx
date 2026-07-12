@@ -199,7 +199,16 @@ function decodeHtmlEntities(raw: string): string {
 function sanitizeRichTextHtml(raw: string): string {
   if (!raw) return "";
 
-  const allowedTags = new Set(["b", "strong", "br", "p", "ul", "ol", "li", "div"]);
+  const allowedTags = new Set([
+    "b",
+    "strong",
+    "br",
+    "p",
+    "ul",
+    "ol",
+    "li",
+    "div",
+  ]);
 
   return decodeHtmlEntities(raw)
     .replace(/<!--[\s\S]*?-->/g, "")
@@ -528,9 +537,12 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
     colorAxis,
   ]);
 
-  const currentPrice = selectedVariant
-    ? selectedVariant.price
-    : product.basePrice;
+  const originalPrice =
+    selectedVariant?.originalPrice ??
+    selectedVariant?.price ??
+    product.basePrice;
+  const currentPrice = selectedVariant?.salePrice ?? originalPrice;
+  const hasPromotion = currentPrice < originalPrice;
   const stockAvailable = selectedVariant ? selectedVariant.stockAvailable : 0;
   const canPurchase = stockAvailable > 0;
   const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
@@ -1229,9 +1241,11 @@ export function ProductDetailContent({ product }: ProductDetailContentProps) {
                 </div>
 
                 <div className="mt-4 flex items-end gap-3 border-y border-black/10 py-4 dark:border-white/10">
-                  <span className="text-base text-neutral-400 line-through">
-                    {formatPrice(Math.round(currentPrice * 1.15))}
-                  </span>
+                  {hasPromotion ? (
+                    <span className="text-base text-neutral-400 line-through">
+                      {formatPrice(originalPrice)}
+                    </span>
+                  ) : null}
                   <span className="text-4xl font-semibold tracking-[-0.04em] text-black dark:text-white">
                     {formatPrice(currentPrice)}
                   </span>

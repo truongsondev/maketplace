@@ -2,11 +2,13 @@ import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import type { UserShippingInfoService } from '../../../address/applications/services/user-shipping-info.service';
 import type { CreateCodOrderCommand, CreateCodOrderResult } from '../dto';
 import type { IPaymentRepository } from '../ports/output';
+import type { INewOrderNotifier } from '../ports/output/new-order-notifier';
 
 export class CreateCodOrderUseCase {
   constructor(
     private readonly paymentRepository: IPaymentRepository,
     private readonly shippingInfoService: UserShippingInfoService,
+    private readonly newOrderNotifier: INewOrderNotifier,
   ) {}
 
   async execute(command: CreateCodOrderCommand): Promise<CreateCodOrderResult> {
@@ -51,6 +53,14 @@ export class CreateCodOrderUseCase {
         ghnDistrictId: command.shipping.ghnDistrictId ?? null,
         ghnWardCode: command.shipping.ghnWardCode?.trim() || null,
       },
+    });
+
+    await this.newOrderNotifier.notify({
+      orderId: result.orderId,
+      orderCode: result.orderId,
+      customerName: command.shipping.recipient.trim(),
+      totalAmount: result.payableAmount,
+      createdAt: new Date(),
     });
 
     return {

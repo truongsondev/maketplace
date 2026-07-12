@@ -24,8 +24,8 @@ export class CodSettlementService {
       });
       if (!order) throw new BadRequestError('Order not found');
       if (order.status === 'DELIVERED') return false;
-      if (order.status !== 'SHIPPED') {
-        throw new BadRequestError('COD can only be collected for a shipped order');
+      if (!['SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'].includes(order.status)) {
+        throw new BadRequestError('COD can only be collected for a shipped or re-delivered order');
       }
       if (order.payment?.method !== 'COD') return false;
       if (order.payment.status === 'PAID' || order.payment.status === 'SUCCESS') return false;

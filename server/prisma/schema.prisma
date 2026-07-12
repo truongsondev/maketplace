@@ -35,7 +35,9 @@ enum OrderStatus {
   CONFIRMED
   PAID
   PACKING
+  AWAITING_PICKUP
   SHIPPED
+  DELIVERING
   DELIVERY_FAILED
   RETURN_TO_STORE
   DELIVERED
@@ -124,6 +126,8 @@ enum ReturnFlowStatus {
   REQUESTED
   /// Admin da duyet yeu cau tra hang
   APPROVED
+  /// GHN dang den lay hang tai dia chi khach
+  PICKING
   /// Hang dang duoc gui tra ve shop
   SHIPPING
   /// Shop da nhan hang tra (ket thuc)
@@ -902,6 +906,7 @@ model Order {
   discountUsage DiscountUsage?
   promotionUsages PromotionUsage[]
   shipment     OrderShipment?
+  returnShipment ReturnShipment?
 
   @@index([status])
   @@index([userId])
@@ -954,6 +959,28 @@ model OrderShipment {
 
   @@index([provider, providerStatus])
   @@map("order_shipments")
+}
+
+/// Vận đơn GHN độc lập để lấy hàng từ khách sau khi đơn giao đi đã hoàn tất.
+model ReturnShipment {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  orderId           String    @unique @map("order_id") @db.VarChar(36)
+  provider          String    @db.VarChar(30)
+  providerOrderCode String    @unique @map("provider_order_code") @db.VarChar(120)
+  providerStatus    String?   @map("provider_status") @db.VarChar(80)
+  externalFee       Decimal?  @map("external_fee") @db.Decimal(12, 2)
+  rawCreatePayload  Json?     @map("raw_create_payload")
+  rawCreateResponse Json?     @map("raw_create_response")
+  rawLatestStatus   Json?     @map("raw_latest_status")
+  lastSyncedAt      DateTime? @map("last_synced_at")
+  deliveredAt       DateTime? @map("delivered_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, providerStatus])
+  @@map("return_shipments")
 }
 
 /// Chi tiết đơn hàng

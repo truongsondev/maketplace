@@ -23,7 +23,7 @@ export class PrismaMockOrdersRepository implements IMockOrdersRepository {
       return { id: order.id, status: order.status, returnStatus: order.returnStatus ?? null };
     }
 
-    if (order.status !== 'SHIPPED') {
+    if (order.status !== 'DELIVERING') {
       throw new BadRequestError('Only shipped orders can be marked as delivered');
     }
 

@@ -56,6 +56,19 @@ export function createGhnWebhookRouter(service: GhnShippingService, config: GhnC
 
 export function createGhnAdminRouter(service: GhnShippingService) {
   const router = express.Router();
+  router.post('/shipments/ghn/sync', asyncHandler(async (_req, res) => {
+    res.json(ResponseFormatter.success(await service.syncAllPending(), 'Đã đồng bộ các đơn GHN'));
+  }));
+  router.post('/:orderId/return-shipment/ghn', asyncHandler(async (req, res) => {
+    if (!req.userId) throw new ForbiddenError('Authentication required');
+    res.json(ResponseFormatter.success(await service.createReturnShipment(String(req.params.orderId), req.userId), 'Đã tạo vận đơn hoàn GHN'));
+  }));
+  router.post('/:orderId/return-shipment/sync', asyncHandler(async (req, res) => {
+    res.json(ResponseFormatter.success(await service.syncReturnShipment(String(req.params.orderId)), 'Đã đồng bộ vận đơn hoàn GHN'));
+  }));
+  router.post('/:orderId/return-shipment/print-token', asyncHandler(async (req, res) => {
+    res.json(ResponseFormatter.success(await service.printReturnToken(String(req.params.orderId))));
+  }));
   router.post('/:orderId/ship/ghn', asyncHandler(async (req, res) => {
     if (!req.userId) throw new ForbiddenError('Authentication required');
     const result = await service.createShipment(String(req.params.orderId), req.userId);

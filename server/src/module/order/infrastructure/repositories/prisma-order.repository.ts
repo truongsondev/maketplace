@@ -25,7 +25,7 @@ function mapTabToStatuses(tab: OrderTab | undefined): OrderStatus[] | undefined 
   if (!tab || tab === 'all') return undefined;
   if (tab === 'pending') return ['PENDING'];
   if (tab === 'processing') return ['CONFIRMED', 'PAID'];
-  if (tab === 'shipped') return ['SHIPPED'];
+  if (tab === 'shipped') return ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING'];
   if (tab === 'completed') return ['DELIVERED'];
   if (tab === 'canceled') return ['CANCELLED'];
   return undefined;
@@ -436,7 +436,7 @@ export class PrismaOrderRepository implements IOrderRepository {
 
     const pending = counts.PENDING ?? 0;
     const processing = (counts.CONFIRMED ?? 0) + (counts.PAID ?? 0);
-    const shipped = counts.SHIPPED ?? 0;
+    const shipped = (counts.AWAITING_PICKUP ?? 0) + (counts.SHIPPED ?? 0) + (counts.DELIVERING ?? 0);
     const completed = counts.DELIVERED ?? 0;
     const canceled = counts.CANCELLED ?? 0;
     const all = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -1028,7 +1028,7 @@ export class PrismaOrderRepository implements IOrderRepository {
       return { id: order.id, status: order.status };
     }
 
-    if (order.status !== 'SHIPPED') {
+    if (order.status !== 'DELIVERING') {
       throw new BadRequestError('Only shipped orders can be confirmed as received');
     }
 

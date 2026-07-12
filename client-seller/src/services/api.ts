@@ -425,8 +425,32 @@ export const orderService = {
     await apiClient.post(`/admin/orders/${orderId}/shipment/sync`);
   },
 
+  syncAllGhnShipments: async (): Promise<{
+    total: number;
+    succeeded: number;
+    failed: number;
+    failures: Array<{ orderId: string; message: string }>;
+  }> => {
+    const response = await apiClient.post(`/admin/orders/shipments/ghn/sync`);
+    return response.data.data;
+  },
+
   printGhnShipment: async (orderId: string): Promise<void> => {
     const response = await apiClient.post(`/admin/orders/${orderId}/shipment/print-token`);
+    const url = response.data?.data?.url;
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  },
+
+  createGhnReturnShipment: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/return-shipment/ghn`);
+  },
+
+  syncGhnReturnShipment: async (orderId: string): Promise<void> => {
+    await apiClient.post(`/admin/orders/${orderId}/return-shipment/sync`);
+  },
+
+  printGhnReturnShipment: async (orderId: string): Promise<void> => {
+    const response = await apiClient.post(`/admin/orders/${orderId}/return-shipment/print-token`);
     const url = response.data?.data?.url;
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   },

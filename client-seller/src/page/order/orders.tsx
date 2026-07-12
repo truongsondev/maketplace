@@ -19,7 +19,7 @@ import type {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Brain, Printer } from "lucide-react";
+import { Brain, Printer, RefreshCw } from "lucide-react";
 
 type RowActionItem = {
   key: string;
@@ -85,7 +85,9 @@ function statusBadge(status: string) {
     case "PAID":
     case "PACKING":
       return "bg-blue-100 text-blue-700";
+    case "AWAITING_PICKUP":
     case "SHIPPED":
+    case "DELIVERING":
     case "DELIVERED":
       return "bg-purple-100 text-purple-700";
     case "DELIVERY_FAILED":
@@ -110,7 +112,11 @@ function statusText(status: string) {
       return "Đã thanh toán";
     case "PACKING":
       return "Đang đóng gói";
+    case "AWAITING_PICKUP":
+      return "Chờ lấy hàng";
     case "SHIPPED":
+      return "Vận chuyển";
+    case "DELIVERING":
       return "Đang giao";
     case "DELIVERED":
       return "Đã giao";
@@ -133,7 +139,9 @@ const STATUS_ORDER: OrderStatus[] = [
   "PENDING",
   "CONFIRMED",
   "PAID",
+  "AWAITING_PICKUP",
   "SHIPPED",
+  "DELIVERING",
   "DELIVERED",
   "CANCELLED",
   "RETURNED",
@@ -196,15 +204,43 @@ function returnStatusText(status?: string | null) {
       return "Chờ duyệt";
     case "APPROVED":
       return "Đã duyệt, chờ shipper lấy hàng";
+    case "PICKING":
+      return "Đang hoàn hàng";
     case "SHIPPING":
-      return "Shipper đang mang hàng hoàn về shop";
+      return "Đang vận chuyển hàng hoàn";
     case "COMPLETED":
-      return "Đã hoàn tất trả hàng";
+      return "Shop đã nhận hàng";
     case "REJECTED":
       return "Đã từ chối";
     default:
       return status || "Chưa có yêu cầu";
   }
+}
+
+function returnShipmentStatusText(status?: string | null) {
+  const normalized = status?.trim().toLowerCase();
+  if (!normalized) return "Chưa cập nhật";
+  if (normalized === "ready_to_pick") return "Chờ GHN lấy hàng";
+  if (["picking", "money_collect_picking"].includes(normalized)) return "Đang hoàn hàng";
+  if (["picked", "storing", "transporting", "sorting", "delivering", "money_collect_delivering"].includes(normalized)) {
+    return "Đang giao về shop";
+  }
+  if (normalized === "delivered") return "Đã giao về shop, chờ xác nhận";
+  if (normalized === "delivery_fail") return "Giao hàng hoàn thất bại";
+  if (normalized === "cancel") return "Vận đơn hoàn đã hủy";
+  return status || "Chưa cập nhật";
+}
+
+function returnFlowStatusText(order: AdminOrderListItem) {
+  if (order.returnStatus === "SHIPPING" && order.returnShipment) {
+    return returnShipmentStatusText(order.returnShipment.providerStatus);
+  }
+  if (order.returnStatus === "COMPLETED") {
+    if (order.returnRefund?.status === "SUCCESS") return "Đã hoàn tiền";
+    if (order.returnRefund?.status === "FAILED") return "Hoàn tiền thất bại";
+    return "Chờ hoàn tiền";
+  }
+  return returnStatusText(order.returnStatus);
 }
 
 function returnReasonText(code?: string | null) {
@@ -243,7 +279,7 @@ function paymentStatusText(status?: string | null) {
 function invoiceStatusText(order: AdminOrderListItem) {
   if (order.cancelRefund?.status === "SUCCESS") return "Đã hoàn tiền";
   if (order.status === "CANCELLED") return "Đã hủy";
-  if (order.returnStatus === "COMPLETED") return "Đã hoàn tất trả hàng";
+  if (order.returnStatus === "COMPLETED") return returnFlowStatusText(order);
   return paymentStatusText(order.payment.status ?? order.payment.transactionStatus);
 }
 
@@ -685,6 +721,7 @@ export default function OrdersPage() {
     pending: 0,
     processing: 0,
     shipped: 0,
+    waitingReturn: 0,
     completed: 0,
     canceled: 0,
   });
@@ -719,6 +756,10 @@ export default function OrdersPage() {
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [rejectCancelReason, setRejectCancelReason] = useState("");
   const [rejectCancelSubmitting, setRejectCancelSubmitting] = useState(false);
+  const [syncingGhnOrderIds, setSyncingGhnOrderIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [syncingAllGhn, setSyncingAllGhn] = useState(false);
   const [showAssessment, setShowAssessment] = useState(false);
 
   const tabs = useMemo(
@@ -731,6 +772,11 @@ export default function OrdersPage() {
         count: counts.processing,
       },
       { key: "shipped" as const, label: "Đang giao", count: counts.shipped },
+      {
+        key: "waiting-return" as const,
+        label: "Chờ hoàn hàng",
+        count: counts.waitingReturn,
+      },
       {
         key: "completed" as const,
         label: "Hoàn thành",
@@ -1019,6 +1065,7 @@ export default function OrdersPage() {
       await orderService.approveReturns(orderId);
       toast.success("Đã duyệt trả hàng");
       setDetailModal(undefined);
+      fetchCounts();
       fetchOrders();
     } catch (e) {
       toast.error("Duyệt trả hàng thất bại");
@@ -1030,6 +1077,7 @@ export default function OrdersPage() {
     try {
       await orderService.approveCancelRequest(orderId);
       toast.success("Đã duyệt yêu cầu hủy đơn");
+      fetchCounts();
       fetchOrders();
     } catch (e) {
       toast.error("Duyệt yêu cầu hủy thất bại");
@@ -1089,14 +1137,47 @@ export default function OrdersPage() {
   };
 
   const handleSyncGhn = async (orderId: string) => {
+    if (syncingAllGhn || syncingGhnOrderIds.has(orderId)) return;
+    setSyncingGhnOrderIds((current) => new Set(current).add(orderId));
     try {
       await orderService.syncGhnShipment(orderId);
       toast.success("Đã đồng bộ trạng thái GHN");
-      fetchCounts();
-      fetchOrders();
+      setDetailModal((current) =>
+        current?.id === orderId ? undefined : current,
+      );
+      await Promise.all([fetchCounts(), fetchAnalytics(), fetchOrders()]);
     } catch (e) {
       toast.error("Đồng bộ GHN thất bại");
       console.error(e);
+    } finally {
+      setSyncingGhnOrderIds((current) => {
+        const next = new Set(current);
+        next.delete(orderId);
+        return next;
+      });
+    }
+  };
+
+  const handleSyncAllGhn = async () => {
+    if (syncingAllGhn) return;
+    setSyncingAllGhn(true);
+    try {
+      const result = await orderService.syncAllGhnShipments();
+      if (result.total === 0) {
+        toast.info("Không có đơn GHN nào cần đồng bộ");
+      } else if (result.failed > 0) {
+        toast.warning(
+          `Đã đồng bộ ${result.succeeded}/${result.total} đơn GHN, ${result.failed} đơn thất bại`,
+        );
+      } else {
+        toast.success(`Đã đồng bộ thành công ${result.succeeded} đơn GHN`);
+      }
+      await Promise.all([fetchCounts(), fetchAnalytics(), fetchOrders()]);
+    } catch (e) {
+      toast.error("Không thể đồng bộ tất cả đơn GHN");
+      console.error(e);
+    } finally {
+      setSyncingAllGhn(false);
     }
   };
 
@@ -1105,6 +1186,39 @@ export default function OrdersPage() {
       await orderService.printGhnShipment(orderId);
     } catch (e) {
       toast.error("Không thể mở phiếu giao GHN");
+      console.error(e);
+    }
+  };
+
+  const handleCreateGhnReturn = async (orderId: string) => {
+    try {
+      await orderService.createGhnReturnShipment(orderId);
+      toast.success("Đã tạo vận đơn GHN lấy hàng từ khách về shop");
+      setDetailModal(undefined);
+      await Promise.all([fetchCounts(), fetchOrders()]);
+    } catch (e) {
+      toast.error("Không thể tạo vận đơn hoàn GHN");
+      console.error(e);
+    }
+  };
+
+  const handleSyncGhnReturn = async (orderId: string) => {
+    try {
+      await orderService.syncGhnReturnShipment(orderId);
+      toast.success("Đã đồng bộ vận đơn hoàn GHN");
+      setDetailModal(undefined);
+      await fetchOrders();
+    } catch (e) {
+      toast.error("Không thể đồng bộ vận đơn hoàn GHN");
+      console.error(e);
+    }
+  };
+
+  const handlePrintGhnReturn = async (orderId: string) => {
+    try {
+      await orderService.printGhnReturnShipment(orderId);
+    } catch (e) {
+      toast.error("Không thể mở phiếu vận đơn hoàn GHN");
       console.error(e);
     }
   };
@@ -1192,6 +1306,15 @@ export default function OrdersPage() {
                     Quản lý đơn hàng
                   </h1>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSyncAllGhn}
+                      disabled={syncingAllGhn}
+                      className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <RefreshCw className={`size-4 ${syncingAllGhn ? "animate-spin" : ""}`} />
+                      {syncingAllGhn ? "Đang đồng bộ tất cả..." : "Đồng bộ tất cả GHN"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setShowAssessment((prev) => !prev)}
@@ -1626,12 +1749,20 @@ export default function OrdersPage() {
 
                         const secondaryActions: RowActionItem[] = [];
 
-                        if (order.status === "SHIPPED" && order.delivery.carrierName === "GHN") {
+                        const canSyncGhn =
+                          order.delivery.carrierName === "GHN" &&
+                          ["AWAITING_PICKUP", "SHIPPED", "DELIVERING", "DELIVERY_FAILED"].includes(order.status);
+
+                        if (canSyncGhn) {
                           secondaryActions.push(
                             {
                               key: `sync-ghn-${order.id}`,
-                              label: "Đồng bộ GHN",
+                              label: syncingGhnOrderIds.has(order.id)
+                                ? "Đang đồng bộ GHN..."
+                                : "Đồng bộ GHN",
                               onClick: () => handleSyncGhn(order.id),
+                              disabled:
+                                syncingAllGhn || syncingGhnOrderIds.has(order.id),
                             },
                             {
                               key: `print-ghn-${order.id}`,
@@ -1657,11 +1788,39 @@ export default function OrdersPage() {
                           );
                         }
 
+                        const hasApprovedRefundReturn = order.returns?.details?.some(
+                          (item) => item.status === "RT_APPROVED" && item.requestType === "RETURN_REFUND",
+                        );
+                        if (hasApprovedRefundReturn && !order.returnShipment) {
+                          secondaryActions.push({
+                            key: `create-ghn-return-${order.id}`,
+                            label: "Tạo vận đơn hoàn GHN",
+                            onClick: () => handleCreateGhnReturn(order.id),
+                            tone: "warning",
+                          });
+                        }
+
+                        if (order.returnShipment && ["APPROVED", "PICKING", "SHIPPING"].includes(order.returnStatus ?? "")) {
+                          secondaryActions.push(
+                            {
+                              key: `sync-ghn-return-${order.id}`,
+                              label: "Đồng bộ vận đơn hoàn",
+                              onClick: () => handleSyncGhnReturn(order.id),
+                            },
+                            {
+                              key: `print-ghn-return-${order.id}`,
+                              label: "In phiếu vận đơn hoàn",
+                              onClick: () => handlePrintGhnReturn(order.id),
+                            },
+                          );
+                        }
+
                         if (order.returnStatus === "SHIPPING") {
                           secondaryActions.push({
                             key: `complete-return-${order.id}`,
                             label: "Shop đã nhận hàng hoàn",
                             onClick: () => handleCompleteReturns(order.id),
+                            disabled: order.returnShipment?.providerStatus?.toLowerCase() !== "delivered",
                             tone: "success",
                           });
                         }
@@ -1988,6 +2147,24 @@ export default function OrdersPage() {
                     In hóa đơn
                   </button>
                 ) : null}
+                {detailModal.delivery.carrierName === "GHN" &&
+                ["AWAITING_PICKUP", "SHIPPED", "DELIVERING", "DELIVERY_FAILED"].includes(detailModal.status) ? (
+                  <button
+                    type="button"
+                    onClick={() => handleSyncGhn(detailModal.id)}
+                    disabled={
+                      syncingAllGhn || syncingGhnOrderIds.has(detailModal.id)
+                    }
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RefreshCw
+                      className={`size-4 ${syncingGhnOrderIds.has(detailModal.id) ? "animate-spin" : ""}`}
+                    />
+                    {syncingGhnOrderIds.has(detailModal.id)
+                      ? "Đang đồng bộ..."
+                      : "Đồng bộ GHN"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={closeDetailModal}
@@ -2040,6 +2217,19 @@ export default function OrdersPage() {
                     Trạng thái GHN: {detailModal.delivery.providerStatus}
                   </p>
                 ) : null}
+                {detailModal.returnShipment ? (
+                  <div className="mt-4 border-t border-slate-200 pt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Vận đơn hoàn GHN
+                    </p>
+                    <p className="mt-2 text-sm text-slate-700">
+                      Mã vận đơn: {detailModal.returnShipment.trackingCode}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-700">
+                      Trạng thái: {returnShipmentStatusText(detailModal.returnShipment.providerStatus)}
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -2089,7 +2279,7 @@ export default function OrdersPage() {
                     <p className="mt-1">
                       Trạng thái xử lý:{" "}
                       <span className="font-semibold">
-                        {returnStatusText(detailModal.returnStatus)}
+                        {returnFlowStatusText(detailModal)}
                       </span>
                     </p>
                     <p className="mt-1">
@@ -2127,7 +2317,8 @@ export default function OrdersPage() {
                       <button
                         type="button"
                         onClick={() => handleCompleteReturns(detailModal.id)}
-                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                        disabled={detailModal.returnShipment?.providerStatus?.toLowerCase() !== "delivered"}
+                        className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Shop đã nhận hàng hoàn
                       </button>

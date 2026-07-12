@@ -3,6 +3,9 @@ export interface ProductVariantDetail {
   sku: string;
   attributes: Record<string, any>; // { color: "Trắng", size: "M" }
   price: number;
+  originalPrice?: number;
+  salePrice?: number;
+  promotionName?: string;
   stockAvailable: number;
   images: ProductImageDetail[];
 }

@@ -1,0 +1,4 @@
+ALTER TABLE `orders`
+  MODIFY `return_status` ENUM(
+    'REQUESTED', 'APPROVED', 'PICKING', 'SHIPPING', 'COMPLETED', 'REJECTED'
+  ) NULL;

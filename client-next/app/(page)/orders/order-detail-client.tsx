@@ -49,7 +49,11 @@ function statusText(status: string) {
     case "CONFIRMED":
     case "PAID":
       return "Đang xử lý";
+    case "AWAITING_PICKUP":
+      return "Chờ lấy hàng";
     case "SHIPPED":
+      return "Vận chuyển";
+    case "DELIVERING":
       return "Đang giao";
     case "DELIVERED":
       return "Hoàn thành";
@@ -167,7 +171,7 @@ export function OrderDetailClient({
     order?.cancelRequest?.status !== "REQUESTED" &&
     order?.cancelRequest?.status !== "APPROVED";
 
-  const canConfirmReceived = order?.status === "SHIPPED";
+  const canConfirmReceived = order?.status === "DELIVERING";
   const canRequestReturn =
     order?.status === "DELIVERED" &&
     isReturnWindowOpen(order?.receivedAt) &&

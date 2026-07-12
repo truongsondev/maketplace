@@ -163,6 +163,7 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
         items: {
           select: {
             id: true,
+            variantId: true,
             price: true,
             returns: {
               where: { status: { in: ['RT_APPROVED', 'RT_SHIPPING'] } },
@@ -170,6 +171,7 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
             },
           },
         },
+        returnShipment: { select: { providerStatus: true, deliveredAt: true } },
       },
     });
 
@@ -183,6 +185,9 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
 
     if (order.returnStatus !== 'SHIPPING') {
       throw new BadRequestError('Return must be in SHIPPING status before completing');
+    }
+    if (!order.returnShipment || order.returnShipment.providerStatus !== 'delivered') {
+      throw new BadRequestError('Vận đơn hoàn GHN chưa giao hàng về shop thành công');
     }
 
     const itemIds = order.items.map((it) => it.id);
@@ -213,9 +218,45 @@ export class PrismaAdminOrderReturnRepository implements IAdminOrderReturnReposi
       const updatedOrder = await tx.order.update({
         where: { id: params.orderId },
         data: {
+          status: 'RETURNED',
           returnStatus,
         },
         select: { id: true, status: true, returnStatus: true },
+      });
+
+      for (const item of order.items) {
+        if (!item.variantId) continue;
+        const returnedQuantity = item.returns.reduce((sum, row) => sum + row.quantity, 0);
+        if (returnedQuantity <= 0) continue;
+        const variant = await tx.productVariant.update({
+          where: { id: item.variantId },
+          data: { stockOnHand: { increment: returnedQuantity } },
+          select: { stockOnHand: true },
+        });
+        await tx.inventoryLog.create({
+          data: {
+            variantId: item.variantId,
+            action: 'RETURN',
+            quantity: returnedQuantity,
+            beforeQuantity: variant.stockOnHand - returnedQuantity,
+            afterQuantity: variant.stockOnHand,
+            referenceType: 'ORDER_RETURN',
+            referenceId: params.orderId,
+            actorId: params.actorId,
+            reason: 'GHN return shipment received at store',
+            salesChannel: 'ONLINE',
+          },
+        });
+      }
+
+      await tx.orderStatusHistory.create({
+        data: {
+          orderId: params.orderId,
+          oldStatus: 'DELIVERED',
+          newStatus: 'RETURNED',
+          changedBy: params.actorId,
+          reason: 'GHN return shipment received at store',
+        },
       });
 
       if (

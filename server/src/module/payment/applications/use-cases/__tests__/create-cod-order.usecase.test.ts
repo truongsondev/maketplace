@@ -2,6 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { CreateCodOrderUseCase } from '../create-cod-order.usecase';
 import type { IPaymentRepository } from '../../ports/output';
 import type { UserShippingInfoService } from '../../../../address/applications/services/user-shipping-info.service';
+import type { INewOrderNotifier } from '../../ports/output/new-order-notifier';
 
 describe('CreateCodOrderUseCase', () => {
   it('creates COD without a PayOS transaction code and uses the remembered address id', async () => {
@@ -15,8 +16,11 @@ describe('CreateCodOrderUseCase', () => {
     const shippingInfo = {
       rememberAddress: jest.fn(async () => ({ id: 'address-1' })),
     } as unknown as UserShippingInfoService;
+    const newOrderNotifier = {
+      notify: jest.fn(async () => undefined),
+    } as unknown as INewOrderNotifier;
 
-    const result = await new CreateCodOrderUseCase(repository, shippingInfo).execute({
+    const result = await new CreateCodOrderUseCase(repository, shippingInfo, newOrderNotifier).execute({
       userId: 'user-1',
       amount: 1,
       cartItemIds: ['item-1'],
@@ -41,6 +45,14 @@ describe('CreateCodOrderUseCase', () => {
         orderId: 'order-cod-1',
         paymentMethod: 'COD',
         shippingFee: 0,
+        totalAmount: 200000,
+      }),
+    );
+    expect(newOrderNotifier.notify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'order-cod-1',
+        orderCode: 'order-cod-1',
+        customerName: 'Nguyễn Văn A',
         totalAmount: 200000,
       }),
     );

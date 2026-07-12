@@ -86,7 +86,7 @@ export class GhnShippingService {
       return await this.prisma.$transaction(async tx => {
         const claimed = await tx.order.updateMany({
           where: { id: orderId, status: 'PACKING', shipment: null },
-          data: { status: 'SHIPPED', carrierName: 'GHN', trackingCode: orderCode, shippedAt: new Date(), shippingFee: 0 },
+          data: { status: 'AWAITING_PICKUP', carrierName: 'GHN', trackingCode: orderCode, shippedAt: new Date(), shippingFee: 0 },
         });
         if (claimed.count !== 1) {
           const found = await tx.orderShipment.findUnique({ where: { orderId } });
@@ -107,7 +107,7 @@ export class GhnShippingService {
             rawCreateResponse: json(response),
           },
         });
-        await tx.orderStatusHistory.create({ data: { orderId, oldStatus: 'PACKING', newStatus: 'SHIPPED', changedBy: actorId, reason: `GHN ${orderCode}` } });
+        await tx.orderStatusHistory.create({ data: { orderId, oldStatus: 'PACKING', newStatus: 'AWAITING_PICKUP', changedBy: actorId, reason: `GHN ${orderCode}` } });
         await tx.auditLog.create({ data: { actorType: 'ADMIN', actorId, targetType: 'OrderShipment', targetId: shipment.id, action: 'GHN_SHIPMENT_CREATED', newData: json({ orderCode }) } });
         return shipment;
       });
@@ -124,7 +124,7 @@ export class GhnShippingService {
     if (eventTime && shipment.lastWebhookTime && eventTime <= shipment.lastWebhookTime) return shipment;
 
     const businessStatus = mapGhnStatus(status);
-    if (businessStatus === 'DELIVERED' && shipment.order.status === 'SHIPPED') {
+    if (businessStatus === 'DELIVERED' && ['SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'].includes(shipment.order.status)) {
       await this.codSettlement.settleOnDelivery(orderId, null, 'SYSTEM');
     }
 
@@ -142,10 +142,13 @@ export class GhnShippingService {
         },
       });
 
-      const allowed = businessStatus === 'DELIVERED'
-        ? ['SHIPPED'] : businessStatus === 'DELIVERY_FAILED'
-          ? ['SHIPPED'] : businessStatus === 'RETURN_TO_STORE'
-            ? ['DELIVERY_FAILED'] : [];
+      const allowed = businessStatus === 'AWAITING_PICKUP'
+        ? ['AWAITING_PICKUP'] : businessStatus === 'SHIPPED'
+          ? ['AWAITING_PICKUP', 'SHIPPED'] : businessStatus === 'DELIVERING'
+            ? ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING'] : businessStatus === 'DELIVERED'
+              ? ['SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'] : businessStatus === 'DELIVERY_FAILED'
+                ? ['SHIPPED', 'DELIVERING'] : businessStatus === 'RETURN_TO_STORE'
+                  ? ['DELIVERY_FAILED'] : [];
       if (!businessStatus || !allowed.includes(current.order.status)) return current;
       const changed = await tx.order.updateMany({
         where: { id: orderId, status: current.order.status },
@@ -181,6 +184,202 @@ export class GhnShippingService {
     const detail = await this.client.detail(shipment.providerOrderCode);
     const status = stringField(detail, 'status');
     return status ? this.applyProviderStatus(orderId, status, detail, new Date()) : shipment;
+  }
+
+  async syncAllPending() {
+    const shipments = await this.prisma.orderShipment.findMany({
+      where: {
+        provider: 'GHN',
+        order: { status: { in: ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING', 'DELIVERY_FAILED'] } },
+      },
+      select: { orderId: true },
+      orderBy: { updatedAt: 'asc' },
+    });
+
+    let succeeded = 0;
+    const failed: Array<{ orderId: string; message: string }> = [];
+    const batchSize = 5;
+
+    for (let index = 0; index < shipments.length; index += batchSize) {
+      const batch = shipments.slice(index, index + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(({ orderId }) => this.sync(orderId)),
+      );
+      results.forEach((result, resultIndex) => {
+        if (result.status === 'fulfilled') {
+          succeeded += 1;
+          return;
+        }
+        const orderId = batch[resultIndex].orderId;
+        const message = result.reason instanceof Error ? result.reason.message : 'Unknown GHN sync error';
+        failed.push({ orderId, message });
+        logger.warn('Bulk GHN sync failed', { orderId, message });
+      });
+    }
+
+    return {
+      total: shipments.length,
+      succeeded,
+      failed: failed.length,
+      failures: failed,
+    };
+  }
+
+  async createReturnShipment(orderId: string, actorId: string) {
+    const existing = await this.prisma.returnShipment.findUnique({ where: { orderId } });
+    if (existing) return existing;
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        shippingAddress: true,
+        items: {
+          include: {
+            returns: { where: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } },
+          },
+        },
+      },
+    });
+    if (!order) throw new BadRequestError('Order not found');
+    if (order.status !== 'DELIVERED' || order.returnStatus !== 'APPROVED') {
+      throw new BadRequestError('Chỉ tạo vận đơn hoàn cho đơn đã giao và đã duyệt trả hàng');
+    }
+    const address = order.shippingAddress;
+    if (!address?.ghnDistrictId || !address.ghnWardCode) {
+      throw new BadRequestError('Địa chỉ khách hàng thiếu mã quận/huyện hoặc phường/xã GHN');
+    }
+    const returnItems = order.items.flatMap(item =>
+      item.returns.map(row => ({
+        returnId: row.id,
+        name: item.productName,
+        quantity: row.quantity,
+        price: Number(item.sellingUnitPrice || item.price),
+      })),
+    );
+    if (!returnItems.length) throw new BadRequestError('Không có sản phẩm RT_APPROVED');
+
+    const clientOrderCode = `RT-${orderId}`;
+    const payload = {
+      client_order_code: clientOrderCode,
+      from_name: address.recipientName,
+      from_phone: address.phone,
+      from_address: [address.addressLine, address.ward, address.district, address.city].filter(Boolean).join(', '),
+      from_ward_code: address.ghnWardCode,
+      from_district_id: address.ghnDistrictId,
+      return_phone: address.phone,
+      return_address: [address.addressLine, address.ward, address.district, address.city].filter(Boolean).join(', '),
+      return_ward_code: address.ghnWardCode,
+      return_district_id: address.ghnDistrictId,
+      to_name: this.config.fromName,
+      to_phone: this.config.fromPhone,
+      to_address: this.config.fromAddress,
+      to_ward_code: this.config.fromWardCode,
+      to_district_id: this.config.fromDistrictId,
+      cod_amount: 0,
+      content: `Return order ${orderId}`,
+      payment_type_id: 1,
+      required_note: 'KHONGCHOXEMHANG',
+      service_type_id: this.config.serviceTypeId,
+      insurance_value: 0,
+      weight: Math.min(30_000, Math.max(this.config.weight, this.config.weight * returnItems.reduce((sum, item) => sum + item.quantity, 0))),
+      length: this.config.length,
+      width: this.config.width,
+      height: this.config.height,
+      items: returnItems.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        weight: this.config.weight,
+        length: this.config.length,
+        width: this.config.width,
+        height: this.config.height,
+      })),
+    };
+
+    let response: Record<string, unknown>;
+    try {
+      response = await this.client.create(payload);
+    } catch (error) {
+      try {
+        response = await this.client.detailByClientCode(clientOrderCode);
+      } catch {
+        throw error;
+      }
+    }
+    const orderCode = stringField(response, 'order_code', 'OrderCode');
+    if (!orderCode) throw new BadRequestError('GHN không trả về mã vận đơn hoàn');
+
+    return this.prisma.$transaction(async tx => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, status: 'DELIVERED', returnStatus: 'APPROVED', returnShipment: null },
+        data: { returnStatus: 'APPROVED' },
+      });
+      if (claimed.count !== 1) {
+        const found = await tx.returnShipment.findUnique({ where: { orderId } });
+        if (found) return found;
+        throw new BadRequestError('Luồng trả hàng đã thay đổi, vui lòng tải lại');
+      }
+      await tx.return.updateMany({
+        where: { id: { in: returnItems.map(item => item.returnId) }, status: 'RT_APPROVED' },
+        data: { status: 'RT_SHIPPING' },
+      });
+      const shipment = await tx.returnShipment.create({
+        data: {
+          orderId,
+          provider: 'GHN',
+          providerOrderCode: orderCode,
+          providerStatus: stringField(response, 'status') || 'ready_to_pick',
+          externalFee: numberField(response, 'total_fee', 'fee'),
+          rawCreatePayload: json(payload),
+          rawCreateResponse: json(response),
+        },
+      });
+      await tx.auditLog.create({
+        data: { actorType: 'ADMIN', actorId, targetType: 'ReturnShipment', targetId: shipment.id, action: 'GHN_RETURN_SHIPMENT_CREATED', newData: json({ orderCode }) },
+      });
+      return shipment;
+    });
+  }
+
+  async syncReturnShipment(orderId: string) {
+    const shipment = await this.prisma.returnShipment.findUnique({ where: { orderId } });
+    if (!shipment) throw new BadRequestError('Đơn hàng chưa có vận đơn hoàn GHN');
+    const detail = await this.client.detail(shipment.providerOrderCode);
+    const status = stringField(detail, 'status');
+    const normalized = status.toLowerCase();
+    const pickingStatuses = ['picking', 'money_collect_picking'];
+    const shippingStatuses = ['picked', 'storing', 'transporting', 'sorting', 'delivering', 'money_collect_delivering'];
+    return this.prisma.$transaction(async tx => {
+      if (pickingStatuses.includes(normalized)) {
+        await tx.order.updateMany({
+          where: { id: orderId, returnStatus: { in: ['APPROVED', 'PICKING'] } },
+          data: { returnStatus: 'PICKING' },
+        });
+      } else if (shippingStatuses.includes(normalized) || normalized === 'delivered') {
+        await tx.order.updateMany({
+          where: { id: orderId, returnStatus: { in: ['APPROVED', 'PICKING', 'SHIPPING'] } },
+          data: { returnStatus: 'SHIPPING' },
+        });
+      }
+      return tx.returnShipment.update({
+        where: { orderId },
+        data: {
+          providerStatus: status || shipment.providerStatus,
+          externalFee: numberField(detail, 'total_fee', 'fee'),
+          rawLatestStatus: json(detail),
+          lastSyncedAt: new Date(),
+          ...(normalized === 'delivered' ? { deliveredAt: new Date() } : {}),
+        },
+      });
+    });
+  }
+
+  async printReturnToken(orderId: string) {
+    const shipment = await this.prisma.returnShipment.findUnique({ where: { orderId } });
+    if (!shipment) throw new BadRequestError('Đơn hàng chưa có vận đơn hoàn GHN');
+    const data = await this.client.printToken(shipment.providerOrderCode);
+    const host = this.config.environment === 'production' ? 'https://online-gateway.ghn.vn' : 'https://dev-online-gateway.ghn.vn';
+    return { token: data.token, url: `${host}/a5/public-api/printA5?token=${encodeURIComponent(data.token)}` };
   }
 
   async cancel(orderId: string, actorId: string) {

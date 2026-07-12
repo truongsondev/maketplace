@@ -106,6 +106,9 @@ export interface ProductVariant {
   sku: string;
   attributes: Record<string, string>;
   price: number;
+  originalPrice?: number;
+  salePrice?: number;
+  promotionName?: string;
   stockAvailable: number;
   images: ProductImage[];
 }

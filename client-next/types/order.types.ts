@@ -12,7 +12,9 @@ export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
   | "PAID"
+  | "AWAITING_PICKUP"
   | "SHIPPED"
+  | "DELIVERING"
   | "DELIVERED"
   | "CANCELLED"
   | "RETURNED";
@@ -20,6 +22,7 @@ export type OrderStatus =
 export type ReturnFlowStatus =
   | "REQUESTED"
   | "APPROVED"
+  | "PICKING"
   | "SHIPPING"
   | "COMPLETED"
   | "REJECTED";

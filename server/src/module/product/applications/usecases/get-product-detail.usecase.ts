@@ -14,11 +14,17 @@ import { IProductRepository } from '../ports/output/product.repository';
 import { Product } from '../../entities/product/product.entity';
 import { createLogger } from '@/shared/util/logger';
 import { NotFoundError } from '@/error-handlling/notFoundError';
+import type { PrismaClient } from '@/generated/prisma/client';
+import { PromotionPricingService } from '../../../promotion/promotion-pricing.service';
 
 export class GetProductDetailUseCase implements IGetProductDetailUseCase {
   private readonly logger = createLogger('GetProductDetailUseCase');
 
-  constructor(private readonly productRepository: IProductRepository) {}
+  constructor(
+    private readonly productRepository: IProductRepository,
+    private readonly prisma: PrismaClient,
+    private readonly promotionPricingService = new PromotionPricingService(),
+  ) {}
 
   async execute(query: GetProductDetailQuery): Promise<ProductDetailResult> {
     this.logger.info('Fetching product detail', { productId: query.id });
@@ -37,7 +43,58 @@ export class GetProductDetailUseCase implements IGetProductDetailUseCase {
       imagesCount: product.images?.length || 0,
     });
 
-    return this.toDetailResult(product);
+    const result = this.toDetailResult(product);
+    return this.applyPromotionPricing(result);
+  }
+
+  private async applyPromotionPricing(product: ProductDetailResult): Promise<ProductDetailResult> {
+    if (product.variants.length === 0) return product;
+
+    const categoryIds = product.categories.map((category) => category.id);
+    const categories = await this.prisma.category.findMany({
+      select: { id: true, parentId: true },
+    });
+    const parentById = new Map(categories.map((category) => [category.id, category.parentId]));
+    const ancestorIds = new Set<string>();
+
+    for (const categoryId of categoryIds) {
+      let parentId = parentById.get(categoryId);
+      while (parentId && !ancestorIds.has(parentId)) {
+        ancestorIds.add(parentId);
+        parentId = parentById.get(parentId);
+      }
+    }
+
+    const pricing = await this.promotionPricingService.calculateForCart({
+      tx: this.prisma,
+      items: product.variants.map((variant) => ({
+        id: variant.id,
+        productId: product.id,
+        variantId: variant.id,
+        quantity: 1,
+        unitPrice: variant.price,
+        categoryIds,
+        ancestorCategoryIds: [...ancestorIds],
+      })),
+    });
+    const allocationByVariantId = new Map(
+      pricing.allocations.map((allocation) => [allocation.cartItemId, allocation]),
+    );
+
+    return {
+      ...product,
+      variants: product.variants.map((variant) => {
+        const allocation = allocationByVariantId.get(variant.id);
+        if (!allocation || allocation.discountAmount <= 0) return variant;
+
+        return {
+          ...variant,
+          originalPrice: variant.price,
+          salePrice: Math.max(0, variant.price - allocation.discountAmount),
+          promotionName: allocation.promotionName ?? undefined,
+        };
+      }),
+    };
   }
 
   private toDetailResult(product: Product): ProductDetailResult {

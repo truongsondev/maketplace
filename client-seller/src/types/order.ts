@@ -3,6 +3,7 @@ export type AdminOrderTab =
   | "pending"
   | "processing"
   | "shipped"
+  | "waiting-return"
   | "completed"
   | "canceled";
 
@@ -23,7 +24,9 @@ export type OrderStatus =
   | "CONFIRMED"
   | "PAID"
   | "PACKING"
+  | "AWAITING_PICKUP"
   | "SHIPPED"
+  | "DELIVERING"
   | "DELIVERY_FAILED"
   | "RETURN_TO_STORE"
   | "DELIVERED"
@@ -59,6 +62,13 @@ export interface AdminOrderListItem {
     shippedAt: string | null;
     deliveredAt: string | null;
   };
+  returnShipment?: {
+    trackingCode: string;
+    providerStatus: string | null;
+    externalFee: string | null;
+    deliveredAt: string | null;
+    updatedAt: string;
+  } | null;
   cancelRequest?: {
     id: string;
     status: "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
@@ -83,6 +93,14 @@ export interface AdminOrderListItem {
     requestedAt: string;
     processedAt: string | null;
   } | null;
+  returnRefund?: {
+    id: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+    amount: string;
+    failureReason: string | null;
+    requestedAt: string;
+    processedAt: string | null;
+  } | null;
   returns?: {
     requested: number;
     approved: number;
@@ -98,6 +116,7 @@ export interface AdminOrderListItem {
         | "RT_SHIPPING"
         | "RT_REJECTED"
         | "RT_COMPLETED";
+      requestType: "RETURN_REFUND" | "EXCHANGE";
       reason: string | null;
       reasonCode: string | null;
       evidenceImages: Array<{ url: string; publicId?: string | null }>;
@@ -156,6 +175,7 @@ export interface AdminOrdersCountsResponse {
     pending: number;
     processing: number;
     shipped: number;
+    waitingReturn: number;
     completed: number;
     canceled: number;
   };

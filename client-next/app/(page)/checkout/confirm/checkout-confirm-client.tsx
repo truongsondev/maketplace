@@ -433,9 +433,7 @@ export function CheckoutConfirmClient() {
       selectedDistrictId === "" ||
       !selectedWardCode
     ) {
-      toast.error(
-        "Vui lòng chọn đầy đủ tỉnh, quận/huyện và phường/xã theo GHN",
-      );
+      toast.error("Vui lòng chọn đầy đủ tỉnh, quận/huyện và phường/xã");
       return;
     }
 

@@ -11,7 +11,7 @@ import type { AdminOrderAnalyticsController } from '../../interface-adapter/cont
 import type { CodSettlementService } from '../../../../payment/applications/services/cod-settlement.service';
 import { awardLoyaltyForOrder, LoyaltyMutationService } from '../../../../user-profile/loyalty.service';
 
-type AdminOrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'completed' | 'canceled';
+type AdminOrderTab = 'all' | 'pending' | 'processing' | 'shipped' | 'waiting-return' | 'completed' | 'canceled';
 type OrderSort = 'new' | 'old';
 type AdminOrderRequestType = 'all' | 'cancel' | 'return' | 'refund';
 type AdminOrderRequestStatus =
@@ -103,10 +103,24 @@ function mapTabToStatuses(tab: AdminOrderTab | undefined): OrderStatus[] | undef
   if (!tab || tab === 'all') return undefined;
   if (tab === 'pending') return ['PENDING'];
   if (tab === 'processing') return ['CONFIRMED', 'PAID'];
-  if (tab === 'shipped') return ['SHIPPED'];
+  if (tab === 'shipped') return ['AWAITING_PICKUP', 'SHIPPED', 'DELIVERING'];
   if (tab === 'completed') return ['DELIVERED'];
   if (tab === 'canceled') return ['CANCELLED'];
   return undefined;
+}
+
+function buildTabWhere(tab: AdminOrderTab | undefined): Prisma.OrderWhereInput | undefined {
+  if (tab === 'waiting-return') {
+    return {
+      items: {
+        some: {
+          returns: { some: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } },
+        },
+      },
+    };
+  }
+  const statuses = mapTabToStatuses(tab);
+  return statuses ? { status: { in: statuses } } : undefined;
 }
 
 function parseRequestType(value: unknown): AdminOrderRequestType {
@@ -176,7 +190,7 @@ function buildRequestStatusWhere(
     return {
       OR: [
         { cancelRequest: { is: { status: 'APPROVED' } } },
-        { returnStatus: { in: ['APPROVED', 'SHIPPING'] } },
+        { returnStatus: { in: ['APPROVED', 'PICKING', 'SHIPPING'] } },
       ],
     };
   }
@@ -643,7 +657,7 @@ export class AdminOrdersAPI {
       orderId,
       actorId,
       to: 'DELIVERED',
-      allowedFrom: ['SHIPPED'],
+      allowedFrom: ['DELIVERING'],
       okIfAlreadyIn: ['DELIVERED', 'RETURNED'],
       orderData: { deliveredAt: new Date() },
     });
@@ -656,7 +670,7 @@ export class AdminOrdersAPI {
     if (!req.userId) throw new ForbiddenError('Authentication required');
     const reason = String((req.body as Record<string, unknown>)?.reason || '').trim();
     if (!reason) throw new BadRequestError('Failure reason is required');
-    const updated = await this.transitionStatus({ orderId, actorId: req.userId, to: 'DELIVERY_FAILED', allowedFrom: ['SHIPPED'], okIfAlreadyIn: ['DELIVERY_FAILED', 'RETURN_TO_STORE'], reason });
+    const updated = await this.transitionStatus({ orderId, actorId: req.userId, to: 'DELIVERY_FAILED', allowedFrom: ['SHIPPED', 'DELIVERING'], okIfAlreadyIn: ['DELIVERY_FAILED', 'RETURN_TO_STORE'], reason });
     res.status(200).json(ResponseFormatter.success(updated, 'Delivery failure recorded'));
   }
 
@@ -705,12 +719,12 @@ export class AdminOrdersAPI {
 
     const range = parseDateRangeFilter(req.query);
 
-    const statuses = mapTabToStatuses(tab);
+    const tabWhere = buildTabWhere(tab);
     const requestFilters = buildRequestFilterWhere({ requestType, requestStatus });
 
     const where: Prisma.OrderWhereInput = {
       ...(requestFilters.length > 0 ? { AND: requestFilters } : {}),
-      ...(statuses ? { status: { in: statuses } } : {}),
+      ...(tabWhere ?? {}),
       ...(range.from || range.to
         ? {
             createdAt: {
@@ -762,6 +776,9 @@ export class AdminOrdersAPI {
           },
           payment: { select: { method: true, status: true, paidAt: true } },
           shipment: { select: { providerStatus: true, externalFee: true, updatedAt: true } },
+          returnShipment: {
+            select: { providerOrderCode: true, providerStatus: true, externalFee: true, deliveredAt: true, updatedAt: true },
+          },
           paymentTransaction: { select: { status: true, orderCode: true, paidAt: true } },
           cancelRequest: {
             select: {
@@ -778,9 +795,9 @@ export class AdminOrdersAPI {
             },
           },
           refundTransactions: {
-            where: { type: 'CANCEL_REFUND' },
             select: {
               id: true,
+              type: true,
               status: true,
               amount: true,
               failureReason: true,
@@ -788,7 +805,6 @@ export class AdminOrdersAPI {
               processedAt: true,
             },
             orderBy: { requestedAt: 'desc' },
-            take: 1,
           },
           items: {
             include: {
@@ -810,6 +826,7 @@ export class AdminOrdersAPI {
                 select: {
                   id: true,
                   status: true,
+                  requestType: true,
                   reason: true,
                   reasonCode: true,
                   evidenceImages: true,
@@ -834,6 +851,7 @@ export class AdminOrdersAPI {
           id: r.id,
           orderItemId: it.id,
           status: r.status,
+          requestType: r.requestType,
           reason: r.reason,
           reasonCode: r.reasonCode,
           evidenceImages: Array.isArray(r.evidenceImages) ? r.evidenceImages : [],
@@ -870,6 +888,15 @@ export class AdminOrdersAPI {
           shippedAt: o.shippedAt,
           deliveredAt: o.deliveredAt,
         },
+        returnShipment: o.returnShipment
+          ? {
+              trackingCode: o.returnShipment.providerOrderCode,
+              providerStatus: o.returnShipment.providerStatus,
+              externalFee: o.returnShipment.externalFee,
+              deliveredAt: o.returnShipment.deliveredAt,
+              updatedAt: o.returnShipment.updatedAt,
+            }
+          : null,
         returns: {
           ...returnsSummary,
           details: returnDetails,
@@ -888,14 +915,24 @@ export class AdminOrdersAPI {
               completedAt: o.cancelRequest.completedAt,
             }
           : null,
-        cancelRefund: o.refundTransactions[0]
+        cancelRefund: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')
           ? {
-              id: o.refundTransactions[0].id,
-              status: o.refundTransactions[0].status,
-              amount: o.refundTransactions[0].amount,
-              failureReason: o.refundTransactions[0].failureReason,
-              requestedAt: o.refundTransactions[0].requestedAt,
-              processedAt: o.refundTransactions[0].processedAt,
+              id: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')!.id,
+              status: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')!.status,
+              amount: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')!.amount,
+              failureReason: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')!.failureReason,
+              requestedAt: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')!.requestedAt,
+              processedAt: o.refundTransactions.find(row => row.type === 'CANCEL_REFUND')!.processedAt,
+            }
+          : null,
+        returnRefund: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')
+          ? {
+              id: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.id,
+              status: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.status,
+              amount: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.amount,
+              failureReason: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.failureReason,
+              requestedAt: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.requestedAt,
+              processedAt: o.refundTransactions.find(row => row.type === 'RETURN_REFUND')!.processedAt,
             }
           : null,
         user: {
@@ -972,12 +1009,12 @@ export class AdminOrdersAPI {
 
     const range = parseDateRangeFilter(req.query);
 
-    const statuses = mapTabToStatuses(tab);
+    const tabWhere = buildTabWhere(tab);
     const requestFilters = buildRequestFilterWhere({ requestType, requestStatus });
 
     const where: Prisma.OrderWhereInput = {
       ...(requestFilters.length > 0 ? { AND: requestFilters } : {}),
-      ...(statuses ? { status: { in: statuses } } : {}),
+      ...(tabWhere ?? {}),
       ...(range.from || range.to
         ? {
             createdAt: {
@@ -1068,9 +1105,7 @@ export class AdminOrdersAPI {
 
   private async getCounts(req: Request, res: Response): Promise<void> {
     const range = parseDateRangeFilter(req.query);
-    const rows = await this.prisma.order.groupBy({
-      by: ['status'],
-      where: {
+    const dateWhere: Prisma.OrderWhereInput = {
         ...(range.from || range.to
           ? {
               createdAt: {
@@ -1079,9 +1114,24 @@ export class AdminOrdersAPI {
               },
             }
           : {}),
-      },
-      _count: { _all: true },
-    });
+    };
+    const [rows, waitingReturn] = await Promise.all([
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where: dateWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.order.count({
+        where: {
+          ...dateWhere,
+          items: {
+            some: {
+              returns: { some: { status: 'RT_APPROVED', requestType: 'RETURN_REFUND' } },
+            },
+          },
+        },
+      }),
+    ]);
 
     const counts = rows.reduce(
       (acc, r) => {
@@ -1093,7 +1143,7 @@ export class AdminOrdersAPI {
 
     const pending = counts.PENDING ?? 0;
     const processing = (counts.CONFIRMED ?? 0) + (counts.PAID ?? 0);
-    const shipped = counts.SHIPPED ?? 0;
+    const shipped = (counts.AWAITING_PICKUP ?? 0) + (counts.SHIPPED ?? 0) + (counts.DELIVERING ?? 0);
     const completed = counts.DELIVERED ?? 0;
     const canceled = counts.CANCELLED ?? 0;
     const all = Object.values(counts).reduce((sum, n) => sum + n, 0);
@@ -1101,7 +1151,7 @@ export class AdminOrdersAPI {
     res
       .status(200)
       .json(
-        ResponseFormatter.success({ all, pending, processing, shipped, completed, canceled }, 'OK'),
+        ResponseFormatter.success({ all, pending, processing, shipped, waitingReturn, completed, canceled }, 'OK'),
       );
   }
 

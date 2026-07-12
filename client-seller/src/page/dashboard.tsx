@@ -38,7 +38,11 @@ function statusText(status: string): string {
   switch (status) {
     case "DELIVERED":
       return "Hoàn thành";
+    case "AWAITING_PICKUP":
+      return "Chờ lấy hàng";
     case "SHIPPED":
+      return "Vận chuyển";
+    case "DELIVERING":
       return "Đang giao";
     case "CONFIRMED":
     case "PROCESSING":

@@ -25,7 +25,7 @@ export function createProductModule(): Router {
   const getCategoryStatsUseCase = new GetCategoryStatsUseCase(categoryRepository);
   const getCategoryShowcasesUseCase = new GetCategoryShowcasesUseCase(productRepository);
   const getProductsUseCase = new GetProductsUseCase(productRepository);
-  const getProductDetailUseCase = new GetProductDetailUseCase(productRepository);
+  const getProductDetailUseCase = new GetProductDetailUseCase(productRepository, prisma);
   const addProductFavoriteUseCase = new AddProductFavoriteUseCase(wishlistRepository);
   const removeProductFavoriteUseCase = new RemoveProductFavoriteUseCase(wishlistRepository);
   const getFavoriteProductsUseCase = new GetFavoriteProductsUseCase(wishlistRepository);

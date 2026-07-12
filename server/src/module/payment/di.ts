@@ -14,6 +14,7 @@ import { createVoucherCheckoutService } from '../voucher/di';
 import { createUserShippingInfoService } from '../address/di';
 import { AdminPaymentSuccessNotifier } from './infrastructure/notifiers/admin-payment-success.notifier';
 import { AdminPaymentSuccessConsumer } from '../admin/notifications/infrastructure/consumers/admin-payment-success.consumer';
+import { AdminNewOrderNotifier } from './infrastructure/notifiers/admin-new-order.notifier';
 
 export function createPaymentModule(): Router {
   const voucherCheckoutService = createVoucherCheckoutService();
@@ -27,7 +28,11 @@ export function createPaymentModule(): Router {
     paymentRepository,
     shippingInfoService,
   );
-  const createCodOrderUseCase = new CreateCodOrderUseCase(paymentRepository, shippingInfoService);
+  const createCodOrderUseCase = new CreateCodOrderUseCase(
+    paymentRepository,
+    shippingInfoService,
+    new AdminNewOrderNotifier(prisma),
+  );
   const handlePayosReturnUseCase = new HandlePayosReturnUseCase(
     paymentRepository,
     paymentSuccessNotifier,

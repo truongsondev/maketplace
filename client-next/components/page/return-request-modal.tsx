@@ -129,8 +129,8 @@ export function ReturnRequestModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-2xl overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-[0_24px_70px_-30px_rgba(0,0,0,0.65)] dark:border-neutral-800 dark:bg-black">
-        <div className="border-b border-neutral-200 px-6 py-5 dark:border-neutral-800">
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-[0_24px_70px_-30px_rgba(0,0,0,0.65)] dark:border-neutral-800 dark:bg-black">
+        <div className="shrink-0 border-b border-neutral-200 px-6 py-5 dark:border-neutral-800">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
             Trả hàng/Hoàn tiền
           </p>
@@ -142,8 +142,9 @@ export function ReturnRequestModal({
           </p>
         </div>
 
-        <div className="px-6 py-5">
-          <div className="mb-5 flex items-center gap-2 text-xs font-semibold">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mb-5 flex items-center gap-2 text-xs font-semibold">
             <span className={`inline-flex rounded-full px-3 py-1 ${!confirmStep ? "bg-black text-white dark:bg-white dark:text-black" : "bg-neutral-100 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300"}`}>
               1. Nhập thông tin
             </span>
@@ -153,7 +154,7 @@ export function ReturnRequestModal({
             </span>
           </div>
 
-          {!confirmStep ? (
+            {!confirmStep ? (
             <div className="space-y-4">
               <div>
                 <p className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
@@ -274,7 +275,7 @@ export function ReturnRequestModal({
                 </div>
               </div>
             </div>
-          ) : (
+            ) : (
             <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-900 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100">
               <p className="font-semibold">Xác nhận thông tin trả hàng:</p>
               <div className="mt-3 space-y-2 rounded-sm border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-black">
@@ -285,31 +286,34 @@ export function ReturnRequestModal({
                 <p>Tài khoản: {payload.bankAccountName} - {payload.bankAccountNumber} - {payload.bankName}</p>
               </div>
             </div>
-          )}
+            )}
+          </div>
 
-          {error ? (
-            <p className="mt-3 rounded-sm border border-black px-3 py-2 text-sm text-black dark:border-white dark:text-white">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-neutral-800">
-            {confirmStep ? (
-              <button type="button" onClick={() => setConfirmStep(false)} disabled={isSubmitting} className="inline-flex h-10 items-center rounded-sm border border-neutral-300 px-4 text-sm font-semibold">
-                Chỉnh sửa
-              </button>
+          <div className="shrink-0 border-t border-neutral-200 bg-white px-6 py-4 dark:border-neutral-800 dark:bg-black">
+            {error ? (
+              <p className="mb-3 rounded-sm border border-black px-3 py-2 text-sm text-black dark:border-white dark:text-white">
+                {error}
+              </p>
             ) : null}
-            <button type="button" onClick={onClose} disabled={isSubmitting} className="inline-flex h-10 items-center rounded-sm border border-neutral-300 px-4 text-sm font-semibold">
-              Đóng
-            </button>
-            <button
-              type="button"
-              onClick={confirmStep ? handleSubmit : () => validate() && setConfirmStep(true)}
-              disabled={isSubmitting}
-              className="inline-flex h-10 items-center rounded-sm bg-black px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
-            >
-              {confirmStep ? (isSubmitting ? "Đang gửi..." : "Xác nhận gửi yêu cầu") : "Tiếp tục"}
-            </button>
+
+            <div className="flex flex-wrap justify-end gap-2">
+              {confirmStep ? (
+                <button type="button" onClick={() => setConfirmStep(false)} disabled={isSubmitting} className="inline-flex h-10 items-center rounded-sm border border-neutral-300 px-4 text-sm font-semibold">
+                  Chỉnh sửa
+                </button>
+              ) : null}
+              <button type="button" onClick={onClose} disabled={isSubmitting} className="inline-flex h-10 items-center rounded-sm border border-neutral-300 px-4 text-sm font-semibold">
+                Đóng
+              </button>
+              <button
+                type="button"
+                onClick={confirmStep ? handleSubmit : () => validate() && setConfirmStep(true)}
+                disabled={isSubmitting}
+                className="inline-flex h-10 items-center rounded-sm bg-black px-5 text-sm font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-black"
+              >
+                {confirmStep ? (isSubmitting ? "Đang gửi..." : "Xác nhận gửi yêu cầu") : "Tiếp tục"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
