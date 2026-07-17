@@ -2930,15 +2930,11 @@ function normalizeLoyaltyTier(tier) {
 function calculateLoyaltyDiscount(params) {
   const tier = normalizeLoyaltyTier(params.tier);
   const benefit = LOYALTY_TIER_BENEFITS[tier];
-  const amount = Math.max(0, Math.round(params.amount));
   return {
     tier,
     tierLabel: benefit.label,
-    discountPercent: benefit.discountPercent,
-    discountAmount: Math.min(
-      amount,
-      Math.floor(amount * benefit.discountPercent / 100)
-    )
+    discountPercent: 0,
+    discountAmount: 0
   };
 }
 

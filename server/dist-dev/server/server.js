@@ -5945,15 +5945,11 @@ function getLoyaltyTierBenefit(tier) {
 function calculateLoyaltyDiscount(params) {
   const tier = normalizeLoyaltyTier(params.tier);
   const benefit = LOYALTY_TIER_BENEFITS[tier];
-  const amount = Math.max(0, Math.round(params.amount));
   return {
     tier,
     tierLabel: benefit.label,
-    discountPercent: benefit.discountPercent,
-    discountAmount: Math.min(
-      amount,
-      Math.floor(amount * benefit.discountPercent / 100)
-    )
+    discountPercent: 0,
+    discountAmount: 0
   };
 }
 
@@ -10480,6 +10476,151 @@ function createAdminAuthModule() {
 
 // src/module/admin/orders/infrastructure/api/admin-orders.api.ts
 import express13 from "express";
+
+// src/module/admin/orders/infrastructure/export/admin-orders-xlsx.ts
+import ExcelJS from "exceljs";
+var ORDER_STATUS_LABELS = {
+  PENDING: "Ch\u1EDD x\u1EED l\xFD",
+  CONFIRMED: "\u0110\xE3 x\xE1c nh\u1EADn",
+  PAID: "\u0110\xE3 thanh to\xE1n",
+  PACKING: "\u0110ang \u0111\xF3ng g\xF3i",
+  AWAITING_PICKUP: "Ch\u1EDD l\u1EA5y h\xE0ng",
+  SHIPPED: "\u0110\xE3 giao cho \u0111\u01A1n v\u1ECB v\u1EADn chuy\u1EC3n",
+  DELIVERING: "\u0110ang giao h\xE0ng",
+  DELIVERY_FAILED: "Giao h\xE0ng th\u1EA5t b\u1EA1i",
+  LOST: "Th\u1EA5t l\u1EA1c",
+  RETURN_TO_STORE: "\u0110ang ho\xE0n v\u1EC1 c\u1EEDa h\xE0ng",
+  DELIVERED: "\u0110\xE3 giao h\xE0ng",
+  COMPLETED: "Ho\xE0n t\u1EA5t",
+  CANCELLED: "\u0110\xE3 h\u1EE7y",
+  RETURNED: "\u0110\xE3 tr\u1EA3 h\xE0ng"
+};
+var PAYMENT_METHOD_LABELS = {
+  COD: "Thanh to\xE1n khi nh\u1EADn h\xE0ng",
+  PAYOS: "Thanh to\xE1n PayOS",
+  BANK_TRANSFER: "Chuy\u1EC3n kho\u1EA3n",
+  CASH: "Ti\u1EC1n m\u1EB7t"
+};
+var PAYMENT_STATUS_LABELS = {
+  PENDING: "Ch\u1EDD thanh to\xE1n",
+  PAID: "\u0110\xE3 thanh to\xE1n",
+  SUCCESS: "Th\xE0nh c\xF4ng",
+  FAILED: "Th\u1EA5t b\u1EA1i",
+  EXPIRED: "\u0110\xE3 h\u1EBFt h\u1EA1n",
+  REFUNDED: "\u0110\xE3 ho\xE0n ti\u1EC1n",
+  CANCELLED: "\u0110\xE3 h\u1EE7y"
+};
+function translate(value, labels) {
+  if (!value) return "";
+  return labels[value] ?? `Kh\xF4ng x\xE1c \u0111\u1ECBnh (${value})`;
+}
+function compareOrders(a, b) {
+  const emailComparison = a.user.email.localeCompare(b.user.email, "vi", {
+    sensitivity: "base"
+  });
+  if (emailComparison !== 0) return emailComparison;
+  const createdAtComparison = b.createdAt.getTime() - a.createdAt.getTime();
+  if (createdAtComparison !== 0) return createdAtComparison;
+  return b.id.localeCompare(a.id);
+}
+function getAdminOrdersExportQuery() {
+  return {
+    orderBy: [
+      { user: { email: "asc" } },
+      { createdAt: "desc" },
+      { id: "desc" }
+    ],
+    include: {
+      user: { select: { email: true, phone: true } },
+      payment: { select: { method: true, status: true, paidAt: true } },
+      paymentTransaction: { select: { orderCode: true, status: true, paidAt: true } },
+      items: {
+        select: {
+          quantity: true,
+          price: true,
+          productName: true,
+          product: { select: { name: true } }
+        }
+      }
+    }
+  };
+}
+async function buildAdminOrdersWorkbook(orders) {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Aura Fashion Marketplace";
+  workbook.created = /* @__PURE__ */ new Date();
+  const sheet = workbook.addWorksheet("\u0110\u01A1n h\xE0ng", {
+    views: [{ state: "frozen", ySplit: 1 }]
+  });
+  sheet.columns = [
+    { header: "M\xE3 \u0111\u01A1n n\u1ED9i b\u1ED9", key: "id", width: 38 },
+    { header: "M\xE3 thanh to\xE1n", key: "orderCode", width: 20 },
+    { header: "Ng\xE0y \u0111\u1EB7t", key: "createdAt", width: 22 },
+    { header: "Tr\u1EA1ng th\xE1i \u0111\u01A1n", key: "status", width: 30 },
+    { header: "T\u1ED5ng ti\u1EC1n", key: "totalPrice", width: 18 },
+    { header: "Email kh\xE1ch h\xE0ng", key: "email", width: 32 },
+    { header: "S\u1ED1 \u0111i\u1EC7n tho\u1EA1i", key: "phone", width: 18 },
+    { header: "Ph\u01B0\u01A1ng th\u1EE9c thanh to\xE1n", key: "paymentMethod", width: 28 },
+    { header: "Tr\u1EA1ng th\xE1i thanh to\xE1n", key: "paymentStatus", width: 24 },
+    { header: "Tr\u1EA1ng th\xE1i giao d\u1ECBch", key: "transactionStatus", width: 24 },
+    { header: "S\u1ED1 lo\u1EA1i s\u1EA3n ph\u1EA9m", key: "itemsCount", width: 18 },
+    { header: "Chi ti\u1EBFt s\u1EA3n ph\u1EA9m", key: "itemsSummary", width: 60 }
+  ];
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+  headerRow.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF9C0006" }
+  };
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+  headerRow.height = 24;
+  sheet.autoFilter = { from: "A1", to: "L1" };
+  const sortedOrders = orders.slice().sort(compareOrders);
+  let previousEmail = null;
+  let groupIndex = -1;
+  for (const order of sortedOrders) {
+    const normalizedEmail = order.user.email.trim().toLocaleLowerCase("vi");
+    if (normalizedEmail !== previousEmail) {
+      groupIndex += 1;
+      previousEmail = normalizedEmail;
+    }
+    const itemsSummary = order.items.map((item) => `${item.productName || item.product.name} x${item.quantity}`).join(" | ");
+    const row = sheet.addRow({
+      id: order.id,
+      orderCode: order.paymentTransaction?.orderCode ?? "",
+      createdAt: order.createdAt,
+      status: translate(order.status, ORDER_STATUS_LABELS),
+      totalPrice: Number(order.totalPrice ?? 0),
+      email: order.user.email,
+      phone: order.user.phone ?? "",
+      paymentMethod: translate(order.payment?.method, PAYMENT_METHOD_LABELS),
+      paymentStatus: translate(order.payment?.status, PAYMENT_STATUS_LABELS),
+      transactionStatus: translate(
+        order.paymentTransaction?.status,
+        PAYMENT_STATUS_LABELS
+      ),
+      itemsCount: order.items.length,
+      itemsSummary
+    });
+    row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm:ss";
+    row.getCell("totalPrice").numFmt = "#,##0";
+    row.alignment = { vertical: "top", wrapText: true };
+    if (groupIndex % 2 === 0) {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FFFFC7CE" }
+        };
+      });
+    }
+  }
+  const excelBuffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(excelBuffer);
+}
+
+// src/module/admin/orders/infrastructure/api/admin-orders.api.ts
 function parsePositiveInt2(value, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
@@ -10681,12 +10822,6 @@ function safeAttributesToText(attributes) {
   if (!attributes || typeof attributes !== "object") return "";
   const entries = Object.entries(attributes).filter(([, v]) => v !== null && v !== void 0 && v !== "").slice(0, 6);
   return entries.map(([k, v]) => `${k}: ${String(v)}`).join(" \u2022 ");
-}
-function escapeCsvValue(value) {
-  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
 }
 function buildOrderCancelledNotificationContent(input) {
   const label = input.orderCode?.trim() || input.orderId;
@@ -11323,87 +11458,16 @@ var AdminOrdersAPI = class {
       )
     );
   }
-  async exportOrders(req, res) {
-    const tab = req.query.tab ?? "all";
-    const search = req.query.search?.trim();
-    const sort = req.query.sort ?? "new";
-    const requestType = parseRequestType(req.query.requestType);
-    const requestStatus = parseRequestStatus(req.query.requestStatus);
-    const range = parseDateRangeFilter(req.query);
-    const tabWhere = buildTabWhere(tab);
-    const requestFilters = buildRequestFilterWhere({ requestType, requestStatus });
-    const where = {
-      ...requestFilters.length > 0 ? { AND: requestFilters } : {},
-      ...tabWhere ?? {},
-      ...range.from || range.to ? {
-        createdAt: {
-          ...range.from ? { gte: range.from } : {},
-          ...range.to ? { lt: range.to } : {}
-        }
-      } : {},
-      ...search ? {
-        OR: [
-          { id: { contains: search } },
-          { user: { email: { contains: search } } },
-          { paymentTransaction: { orderCode: { contains: search } } }
-        ]
-      } : {}
-    };
-    const orderBy = sort === "old" ? { createdAt: "asc" } : { createdAt: "desc" };
-    const orders = await this.prisma.order.findMany({
-      where,
-      orderBy,
-      take: 1e4,
-      include: {
-        user: { select: { email: true, phone: true } },
-        payment: { select: { method: true, status: true, paidAt: true } },
-        paymentTransaction: { select: { orderCode: true, status: true, paidAt: true } },
-        items: {
-          select: {
-            quantity: true,
-            price: true,
-            productName: true,
-            product: { select: { name: true } }
-          }
-        }
-      }
-    });
-    const headers = [
-      "id",
-      "orderCode",
-      "createdAt",
-      "status",
-      "totalPrice",
-      "userEmail",
-      "userPhone",
-      "paymentMethod",
-      "paymentStatus",
-      "transactionStatus",
-      "itemsCount",
-      "itemsSummary"
-    ];
-    const lines = orders.map((order) => {
-      const itemsSummary = order.items.map((it) => `${it.productName || it.product?.name || ""} x${it.quantity}`).filter((v) => v.trim() !== "").join(" | ");
-      return [
-        order.id,
-        order.paymentTransaction?.orderCode ?? "",
-        order.createdAt.toISOString(),
-        order.status,
-        String(order.totalPrice ?? ""),
-        order.user?.email ?? "",
-        order.user?.phone ?? "",
-        order.payment?.method ? String(order.payment.method) : "",
-        order.payment?.status ? String(order.payment.status) : "",
-        order.paymentTransaction?.status ? String(order.paymentTransaction.status) : "",
-        String(order.items.length),
-        itemsSummary
-      ].map((value) => escapeCsvValue(value)).join(",");
-    });
-    const csv = [headers.join(","), ...lines].join("\n");
-    const filename = `admin-orders-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  async exportOrders(_req, res) {
+    const orders = await this.prisma.order.findMany(getAdminOrdersExportQuery());
+    const workbook = await buildAdminOrdersWorkbook(orders);
+    const filename = `danh-sach-don-hang-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-    res.status(200).send(csv);
+    res.status(200).send(workbook);
   }
   async getCounts(req, res) {
     const range = parseDateRangeFilter(req.query);
@@ -16662,6 +16726,22 @@ function createPaymentModule() {
 
 // src/module/order/infrastructure/api/orders.api.ts
 import express20 from "express";
+
+// src/module/order/order-cancellation.policy.ts
+var USER_ORDER_CANCELLATION_ENABLED = false;
+function assertUserOrderCancellationEnabled() {
+  if (!USER_ORDER_CANCELLATION_ENABLED) {
+    throw new BadRequestError("Ch\u1EE9c n\u0103ng h\u1EE7y \u0111\u01A1n hi\u1EC7n \u0111ang t\u1EA1m kh\xF3a");
+  }
+}
+function withUserOrderCancellationCapability(value) {
+  return {
+    ...value,
+    userOrderCancellationEnabled: USER_ORDER_CANCELLATION_ENABLED
+  };
+}
+
+// src/module/order/infrastructure/api/orders.api.ts
 function parsePositiveInt3(value, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
@@ -16745,6 +16825,7 @@ var OrdersAPI = class {
     if (!orderId) {
       throw new BadRequestError("orderId is required");
     }
+    assertUserOrderCancellationEnabled();
     const body = req.body;
     const reasonCode = parseCancelReason(body.reasonCode);
     const reasonTextRaw = String(body.reasonText || "").trim();
@@ -16850,7 +16931,11 @@ var OrdersAPI = class {
       page,
       limit
     });
-    res.status(200).json(ResponseFormatter.success(result, "Orders fetched successfully"));
+    const response = {
+      ...result,
+      items: result.items.map(withUserOrderCancellationCapability)
+    };
+    res.status(200).json(ResponseFormatter.success(response, "Orders fetched successfully"));
   }
   async getMyCounts(req, res) {
     const userId = req.userId;
@@ -16870,7 +16955,8 @@ var OrdersAPI = class {
       throw new BadRequestError("orderId is required");
     }
     const dto = await this.ordersController.getMyOrderDetail(userId, orderId);
-    res.status(200).json(ResponseFormatter.success(dto, "OK"));
+    const response = withUserOrderCancellationCapability(dto);
+    res.status(200).json(ResponseFormatter.success(response, "OK"));
   }
   async cancelMyOrder(req, res) {
     const userId = req.userId;
@@ -16881,6 +16967,7 @@ var OrdersAPI = class {
     if (!orderId) {
       throw new BadRequestError("orderId is required");
     }
+    assertUserOrderCancellationEnabled();
     const updated = await this.ordersController.cancelMyOrder(userId, orderId);
     res.status(200).json(ResponseFormatter.success(updated, "Order cancelled"));
   }
@@ -20500,7 +20587,7 @@ function parseSortOrder(value) {
   }
   throw new BadRequestError("sortOrder must be asc or desc");
 }
-function escapeCsvValue2(value) {
+function escapeCsvValue(value) {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
     return `"${value.replace(/"/g, '""')}"`;
   }
@@ -20685,7 +20772,7 @@ var AdminUsersAPI = class {
         row.lastLogin ? row.lastLogin.toISOString() : "",
         row.createdAt.toISOString(),
         row.updatedAt.toISOString()
-      ].map((value) => escapeCsvValue2(value)).join(",")
+      ].map((value) => escapeCsvValue(value)).join(",")
     );
     const csv = [headers.join(","), ...lines].join("\n");
     const filename = `admin-users-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`;
