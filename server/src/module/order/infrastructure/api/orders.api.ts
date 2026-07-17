@@ -7,6 +7,10 @@ import { BadRequestError } from '../../../../error-handlling/badRequestError';
 import type { OrderReturnsController } from '../../interface-adapter/controller/order-returns.controller';
 import type { OrdersController } from '../../interface-adapter/controller/orders.controller';
 import type { OrderSort, OrderTab } from '../../applications/dto/order.dto';
+import {
+  assertUserOrderCancellationEnabled,
+  withUserOrderCancellationCapability,
+} from '../../order-cancellation.policy';
 
 function parsePositiveInt(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -109,6 +113,8 @@ export class OrdersAPI {
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }
+
+    assertUserOrderCancellationEnabled();
 
     const body = req.body as Record<string, unknown>;
     const reasonCode = parseCancelReason(body.reasonCode);
@@ -240,7 +246,12 @@ export class OrdersAPI {
       limit,
     });
 
-    res.status(200).json(ResponseFormatter.success(result, 'Orders fetched successfully'));
+    const response = {
+      ...result,
+      items: result.items.map(withUserOrderCancellationCapability),
+    };
+
+    res.status(200).json(ResponseFormatter.success(response, 'Orders fetched successfully'));
   }
 
   private async getMyCounts(req: Request, res: Response): Promise<void> {
@@ -265,7 +276,8 @@ export class OrdersAPI {
     }
 
     const dto = await this.ordersController.getMyOrderDetail(userId, orderId);
-    res.status(200).json(ResponseFormatter.success(dto, 'OK'));
+    const response = withUserOrderCancellationCapability(dto);
+    res.status(200).json(ResponseFormatter.success(response, 'OK'));
   }
 
   private async cancelMyOrder(req: Request, res: Response): Promise<void> {
@@ -278,6 +290,8 @@ export class OrdersAPI {
     if (!orderId) {
       throw new BadRequestError('orderId is required');
     }
+
+    assertUserOrderCancellationEnabled();
 
     const updated = await this.ordersController.cancelMyOrder(userId, orderId);
     res.status(200).json(ResponseFormatter.success(updated, 'Order cancelled'));
