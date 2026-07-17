@@ -970,23 +970,16 @@ export default function OrdersPage() {
   const handleExport = async () => {
     try {
       setExporting(true);
-      const blob = await orderService.exportOrders({
-        tab,
-        search,
-        sort,
-        requestType,
-        requestStatus,
-        ...rangeParams,
-      });
+      const blob = await orderService.exportOrders();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `danh-sach-don-hang-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `danh-sach-don-hang-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
       window.URL.revokeObjectURL(url);
-      toast.success("Xuất file CSV thành công");
+      toast.success("Xuất file Excel thành công");
     } catch (e) {
-      toast.error("Xuất file CSV thất bại");
+      toast.error("Xuất file Excel thất bại");
       console.error(e);
     } finally {
       setExporting(false);

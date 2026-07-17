@@ -337,17 +337,8 @@ export const orderService = {
     return response.data;
   },
 
-  exportOrders: async (params: {
-    tab?: AdminOrderTab;
-    search?: string;
-    sort?: AdminOrderSort;
-    from?: string;
-    to?: string;
-    requestType?: AdminOrderRequestType;
-    requestStatus?: AdminOrderRequestStatus;
-  }): Promise<Blob> => {
+  exportOrders: async (): Promise<Blob> => {
     const response = await apiClient.get("/admin/orders/export", {
-      params,
       responseType: "blob",
     });
     return response.data;
