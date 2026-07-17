@@ -10,6 +10,10 @@ import type { AdminOrderReturnsController } from '../../interface-adapter/contro
 import type { AdminOrderAnalyticsController } from '../../interface-adapter/controller/admin-order-analytics.controller';
 import type { CodSettlementService } from '../../../../payment/applications/services/cod-settlement.service';
 import { awardLoyaltyForOrder, LoyaltyMutationService } from '../../../../user-profile/loyalty.service';
+import {
+  buildAdminOrdersWorkbook,
+  getAdminOrdersExportQuery,
+} from '../export/admin-orders-xlsx';
 
 type AdminOrderTab =
   | 'all'
@@ -292,13 +296,6 @@ function safeAttributesToText(attributes: unknown): string {
     .filter(([, v]) => v !== null && v !== undefined && v !== '')
     .slice(0, 6);
   return entries.map(([k, v]) => `${k}: ${String(v)}`).join(' • ');
-}
-
-function escapeCsvValue(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
 }
 
 function buildOrderCancelledNotificationContent(input: {
@@ -1058,107 +1055,17 @@ export class AdminOrdersAPI {
     );
   }
 
-  private async exportOrders(req: Request, res: Response): Promise<void> {
-    const tab = (req.query.tab as AdminOrderTab | undefined) ?? 'all';
-    const search = (req.query.search as string | undefined)?.trim();
-    const sort = (req.query.sort as OrderSort | undefined) ?? 'new';
-    const requestType = parseRequestType(req.query.requestType);
-    const requestStatus = parseRequestStatus(req.query.requestStatus);
+  private async exportOrders(_req: Request, res: Response): Promise<void> {
+    const orders = await this.prisma.order.findMany(getAdminOrdersExportQuery());
+    const workbook = await buildAdminOrdersWorkbook(orders);
+    const filename = `danh-sach-don-hang-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-    const range = parseDateRangeFilter(req.query);
-
-    const tabWhere = buildTabWhere(tab);
-    const requestFilters = buildRequestFilterWhere({ requestType, requestStatus });
-
-    const where: Prisma.OrderWhereInput = {
-      ...(requestFilters.length > 0 ? { AND: requestFilters } : {}),
-      ...(tabWhere ?? {}),
-      ...(range.from || range.to
-        ? {
-            createdAt: {
-              ...(range.from ? { gte: range.from } : {}),
-              ...(range.to ? { lt: range.to } : {}),
-            },
-          }
-        : {}),
-      ...(search
-        ? {
-            OR: [
-              { id: { contains: search } },
-              { user: { email: { contains: search } } },
-              { paymentTransaction: { orderCode: { contains: search } } },
-            ],
-          }
-        : {}),
-    };
-
-    const orderBy: Prisma.OrderOrderByWithRelationInput =
-      sort === 'old' ? { createdAt: 'asc' } : { createdAt: 'desc' };
-
-    const orders = await this.prisma.order.findMany({
-      where,
-      orderBy,
-      take: 10000,
-      include: {
-        user: { select: { email: true, phone: true } },
-        payment: { select: { method: true, status: true, paidAt: true } },
-        paymentTransaction: { select: { orderCode: true, status: true, paidAt: true } },
-        items: {
-          select: {
-            quantity: true,
-            price: true,
-            productName: true,
-            product: { select: { name: true } },
-          },
-        },
-      },
-    });
-
-    const headers = [
-      'id',
-      'orderCode',
-      'createdAt',
-      'status',
-      'totalPrice',
-      'userEmail',
-      'userPhone',
-      'paymentMethod',
-      'paymentStatus',
-      'transactionStatus',
-      'itemsCount',
-      'itemsSummary',
-    ];
-
-    const lines = orders.map((order) => {
-      const itemsSummary = order.items
-        .map((it) => `${it.productName || it.product?.name || ''} x${it.quantity}`)
-        .filter((v) => v.trim() !== '')
-        .join(' | ');
-
-      return [
-        order.id,
-        order.paymentTransaction?.orderCode ?? '',
-        order.createdAt.toISOString(),
-        order.status,
-        String(order.totalPrice ?? ''),
-        order.user?.email ?? '',
-        order.user?.phone ?? '',
-        order.payment?.method ? String(order.payment.method) : '',
-        order.payment?.status ? String(order.payment.status) : '',
-        order.paymentTransaction?.status ? String(order.paymentTransaction.status) : '',
-        String(order.items.length),
-        itemsSummary,
-      ]
-        .map((value) => escapeCsvValue(value))
-        .join(',');
-    });
-
-    const csv = [headers.join(','), ...lines].join('\n');
-    const filename = `admin-orders-${new Date().toISOString().slice(0, 10)}.csv`;
-
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.status(200).send(csv);
+    res.status(200).send(workbook);
   }
 
   private async getCounts(req: Request, res: Response): Promise<void> {

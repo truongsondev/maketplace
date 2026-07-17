@@ -6,7 +6,7 @@ export interface AdminOrderExportRow {
   createdAt: Date;
   status: string;
   totalPrice: unknown;
-  user: { email: string; phone: string | null };
+  user: { email: string | null; phone: string | null };
   payment: {
     method: string;
     status: string;
@@ -65,7 +65,7 @@ function translate(value: string | null | undefined, labels: Record<string, stri
 }
 
 function compareOrders(a: AdminOrderExportRow, b: AdminOrderExportRow): number {
-  const emailComparison = a.user.email.localeCompare(b.user.email, 'vi', {
+  const emailComparison = (a.user.email ?? '').localeCompare(b.user.email ?? '', 'vi', {
     sensitivity: 'base',
   });
   if (emailComparison !== 0) return emailComparison;
@@ -75,8 +75,7 @@ function compareOrders(a: AdminOrderExportRow, b: AdminOrderExportRow): number {
   return b.id.localeCompare(a.id);
 }
 
-export function getAdminOrdersExportQuery(): Prisma.OrderFindManyArgs {
-  return {
+const ADMIN_ORDERS_EXPORT_QUERY = {
     orderBy: [
       { user: { email: 'asc' } },
       { createdAt: 'desc' },
@@ -95,7 +94,10 @@ export function getAdminOrdersExportQuery(): Prisma.OrderFindManyArgs {
         },
       },
     },
-  };
+  } satisfies Prisma.OrderFindManyArgs;
+
+export function getAdminOrdersExportQuery(): typeof ADMIN_ORDERS_EXPORT_QUERY {
+  return ADMIN_ORDERS_EXPORT_QUERY;
 }
 
 export async function buildAdminOrdersWorkbook(
@@ -139,7 +141,7 @@ export async function buildAdminOrdersWorkbook(
   let groupIndex = -1;
 
   for (const order of sortedOrders) {
-    const normalizedEmail = order.user.email.trim().toLocaleLowerCase('vi');
+    const normalizedEmail = (order.user.email ?? '').trim().toLocaleLowerCase('vi');
     if (normalizedEmail !== previousEmail) {
       groupIndex += 1;
       previousEmail = normalizedEmail;
@@ -154,7 +156,7 @@ export async function buildAdminOrdersWorkbook(
       createdAt: order.createdAt,
       status: translate(order.status, ORDER_STATUS_LABELS),
       totalPrice: Number(order.totalPrice ?? 0),
-      email: order.user.email,
+      email: order.user.email ?? '',
       phone: order.user.phone ?? '',
       paymentMethod: translate(order.payment?.method, PAYMENT_METHOD_LABELS),
       paymentStatus: translate(order.payment?.status, PAYMENT_STATUS_LABELS),
