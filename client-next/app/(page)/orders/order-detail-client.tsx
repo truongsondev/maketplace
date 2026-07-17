@@ -18,6 +18,7 @@ import {
   useReviewUploadSignature,
   useUploadReviewImage,
 } from "@/hooks/use-reviews";
+import { getUserOrderCancellationActions } from "@/lib/order-cancellation.mjs";
 
 function formatMoney(value: string | number) {
   const n = Number(value);
@@ -160,18 +161,9 @@ export function OrderDetailClient({
     };
   }, []);
 
-  const isPaidFlow =
-    (order?.status === "PAID" || order?.status === "CONFIRMED") &&
-    (order?.payment.status === "PAID" || order?.payment.status === "SUCCESS");
-
-  const canCancel =
-    (order?.status === "PENDING" || order?.status === "CONFIRMED") &&
-    !isPaidFlow;
-
-  const canRequestPaidCancel =
-    Boolean(isPaidFlow) &&
-    order?.cancelRequest?.status !== "REQUESTED" &&
-    order?.cancelRequest?.status !== "APPROVED";
+  const { canCancel, canRequestPaidCancel } = order
+    ? getUserOrderCancellationActions(order)
+    : { canCancel: false, canRequestPaidCancel: false };
 
   const canConfirmReceived = order?.status === "DELIVERING";
   const canRequestReturn =

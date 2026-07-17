@@ -77,6 +77,7 @@ export interface OrderListItemProduct {
 
 export interface MyOrderListItem {
   id: string;
+  userOrderCancellationEnabled: boolean;
   createdAt: string;
   receivedAt: string | null;
   status: OrderStatus;

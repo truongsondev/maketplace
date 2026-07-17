@@ -27,6 +27,7 @@ import { Footer } from "@/components/page/footer";
 import { cartService } from "@/services/cart.service";
 import { useAuthStore } from "@/stores/auth.store";
 import type { MyOrderListItem, OrderTab } from "@/types/order.types";
+import { getUserOrderCancellationActions } from "@/lib/order-cancellation.mjs";
 
 const ORDERS_PAGE_LIMIT = 6;
 
@@ -184,15 +185,8 @@ function OrderCard({
 }) {
   const first = order.items[0];
   const extraCount = Math.max(order.items.length - 1, 0);
-  const isPaidFlow =
-    (order.status === "PAID" || order.status === "CONFIRMED") &&
-    isPaymentSuccessful(order);
-  const canCancel =
-    ["PENDING", "CONFIRMED"].includes(order.status) && !isPaidFlow;
-  const canRequestPaidCancel =
-    isPaidFlow &&
-    order.cancelRequest?.status !== "REQUESTED" &&
-    order.cancelRequest?.status !== "APPROVED";
+  const { canCancel, canRequestPaidCancel } =
+    getUserOrderCancellationActions(order);
 
   const canReview = order.status === "DELIVERED";
   const reviewStatusQuery = useOrderReviewStatus(order.id, Boolean(canReview));
