@@ -40,6 +40,10 @@ export interface CreateCodOrderResponse {
   totalAmount: number;
 }
 
+export type PaymentMethodCapabilities = {
+  codEnabled: boolean;
+};
+
 export interface PayosReturnVerification {
   orderCode: string;
   amount: number;
@@ -63,6 +67,16 @@ export interface PaymentOrderStatus {
 }
 
 export const payosPaymentService = {
+  async getPaymentMethods(): Promise<PaymentMethodCapabilities> {
+    const response = await apiClient.get<PaymentMethodCapabilities>(
+      "api/payments/methods",
+    );
+    if (response.success) {
+      return (response as ApiSuccessResponse<PaymentMethodCapabilities>).data;
+    }
+    throw response as ApiErrorResponse;
+  },
+
   async createCodOrder(
     payload: CreatePayosPaymentLinkRequest,
   ): Promise<CreateCodOrderResponse> {

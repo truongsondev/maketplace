@@ -4,6 +4,7 @@ import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { createLogger } from '../../../../shared/util/logger';
 import { PaymentController } from '../../interface-adapter/controller';
+import { getPaymentMethodCapabilities } from '../../payment-method.policy';
 
 const logger = createLogger('PaymentAPI');
 
@@ -19,6 +20,7 @@ export class PaymentAPI {
   }
 
   private initializeRoutes(): void {
+    this.router.get('/methods', this.getPaymentMethods.bind(this));
     this.router.post('/payos/create-link', asyncHandler(this.createPayosPaymentLink.bind(this)));
     this.router.post('/cod/orders', asyncHandler(this.createCodOrder.bind(this)));
     this.router.get('/payos/return', asyncHandler(this.handlePayosReturn.bind(this)));
@@ -27,6 +29,10 @@ export class PaymentAPI {
       '/payos/orders/:orderCode/status',
       asyncHandler(this.getPaymentStatus.bind(this)),
     );
+  }
+
+  private getPaymentMethods(_req: Request, res: Response): void {
+    res.status(200).json(ResponseFormatter.success(getPaymentMethodCapabilities()));
   }
 
   private async createPayosPaymentLink(req: Request, res: Response): Promise<void> {

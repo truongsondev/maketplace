@@ -83,6 +83,11 @@ export function CheckoutConfirmClient() {
     queryFn: getMyLoyalty,
     retry: false,
   });
+  const paymentMethodsQuery = useQuery({
+    queryKey: ["payments", "methods"],
+    queryFn: () => payosPaymentService.getPaymentMethods(),
+    retry: false,
+  });
 
   const payosMutation = useCreatePayosPaymentLink();
 
@@ -777,22 +782,24 @@ export function CheckoutConfirmClient() {
                         Chuyển hướng
                       </span>
                     </label>
-                    <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
-                      <span className="flex items-center gap-3">
-                        <input
-                          type="radio"
-                          name="payment"
-                          checked={paymentMethod === "COD"}
-                          onChange={() => setPaymentMethod("COD")}
-                        />
-                        <span className="font-semibold text-neutral-900 dark:text-white">
-                          Thanh toán khi nhận hàng (COD)
+                    {paymentMethodsQuery.data?.codEnabled === true ? (
+                      <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
+                        <span className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="payment"
+                            checked={paymentMethod === "COD"}
+                            onChange={() => setPaymentMethod("COD")}
+                          />
+                          <span className="font-semibold text-neutral-900 dark:text-white">
+                            Thanh toán khi nhận hàng (COD)
+                          </span>
                         </span>
-                      </span>
-                      <span className="text-neutral-500 dark:text-neutral-400">
-                        Miễn phí giao hàng
-                      </span>
-                    </label>
+                        <span className="text-neutral-500 dark:text-neutral-400">
+                          Miễn phí giao hàng
+                        </span>
+                      </label>
+                    ) : null}
                   </div>
                 </section>
               </article>
