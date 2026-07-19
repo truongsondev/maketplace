@@ -4,7 +4,10 @@ import { ResponseFormatter } from '../../../../shared/server/api-response';
 import { asyncHandler } from '../../../../shared/server/error-middleware';
 import { createLogger } from '../../../../shared/util/logger';
 import { PaymentController } from '../../interface-adapter/controller';
-import { getPaymentMethodCapabilities } from '../../payment-method.policy';
+import {
+  assertCodPaymentEnabled,
+  getPaymentMethodCapabilities,
+} from '../../payment-method.policy';
 
 const logger = createLogger('PaymentAPI');
 
@@ -208,6 +211,8 @@ export class PaymentAPI {
   }
 
   private async createCodOrder(req: Request, res: Response): Promise<void> {
+    assertCodPaymentEnabled();
+
     const userId = req.userId;
     if (!userId) throw new BadRequestError('User ID not found');
 

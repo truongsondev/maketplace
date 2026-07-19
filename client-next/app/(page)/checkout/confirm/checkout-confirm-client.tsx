@@ -25,6 +25,10 @@ import type { ApiErrorResponse } from "@/types/api.types";
 import { payosPaymentService } from "@/services/payos-payment.service";
 import { getMyLoyalty } from "@/services/loyalty.service";
 import { calculateLoyaltyDiscount } from "@/lib/loyalty-benefits";
+import {
+  getEffectiveCheckoutPaymentMethod,
+  isCodPaymentCapabilityEnabled,
+} from "@/lib/checkout-payment-method.mjs";
 
 type PaymentMethod = "PAYOS" | "COD";
 
@@ -213,6 +217,23 @@ export function CheckoutConfirmClient() {
   const [selectedDistrictId, setSelectedDistrictId] = useState<number | "">("");
   const [selectedWardCode, setSelectedWardCode] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("PAYOS");
+  const codPaymentEnabled = isCodPaymentCapabilityEnabled({
+    data: paymentMethodsQuery.data,
+    isSuccess: paymentMethodsQuery.isSuccess,
+    isError: paymentMethodsQuery.isError,
+    isFetching: paymentMethodsQuery.isFetching,
+  });
+  const effectivePaymentMethod = getEffectiveCheckoutPaymentMethod(
+    paymentMethod,
+    codPaymentEnabled,
+  );
+
+  useEffect(() => {
+    if (!codPaymentEnabled && paymentMethod === "COD") {
+      setPaymentMethod("PAYOS");
+    }
+  }, [codPaymentEnabled, paymentMethod]);
+
   const codMutation = useMutation({
     mutationFn: payosPaymentService.createCodOrder,
     onError: (error: ApiErrorResponse) => {
@@ -462,7 +483,7 @@ export function CheckoutConfirmClient() {
       },
     };
 
-    if (paymentMethod === "COD") {
+    if (effectivePaymentMethod === "COD") {
       codMutation.mutate(checkoutPayload, {
         onSuccess: (result) => {
           toast.success("Đặt hàng COD thành công");
@@ -514,7 +535,7 @@ export function CheckoutConfirmClient() {
               ghnWardCode: selectedWardCode,
             },
             payment: {
-              method: paymentMethod,
+              method: effectivePaymentMethod,
             },
             createdAt: new Date().toISOString(),
           };
@@ -771,7 +792,7 @@ export function CheckoutConfirmClient() {
                         <input
                           type="radio"
                           name="payment"
-                          checked={paymentMethod === "PAYOS"}
+                          checked={effectivePaymentMethod === "PAYOS"}
                           onChange={() => setPaymentMethod("PAYOS")}
                         />
                         <span className="font-semibold text-neutral-900 dark:text-white">
@@ -782,13 +803,13 @@ export function CheckoutConfirmClient() {
                         Chuyển hướng
                       </span>
                     </label>
-                    {paymentMethodsQuery.data?.codEnabled === true ? (
+                    {codPaymentEnabled ? (
                       <label className="flex items-center justify-between gap-3 border border-black/10 px-4 py-3 text-sm dark:border-white/10">
                         <span className="flex items-center gap-3">
                           <input
                             type="radio"
                             name="payment"
-                            checked={paymentMethod === "COD"}
+                            checked={effectivePaymentMethod === "COD"}
                             onChange={() => setPaymentMethod("COD")}
                           />
                           <span className="font-semibold text-neutral-900 dark:text-white">
