@@ -3,6 +3,7 @@ import type { UserShippingInfoService } from '../../../address/applications/serv
 import type { CreateCodOrderCommand, CreateCodOrderResult } from '../dto';
 import type { IPaymentRepository } from '../ports/output';
 import type { INewOrderNotifier } from '../ports/output/new-order-notifier';
+import { assertCodPaymentEnabled } from '../../payment-method.policy';
 
 export class CreateCodOrderUseCase {
   constructor(
@@ -12,6 +13,8 @@ export class CreateCodOrderUseCase {
   ) {}
 
   async execute(command: CreateCodOrderCommand): Promise<CreateCodOrderResult> {
+    assertCodPaymentEnabled();
+
     if (!Number.isFinite(command.amount) || command.amount <= 0) {
       throw new BadRequestError('amount must be greater than 0');
     }
