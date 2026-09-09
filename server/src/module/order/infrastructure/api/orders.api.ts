@@ -1,0 +1,390 @@
+import express, { Request, Response } from 'express';
+import type { CancelReason } from '@/generated/prisma/enums';
+import { prisma } from '../../../../infrastructure/database';
+import { asyncHandler } from '../../../../shared/server/error-middleware';
+import { ResponseFormatter } from '../../../../shared/server/api-response';
+import { BadRequestError } from '../../../../error-handlling/badRequestError';
+import type { OrderReturnsController } from '../../interface-adapter/controller/order-returns.controller';
+import type { OrdersController } from '../../interface-adapter/controller/orders.controller';
+import type { OrderSort, OrderTab } from '../../applications/dto/order.dto';
+import {
+  assertUserOrderCancellationEnabled,
+  withUserOrderCancellationCapability,
+} from '../../order-cancellation.policy';
+
+function parsePositiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+function getRouteParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseCancelReason(value: unknown): CancelReason {
+  const reason = String(value || '').toUpperCase();
+  if (reason === 'NO_LONGER_NEEDED') return 'NO_LONGER_NEEDED';
+  if (reason === 'BUY_OTHER_ITEM') return 'BUY_OTHER_ITEM';
+  if (reason === 'FOUND_CHEAPER') return 'FOUND_CHEAPER';
+  if (reason === 'OTHER') return 'OTHER';
+  throw new BadRequestError('Invalid cancel reason');
+}
+
+function parseOrderNotificationContent(content: string): {
+  message: string;
+  relatedPath: string | null;
+} {
+  const markers = [/^\[ORDER_CANCELLED\|([^\]]+)\]\s*/, /^\[ORDER_RECEIVED\|([^\]]+)\]\s*/];
+
+  for (const markerRegex of markers) {
+    const match = content.match(markerRegex);
+    if (!match) continue;
+
+    const orderId = match[1]?.trim();
+    const message = content.replace(markerRegex, '').trim();
+    return {
+      message,
+      relatedPath: orderId ? `/orders?orderId=${encodeURIComponent(orderId)}` : '/orders',
+    };
+  }
+
+  return {
+    message: content,
+    relatedPath: null,
+  };
+}
+
+export class OrdersAPI {
+  readonly router = express.Router();
+
+  constructor(
+    private readonly ordersController: OrdersController,
+    private readonly orderReturnsController: OrderReturnsController,
+  ) {
+    this.initializeRoutes();
+  }
+
+  private initializeRoutes(): void {
+    if (process.env.NODE_ENV === 'development') {
+      this.router.get('/_debug/me', asyncHandler(this.debugMe.bind(this)));
+    }
+
+    this.router.get('/', asyncHandler(this.listMyOrders.bind(this)));
+    this.router.get('/notifications', asyncHandler(this.listMyNotifications.bind(this)));
+    this.router.patch(
+      '/notifications/read-all',
+      asyncHandler(this.markAllNotificationsAsRead.bind(this)),
+    );
+    this.router.patch(
+      '/notifications/:id/read',
+      asyncHandler(this.markNotificationAsRead.bind(this)),
+    );
+    this.router.get('/counts', asyncHandler(this.getMyCounts.bind(this)));
+    this.router.get('/:orderId', asyncHandler(this.getMyOrderDetail.bind(this)));
+    this.router.post('/:orderId/cancel', asyncHandler(this.cancelMyOrder.bind(this)));
+    this.router.post('/:orderId/cancel-request', asyncHandler(this.requestPaidCancel.bind(this)));
+    this.router.post('/:orderId/confirm-received', asyncHandler(this.confirmReceived.bind(this)));
+    this.router.post('/:orderId/return', asyncHandler(this.requestReturn.bind(this)));
+  }
+
+  private async debugMe(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    const user = (req as any).user as { id?: string; email?: string } | undefined;
+
+    res.status(200).json(
+      ResponseFormatter.success(
+        {
+          userId: userId ?? null,
+          email: user?.email ?? null,
+        },
+        'OK',
+      ),
+    );
+  }
+
+  private async requestPaidCancel(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const orderId = getRouteParam(req.params.orderId);
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    assertUserOrderCancellationEnabled();
+
+    const body = req.body as Record<string, unknown>;
+    const reasonCode = parseCancelReason(body.reasonCode);
+    const reasonTextRaw = String(body.reasonText || '').trim();
+    const reasonText = reasonTextRaw ? reasonTextRaw.slice(0, 500) : null;
+    const bankAccountName = String(body.bankAccountName || '').trim();
+    const bankAccountNumber = String(body.bankAccountNumber || '').trim();
+    const bankName = String(body.bankName || '').trim();
+
+    if (!bankAccountName || !bankAccountNumber || !bankName) {
+      throw new BadRequestError('bankAccountName, bankAccountNumber and bankName are required');
+    }
+
+    if (reasonCode === 'OTHER' && !reasonText) {
+      throw new BadRequestError('reasonText is required when reasonCode is OTHER');
+    }
+
+    const updated = await this.ordersController.requestPaidCancel(userId, {
+      orderId,
+      reasonCode,
+      reasonText,
+      bankAccountName,
+      bankAccountNumber,
+      bankName,
+    });
+
+    res.status(200).json(
+      ResponseFormatter.success(
+        {
+          id: updated.id,
+          status: updated.status,
+          cancelRequestStatus: updated.cancelRequestStatus,
+        },
+        'Cancellation request submitted, waiting for admin approval',
+      ),
+    );
+  }
+
+  private async confirmReceived(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const orderId = getRouteParam(req.params.orderId);
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const updated = await this.ordersController.confirmReceived(userId, orderId);
+    res.status(200).json(ResponseFormatter.success(updated, 'Order confirmed as received'));
+  }
+
+  private async requestReturn(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const orderId = getRouteParam(req.params.orderId);
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const body = req.body as Record<string, unknown>;
+    const reason = body.reason;
+    const reasonCode = String(body.reasonCode || '').trim().toUpperCase();
+    const requestType = String(body.requestType || '').trim().toUpperCase();
+    if (requestType !== 'EXCHANGE' && requestType !== 'RETURN_REFUND') {
+      throw new BadRequestError('requestType must be EXCHANGE or RETURN_REFUND');
+    }
+    const items = Array.isArray(body.items)
+      ? body.items
+          .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+          .map((item) => ({
+            orderItemId: String(item.orderItemId || '').trim(),
+            quantity: Number(item.quantity),
+            requestedVariantId:
+              typeof item.requestedVariantId === 'string' ? item.requestedVariantId.trim() : null,
+          }))
+      : [];
+    const bankAccountName = String(body.bankAccountName || '').trim();
+    const bankAccountNumber = String(body.bankAccountNumber || '').trim();
+    const bankName = String(body.bankName || '').trim();
+    const evidenceImages = Array.isArray(body.evidenceImages)
+      ? body.evidenceImages
+      : [];
+
+    const result = await this.orderReturnsController.requestReturn({
+      userId,
+      orderId,
+      requestType,
+      items,
+      reasonCode,
+      reason: typeof reason === 'string' ? reason : null,
+      evidenceImages,
+      bankAccountName,
+      bankAccountNumber,
+      bankName,
+    });
+
+    res
+      .status(200)
+      .json(
+        ResponseFormatter.success(
+          { id: result.orderId, status: result.orderStatus, returnStatus: result.returnStatus },
+          'Return requested',
+        ),
+      );
+  }
+
+  private async listMyOrders(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const tab = (req.query.tab as OrderTab | undefined) ?? 'all';
+    const search = (req.query.search as string | undefined)?.trim();
+    const sort = (req.query.sort as OrderSort | undefined) ?? 'new';
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = Math.min(parsePositiveInt(req.query.limit, 10), 50);
+    const result = await this.ordersController.listMyOrders(userId, {
+      tab,
+      search: search ?? null,
+      sort,
+      page,
+      limit,
+    });
+
+    const response = {
+      ...result,
+      items: result.items.map(withUserOrderCancellationCapability),
+    };
+
+    res.status(200).json(ResponseFormatter.success(response, 'Orders fetched successfully'));
+  }
+
+  private async getMyCounts(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const result = await this.ordersController.getMyCounts(userId);
+    res.status(200).json(ResponseFormatter.success(result, 'OK'));
+  }
+
+  private async getMyOrderDetail(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const orderId = getRouteParam(req.params.orderId);
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    const dto = await this.ordersController.getMyOrderDetail(userId, orderId);
+    const response = withUserOrderCancellationCapability(dto);
+    res.status(200).json(ResponseFormatter.success(response, 'OK'));
+  }
+
+  private async cancelMyOrder(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const orderId = getRouteParam(req.params.orderId);
+    if (!orderId) {
+      throw new BadRequestError('orderId is required');
+    }
+
+    assertUserOrderCancellationEnabled();
+
+    const updated = await this.ordersController.cancelMyOrder(userId, orderId);
+    res.status(200).json(ResponseFormatter.success(updated, 'Order cancelled'));
+  }
+
+  private async listMyNotifications(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const page = parsePositiveInt(req.query.page, 1);
+    const limit = Math.min(parsePositiveInt(req.query.limit, 20), 100);
+    const skip = (page - 1) * limit;
+
+    const [notifications, total, unreadCount] = await Promise.all([
+      prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          content: true,
+          isRead: true,
+          createdAt: true,
+        },
+      }),
+      prisma.notification.count({ where: { userId } }),
+      prisma.notification.count({ where: { userId, isRead: false } }),
+    ]);
+
+    res.status(200).json(
+      ResponseFormatter.success({
+        items: notifications.map((item) => {
+          const parsed = parseOrderNotificationContent(item.content);
+          return {
+            id: item.id,
+            content: parsed.message,
+            isRead: item.isRead,
+            createdAt: item.createdAt,
+            relatedPath: parsed.relatedPath,
+          };
+        }),
+        total,
+        page,
+        limit,
+        unreadCount,
+      }),
+    );
+  }
+
+  private async markNotificationAsRead(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const notificationId = String(req.params.id || '').trim();
+    if (!notificationId) {
+      throw new BadRequestError('notificationId is required');
+    }
+
+    const updated = await prisma.notification.updateMany({
+      where: {
+        id: notificationId,
+        userId,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    res.status(200).json(ResponseFormatter.success({ updated: updated.count > 0 }));
+  }
+
+  private async markAllNotificationsAsRead(req: Request, res: Response): Promise<void> {
+    const userId = req.userId;
+    if (!userId) {
+      throw new BadRequestError('User ID not found');
+    }
+
+    const updated = await prisma.notification.updateMany({
+      where: {
+        userId,
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    res.status(200).json(ResponseFormatter.success({ updatedCount: updated.count }));
+  }
+}

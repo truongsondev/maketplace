@@ -1,0 +1,93 @@
+### Add to Cart - Success Case
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantId}}",
+  "quantity": 2
+}
+
+###
+
+### Add to Cart - Increment Existing Item
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantId}}",
+  "quantity": 1
+}
+
+###
+
+### Add to Cart - Missing Variant ID
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "quantity": 2
+}
+
+###
+
+### Add to Cart - Invalid Quantity (Zero)
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantId}}",
+  "quantity": 0
+}
+
+###
+
+### Add to Cart - Invalid Quantity (Negative)
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantId}}",
+  "quantity": -5
+}
+
+###
+
+### Add to Cart - Exceeds Max Quantity
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "variantId": "{{variantId}}",
+  "quantity": 15
+}
+
+###
+
+### Add to Cart - Non-existent Variant
+POST http://localhost:5000/api/cart/items
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "variantId": "00000000-0000-0000-0000-000000000000",
+  "quantity": 1
+}
+
+###
+
+### Add to Cart - Without Auth
+POST http://localhost:5000/api/cart/items
+Content-Type: application/json
+
+{
+  "variantId": "{{variantId}}",
+  "quantity": 2
+}
+
+###

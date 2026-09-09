@@ -1,64 +1,47 @@
-# ====================================
-# Stage 1: Builder
-# ====================================
-FROM node:20-alpine AS builder
+FROM node:20-slim AS deps
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
-# Install all dependencies (including devDependencies for build)
+# Install full dependencies (including devDependencies) because runtime uses `npx prisma migrate deploy`.
+COPY package*.json ./
 RUN npm ci
 
-# Copy prisma schema
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package*.json ./
+COPY tsconfig.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Copy source code and config files
-COPY tsconfig.json ./
 COPY src ./src
 COPY shared ./shared
 
-# Build the application with tsup
-RUN npx tsup src/server.ts --format esm
+# Generate Prisma client and build the server bundle.
+RUN npx prisma generate
+RUN npx tsup src/server.ts src/payos-reconcile-worker.ts src/birthday-voucher-worker.ts --format esm
 
-# ====================================
-# Stage 2: Runner (Production)
-# ====================================
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
-
-# Set production environment
 ENV NODE_ENV=production
 
-# Copy package files
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/generated ./generated
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src/resources ./resources
+COPY --from=builder /app/src/module/chatbot/shop-knowledge ./resources/chatbot/shop-knowledge
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY package*.json ./
 
-# Install only production dependencies
-RUN npm ci --omit=dev
-
-# Copy Prisma schema and generated client from builder
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
-COPY --from=builder /app/generated ./generated
-
-# Copy built application from builder
-COPY --from=builder /app/dist ./dist
-
-# Copy shared folder if needed at runtime
-COPY --from=builder /app/shared ./shared
-
-# Expose application port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" || exit 1
-
-# Start the application
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/server.js"]

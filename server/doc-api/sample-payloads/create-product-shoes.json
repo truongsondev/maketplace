@@ -1,0 +1,93 @@
+{
+  "name": "Giày thể thao chạy bộ",
+  "description": "Giày chạy bộ chuyên nghiệp với đệm khí cao cấp, trọng lượng nhẹ, phù hợp cho runner chuyên nghiệp",
+  "basePrice": 1890000,
+  "variants": [
+    {
+      "sku": "SHOE-RUN-001-BLK-39",
+      "attributes": {
+        "color": "Đen",
+        "size": "39"
+      },
+      "price": 1890000,
+      "stockAvailable": 25,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-BLK-40",
+      "attributes": {
+        "color": "Đen",
+        "size": "40"
+      },
+      "price": 1890000,
+      "stockAvailable": 30,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-BLK-41",
+      "attributes": {
+        "color": "Đen",
+        "size": "41"
+      },
+      "price": 1890000,
+      "stockAvailable": 28,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-WHT-39",
+      "attributes": {
+        "color": "Trắng",
+        "size": "39"
+      },
+      "price": 1890000,
+      "stockAvailable": 20,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-WHT-40",
+      "attributes": {
+        "color": "Trắng",
+        "size": "40"
+      },
+      "price": 1890000,
+      "stockAvailable": 22,
+      "minStock": 5
+    },
+    {
+      "sku": "SHOE-RUN-001-WHT-41",
+      "attributes": {
+        "color": "Trắng",
+        "size": "41"
+      },
+      "price": 1890000,
+      "stockAvailable": 18,
+      "minStock": 5
+    }
+  ],
+  "images": [
+    {
+      "url": "https://via.placeholder.com/800x800/000000/FFFFFF?text=Shoe+Main",
+      "altText": "Giày chạy bộ - Hình chính",
+      "sortOrder": 0,
+      "isPrimary": true
+    },
+    {
+      "url": "https://via.placeholder.com/800x800/000000/FFFFFF?text=Black+Side",
+      "altText": "Màu đen - Góc nghiêng",
+      "sortOrder": 1,
+      "variantId": "SHOE-RUN-001-BLK-40"
+    },
+    {
+      "url": "https://via.placeholder.com/800x800/FFFFFF/000000?text=White+Side",
+      "altText": "Màu trắng - Góc nghiêng",
+      "sortOrder": 2,
+      "variantId": "SHOE-RUN-001-WHT-40"
+    }
+  ],
+  "categoryIds": ["550e8400-e29b-41d4-a716-446655440003", "550e8400-e29b-41d4-a716-446655440004"],
+  "tagIds": [
+    "660e8400-e29b-41d4-a716-446655440003",
+    "660e8400-e29b-41d4-a716-446655440004",
+    "660e8400-e29b-41d4-a716-446655440005"
+  ]
+}

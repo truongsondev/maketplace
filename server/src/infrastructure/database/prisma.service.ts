@@ -1,4 +1,5 @@
 import { PrismaClient } from '@/generated/prisma/client';
+import type { PrismaClient as PrismaClientType } from '@/generated/prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import dotenv from 'dotenv';
 
@@ -6,9 +7,9 @@ import dotenv from 'dotenv';
  * Singleton Prisma Client instance with MariaDB adapter (compatible with MySQL)
  */
 class PrismaService {
-  private static instance: PrismaClient | null = null;
+  private static instance: PrismaClientType | null = null;
 
-  static getInstance(): PrismaClient {
+  static getInstance(): PrismaClientType {
     const env = process.env.NODE_ENV || 'development';
     dotenv.config({
       path: `.env.${env}`,

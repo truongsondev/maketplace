@@ -1,34 +1,24 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { ChatbotWidget } from "@/components/chatbot/chatbot-widget";
+import { BodyProfileModal } from "@/components/profile/body-profile-modal";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/query-provider";
 import "./globals.css";
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
 
 export const metadata: Metadata = {
-  title: "VIBE - Fashion Store",
-  description:
-    "Discover the latest trends in street fashion. Urban Vibes Collection.",
+  title: "AURA - Cửa hàng thời trang",
+  description: "Khám phá xu hướng thời trang mới nhất. Bộ sưu tập AURA.",
   generator: "v0.app",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
+    icon: "/icon.svg",
   },
 };
 
@@ -38,9 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">
-        <QueryProvider>{children}</QueryProvider>
+    <html lang="vi" suppressHydrationWarning>
+      <body
+        className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
+      >
+        <QueryProvider>
+          {children}
+          <BodyProfileModal />
+        </QueryProvider>
+        <ChatbotWidget />
         <Toaster richColors position="top-right" />
         <Analytics />
       </body>

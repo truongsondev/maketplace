@@ -5,12 +5,16 @@ import {
   ForgotPasswordCommand,
   ResetPasswordCommand,
   LogoutCommand,
+  RefreshTokenCommand,
+  GoogleOAuthLoginCommand,
 } from '../../applications/dto/command';
 import {
   IVerifyEmailUseCase,
   IForgotPasswordUseCase,
   IResetPasswordUseCase,
   ILogoutUseCase,
+  IRefreshTokenUseCase,
+  IGoogleOAuthLoginUseCase,
 } from '../../applications/ports/input';
 import { ILoginUseCaseFactory } from '../pattern/login-usecase.factory';
 import { IRegisterUseCaseFactory } from '../pattern/register-usecase.factory';
@@ -32,6 +36,8 @@ export class AuthController {
     private readonly forgotPasswordUseCaseFactory: IForgotPasswordUseCaseFactory,
     private readonly resetPasswordUseCase: IResetPasswordUseCase,
     private readonly logoutUseCase: ILogoutUseCase,
+    private readonly refreshTokenUseCase: IRefreshTokenUseCase,
+    private readonly googleOAuthLoginUseCase: IGoogleOAuthLoginUseCase,
   ) {}
 
   async register(command: RegisterCommand, ipAddress?: string): Promise<RegisterHttpResponse> {
@@ -62,5 +68,13 @@ export class AuthController {
 
   async logout(command: LogoutCommand) {
     return this.logoutUseCase.execute(command);
+  }
+
+  async refreshToken(command: RefreshTokenCommand) {
+    return this.refreshTokenUseCase.execute(command);
+  }
+
+  async googleOAuthLogin(command: GoogleOAuthLoginCommand) {
+    return this.googleOAuthLoginUseCase.execute(command);
   }
 }

@@ -1,105 +1,820 @@
 "use client";
 
-import { ShoppingCart, Search, User, Menu, X, Sun, Moon } from "lucide-react";
-import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/auth.store";
+import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowRight,
+  Bell,
+  ChevronDown,
+  Heart,
+  Menu,
+  Moon,
+  ReceiptText,
+  Search,
+  ShoppingCart,
+  Sun,
+  User,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useCategories } from "@/hooks/use-categories";
 import { useLogout } from "@/hooks/use-logout";
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useMyNotifications,
+} from "@/hooks/use-notifications";
+import { productService } from "@/services/product.service";
+import { useAuthStore } from "@/stores/auth.store";
+
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  if (typeof value === "object" && value) {
+    const maybeValue = (value as { value?: unknown }).value;
+    if (typeof maybeValue === "string") {
+      const trimmed = maybeValue.trim();
+      return trimmed ? trimmed : null;
+    }
+  }
+
+  return null;
+}
+
+function getEmailFromAuthUser(user: unknown): string | null {
+  if (!user || typeof user !== "object") return null;
+  const anyUser = user as Record<string, unknown>;
+
+  return (
+    normalizeEmail(anyUser.email) ||
+    normalizeEmail((anyUser.email as { value?: unknown } | undefined)?.value) ||
+    normalizeEmail(anyUser._email) ||
+    normalizeEmail((anyUser._email as { value?: unknown } | undefined)?.value)
+  );
+}
 
 interface HeaderProps {
   isDark: boolean;
   onToggleDarkMode: () => void;
   cartCount: number;
+  variant?: "overlay" | "solid";
 }
 
-export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80";
+
+const TRENDING_SEARCHES = [
+  "áo sơ mi",
+  "quần jeans",
+  "đi làm",
+  "minimal",
+  "layering",
+];
+
+function normalizeProductImageUrl(rawUrl: string | null) {
+  if (!rawUrl) return FALLBACK_IMAGE;
+
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return FALLBACK_IMAGE;
+
+  const absoluteUrl = trimmed.startsWith("//") ? `https:${trimmed}` : trimmed;
+
+  if (
+    absoluteUrl.includes("res.cloudinary.com") &&
+    absoluteUrl.includes("/upload/")
+  ) {
+    return absoluteUrl.replace(
+      "/upload/",
+      "/upload/f_auto,q_auto,c_fill,w_220,h_300/",
+    );
+  }
+
+  if (
+    absoluteUrl.includes("images.unsplash.com") &&
+    !absoluteUrl.includes("w=")
+  ) {
+    return `${absoluteUrl}${absoluteUrl.includes("?") ? "&" : "?"}auto=format&fit=crop&w=900&q=80`;
+  }
+
+  return absoluteUrl;
+}
+
+function formatNotificationDate(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+export function Header({
+  isDark,
+  onToggleDarkMode,
+  cartCount,
+  variant = "overlay",
+}: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [activeRootCategoryId, setActiveRootCategoryId] = useState<
+    string | null
+  >(null);
+  const [storedUserLabel] = useState(() => {
+    if (typeof window === "undefined") {
+      return "";
+    }
+
+    try {
+      const raw = window.localStorage.getItem("auth-session");
+
+      if (!raw) {
+        return "";
+      }
+
+      const parsed = JSON.parse(raw) as {
+        state?: {
+          user?: unknown;
+          profile?: { fullName?: string | null } | null;
+        };
+      };
+
+      const localName = parsed.state?.profile?.fullName?.trim();
+      const localEmail = getEmailFromAuthUser(parsed.state?.user);
+
+      return localName || localEmail || "";
+    } catch {
+      return "";
+    }
+  });
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState("");
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("aura:recent-searches");
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((item): item is string => typeof item === "string")
+        : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isScrolled, setIsScrolled] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const notificationMenuRef = useRef<HTMLDivElement | null>(null);
+  const searchPanelRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
+
+  const storeIntroPath = "/store";
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const profile = useAuthStore((state) => state.profile);
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
+  const notificationsQuery = useMyNotifications(
+    { page: 1, limit: 8 },
+    isAuthenticated,
+  );
+  const markNotificationReadMutation = useMarkNotificationRead();
+  const markAllNotificationsReadMutation = useMarkAllNotificationsRead();
+
+  const { data: categories = [] } = useCategories(false);
+
+  const normalizeForCompare = (value: string) => {
+    return value
+      .trim()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d")
+      .replace(/Đ/g, "D")
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+  };
+
+  const findCategoryForSuggestion = (suggestion: string) => {
+    const key = normalizeForCompare(suggestion);
+    if (!key) return null;
+
+    const exact = categories.find((c) => normalizeForCompare(c.name) === key);
+    if (exact) return exact;
+
+    const candidates = categories.filter((c) =>
+      normalizeForCompare(c.name).startsWith(key),
+    );
+
+    return candidates.length === 1 ? candidates[0] : null;
+  };
+
+  const childrenByParentId = useMemo(() => {
+    const map = new Map<string, typeof categories>();
+    categories.forEach((c) => {
+      const parentKey = c.parentId ?? "__root__";
+      const list = map.get(parentKey) ?? [];
+      list.push(c);
+      map.set(parentKey, list);
+    });
+
+    for (const [key, list] of map.entries()) {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      map.set(key, list);
+    }
+
+    return map;
+  }, [categories]);
+
+  const rootCategories = useMemo(() => {
+    return (childrenByParentId.get("__root__") ?? []).filter(
+      (category) => category.slug !== "cua-hang",
+    );
+  }, [childrenByParentId]);
+
+  const activeRoot = useMemo(() => {
+    if (!activeRootCategoryId) return null;
+    return rootCategories.find((c) => c.id === activeRootCategoryId) ?? null;
+  }, [activeRootCategoryId, rootCategories]);
+
+  const activeGroups = useMemo(() => {
+    if (!activeRoot) return [];
+    return childrenByParentId.get(activeRoot.id) ?? [];
+  }, [activeRoot, childrenByParentId]);
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setSearchKeyword("");
+    setDebouncedSearchKeyword("");
+  };
+
+  const rememberSearch = (keyword: string) => {
+    const trimmed = keyword.trim();
+    if (!trimmed || typeof window === "undefined") return;
+
+    setRecentSearches((prev) => {
+      const next = [
+        trimmed,
+        ...prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase()),
+      ].slice(0, 5);
+      window.localStorage.setItem("aura:recent-searches", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const submitSearch = (keyword: string) => {
+    const q = keyword.trim();
+    if (!q) return;
+    rememberSearch(q);
+    closeSearch();
+    router.push(`/?q=${encodeURIComponent(q)}#product-search`);
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 16);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const trimmed = searchKeyword.trim();
+    const handle = window.setTimeout(() => {
+      setDebouncedSearchKeyword(trimmed);
+    }, 280);
+
+    return () => window.clearTimeout(handle);
+  }, [isSearchOpen, searchKeyword]);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const handle = window.setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(handle);
+  }, [isSearchOpen]);
+
+  const {
+    data: headerSearchData,
+    isFetching: isHeaderSearching,
+    isError: isHeaderSearchError,
+  } = useQuery({
+    queryKey: ["products", "header-search", debouncedSearchKeyword],
+    queryFn: () =>
+      productService.getProducts({
+        q: debouncedSearchKeyword,
+        sort: "createdAt:desc",
+        limit: 6,
+        page: 1,
+      }),
+    enabled: isSearchOpen && debouncedSearchKeyword.length >= 2,
+    staleTime: 1000 * 15,
+    retry: false,
+  });
+
+  const headerSearchProducts = useMemo(() => {
+    return headerSearchData?.products ?? [];
+  }, [headerSearchData?.products]);
+
+  const headerSuggestions = useMemo(() => {
+    const keyword = (debouncedSearchKeyword || searchKeyword).trim();
+    const normalizedKeyword = keyword.toLowerCase();
+
+    const suggestions: string[] = [];
+    const seen = new Set<string>();
+
+    const normalizedForMatch = normalizeForCompare(keyword);
+
+    if (normalizedForMatch) {
+      const matches = categories
+        .filter((c) => normalizeForCompare(c.name).includes(normalizedForMatch))
+        .sort((a, b) => {
+          const aName = normalizeForCompare(a.name);
+          const bName = normalizeForCompare(b.name);
+          const aStarts = aName.startsWith(normalizedForMatch) ? 0 : 1;
+          const bStarts = bName.startsWith(normalizedForMatch) ? 0 : 1;
+          if (aStarts !== bStarts) return aStarts - bStarts;
+          return a.name.localeCompare(b.name);
+        });
+
+      for (const c of matches) {
+        const label = c.name.trim();
+        if (!label) continue;
+        const key = label.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        suggestions.push(label);
+        if (suggestions.length >= 6) break;
+      }
+    }
+
+    if (keyword) {
+      const key = normalizedKeyword;
+      if (!seen.has(key)) {
+        suggestions.unshift(keyword);
+      }
+    }
+
+    return suggestions.slice(0, 6);
+  }, [categories, debouncedSearchKeyword, searchKeyword]);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        searchPanelRef.current &&
+        !searchPanelRef.current.contains(event.target as Node)
+      ) {
+        setIsSearchOpen(false);
+        setSearchKeyword("");
+        setDebouncedSearchKeyword("");
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [isSearchOpen]);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+        setIsUserMenuOpen(false);
+        setIsNotificationOpen(false);
+        setActiveRootCategoryId(null);
+        setIsSearchOpen(false);
+        setSearchKeyword("");
+        setDebouncedSearchKeyword("");
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        notificationMenuRef.current &&
+        !notificationMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsNotificationOpen(false);
+      }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, []);
+
+  const userLabel = useMemo(() => {
+    const profileName = profile?.fullName?.trim();
+    const userEmail = getEmailFromAuthUser(user);
+
+    // Ưu tiên hiện tên, nếu không có thì hiện email. Nếu vẫn không có, dùng dữ liệu từ localStorage.
+    return profileName || userEmail || storedUserLabel || "Tài khoản";
+  }, [profile?.fullName, storedUserLabel, user]);
+
+  const handleNavigate = (path: string) => {
+    setIsUserMenuOpen(false);
+    setIsNotificationOpen(false);
+    setIsMenuOpen(false);
+    router.push(path);
+  };
+
+  const unreadNotificationCount = notificationsQuery.data?.unreadCount ?? 0;
+
+  const handleOpenNotifications = () => {
+    setIsNotificationOpen((prev) => !prev);
+    setIsUserMenuOpen(false);
+  };
+
+  const handleNotificationClick = async (params: {
+    notificationId: string;
+    isRead: boolean;
+    relatedPath: string | null;
+  }) => {
+    if (!params.isRead) {
+      try {
+        await markNotificationReadMutation.mutateAsync(params.notificationId);
+      } catch {
+        // Ignore and still navigate.
+      }
+    }
+
+    setIsNotificationOpen(false);
+    router.push(params.relatedPath || "/orders");
+  };
 
   const handleAuthAction = () => {
     if (isAuthenticated) {
+      setIsUserMenuOpen(false);
       logout();
     } else {
       router.push("/login");
     }
   };
+
+  const shouldUseSolidHeader =
+    variant === "solid" || isScrolled || isSearchOpen || isMenuOpen;
+
   return (
     <>
-      {/* Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between border-b border-neutral-200 dark:border-neutral-700 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md px-6 py-4 lg:px-10 transition-colors duration-200">
+      <header
+        className={`fixed inset-x-0 top-0 z-50 flex items-center justify-between px-5 py-4 transition-all duration-500 lg:px-10 ${
+          shouldUseSolidHeader
+            ? "border-b border-black/10 bg-[#f8f4ed]/88 text-neutral-950 shadow-[0_16px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/88 dark:text-white"
+            : "border-b border-white/0 bg-transparent text-white"
+        }`}
+      >
         <div className="flex items-center gap-4">
-          <div className="flex items-center justify-center size-10 rounded-lg bg-primary text-white font-bold text-lg">
-            ◆
-          </div>
-          <h2 className="text-2xl font-bold leading-tight tracking-[-0.015em]">
+          <Link
+            href="/"
+            className="rounded text-2xl font-semibold leading-tight tracking-[0.28em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-neutral-900"
+          >
             AURA
-          </h2>
+          </Link>
         </div>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex flex-1 justify-center gap-8">
-          <a
-            href="#"
-            className="text-sm font-bold text-neutral-800 dark:text-neutral-50 hover:text-primary dark:hover:text-primary transition-colors"
+        <nav className="hidden md:flex flex-1 justify-center">
+          <div
+            className="relative"
+            onMouseLeave={() => setActiveRootCategoryId(null)}
           >
-            Trang chủ
-          </a>
-          <a
-            href="#"
-            className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
-          >
-            Áo
-          </a>
-          <a
-            href="#"
-            className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
-          >
-            Quần
-          </a>
-          <a
-            href="#"
-            className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary dark:hover:text-primary transition-colors"
-          >
-            Phụ kiện
-          </a>
-          <a
-            href="#"
-            className="text-sm font-bold text-red-500 hover:text-red-600 transition-colors"
-          >
-            Khuyến mãi
-          </a>
+            <div className="flex justify-center gap-8">
+              <Link
+                href="/"
+                className="text-xs font-semibold uppercase tracking-[0.18em] opacity-90 transition-opacity hover:opacity-55"
+              >
+                Trang chủ
+              </Link>
+              <Link
+                href="/#new-arrivals"
+                className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-55"
+              >
+                Mới nhất
+              </Link>
+              {rootCategories.map((category) => {
+                const hasChildren =
+                  (childrenByParentId.get(category.id) ?? []).length > 0;
+
+                return (
+                  <Link
+                    key={category.id}
+                    href={`/collection/${category.slug}`}
+                    onMouseEnter={() => {
+                      if (hasChildren) {
+                        setActiveRootCategoryId(category.id);
+                      } else {
+                        setActiveRootCategoryId(null);
+                      }
+                    }}
+                    className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-55"
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {category.name}
+                      {hasChildren ? (
+                        <ChevronDown
+                          className={`size-4 transition-transform ${activeRootCategoryId === category.id ? "rotate-180" : ""}`}
+                        />
+                      ) : null}
+                    </span>
+                  </Link>
+                );
+              })}
+
+              <Link
+                href={storeIntroPath}
+                onMouseEnter={() => setActiveRootCategoryId(null)}
+                className="text-xs font-semibold uppercase tracking-[0.18em] opacity-75 transition-opacity hover:opacity-55"
+              >
+                Cửa hàng
+              </Link>
+            </div>
+
+            {activeRoot && activeGroups.length > 0 ? (
+              <div className="absolute left-1/2 top-full z-50 w-[min(1120px,calc(100vw-32px))] -translate-x-1/2 pt-4">
+                <div className="w-full overflow-hidden rounded-3xl border border-black/10 bg-[#f8f4ed]/95 px-6 py-6 text-neutral-950 shadow-[0_24px_70px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95 dark:text-white lg:px-8">
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-10 lg:grid-cols-4">
+                    {activeGroups.map((group) => {
+                      const items = childrenByParentId.get(group.id) ?? [];
+                      return (
+                        <div key={group.id} className="min-w-0">
+                          <Link
+                            href={`/collection/${group.slug}`}
+                            className="block wrap-break-word text-sm font-bold uppercase tracking-wide text-neutral-900 hover:text-primary dark:text-neutral-50 dark:hover:text-primary"
+                          >
+                            {group.name}
+                          </Link>
+
+                          {items.length > 0 ? (
+                            <div className="mt-3 space-y-2">
+                              {items.map((item) => (
+                                <Link
+                                  key={item.id}
+                                  href={`/collection/${item.slug}`}
+                                  className="block wrap-break-word text-sm text-neutral-700 hover:text-primary dark:text-neutral-200 dark:hover:text-primary"
+                                >
+                                  {item.name}
+                                </Link>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </nav>
 
-        {/* Right Actions */}
         <div className="flex items-center gap-3">
+          {isAuthenticated ? (
+            <div ref={notificationMenuRef} className="relative">
+              <button
+                onClick={handleOpenNotifications}
+                aria-label="Mở thông báo"
+                aria-expanded={isNotificationOpen}
+                aria-controls="user-notification-menu"
+                className="group relative flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Bell className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
+                {unreadNotificationCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+                    {unreadNotificationCount > 99
+                      ? "99+"
+                      : unreadNotificationCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {isNotificationOpen ? (
+                <div
+                  id="user-notification-menu"
+                  className="absolute right-0 top-12 z-50 w-88 max-w-[90vw] overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
+                >
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      Thông báo
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => markAllNotificationsReadMutation.mutate()}
+                      disabled={
+                        markAllNotificationsReadMutation.isPending ||
+                        unreadNotificationCount === 0
+                      }
+                      className="text-xs font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Đánh dấu đã đọc
+                    </button>
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto border-t border-neutral-100 dark:border-neutral-800">
+                    {notificationsQuery.isLoading ? (
+                      <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
+                        Đang tải thông báo...
+                      </div>
+                    ) : notificationsQuery.data?.items?.length ? (
+                      notificationsQuery.data.items.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() =>
+                            handleNotificationClick({
+                              notificationId: item.id,
+                              isRead: item.isRead,
+                              relatedPath: item.relatedPath,
+                            })
+                          }
+                          className={`block w-full border-b border-neutral-100 px-4 py-3 text-left transition-colors last:border-b-0 dark:border-neutral-800 ${
+                            item.isRead
+                              ? "bg-white hover:bg-neutral-50 dark:bg-neutral-900 dark:hover:bg-neutral-800"
+                              : "bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/15"
+                          }`}
+                        >
+                          <p className="text-sm text-neutral-800 dark:text-neutral-100">
+                            {item.content}
+                          </p>
+                          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                            {formatNotificationDate(item.createdAt)}
+                          </p>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-sm text-neutral-500 dark:text-neutral-400">
+                        Chưa có thông báo.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {isAuthenticated ? (
+            <div ref={userMenuRef} className="relative hidden md:block">
+              <button
+                onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                aria-label="Mở menu tài khoản"
+                aria-expanded={isUserMenuOpen}
+                aria-controls="desktop-user-menu"
+                className={`group flex h-10 max-w-64 items-center gap-2 rounded-full border bg-white px-3 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:bg-neutral-800 ${
+                  isUserMenuOpen
+                    ? "border-primary text-primary"
+                    : "border-neutral-200 text-neutral-700 hover:border-primary hover:text-primary dark:border-neutral-700 dark:text-neutral-100"
+                }`}
+              >
+                <span className="flex size-8 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-700">
+                  <User className="size-4" />
+                </span>
+                <span className="truncate">{userLabel}</span>
+                <ChevronDown
+                  className={`size-4 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {isUserMenuOpen && (
+                <div
+                  id="desktop-user-menu"
+                  className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-700 dark:bg-neutral-900"
+                >
+                  <div className="px-4 pb-3 pt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                      Tài khoản
+                    </p>
+                    <p className="mt-1 truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      {userLabel}
+                    </p>
+                  </div>
+
+                  <div className="border-t border-neutral-100 dark:border-neutral-800" />
+
+                  <button
+                    onClick={() => handleNavigate("/cart")}
+                    className="mx-2 my-1 flex w-[calc(100%-16px)] items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <ShoppingCart className="size-4" />
+                    Giỏ hàng
+                  </button>
+                  <button
+                    onClick={() => handleNavigate("/orders")}
+                    className="mx-2 my-1 flex w-[calc(100%-16px)] items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <ReceiptText className="size-4" />
+                    Đơn mua
+                  </button>
+                  <button
+                    onClick={() => handleNavigate("/profile")}
+                    className="mx-2 my-1 flex w-[calc(100%-16px)] items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <User className="size-4" />
+                    Hồ sơ
+                  </button>
+                  <button
+                    onClick={() => handleNavigate("/favorites")}
+                    className="mx-2 my-1 flex w-[calc(100%-16px)] items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    <Heart className="size-4" />
+                    Yêu thích
+                  </button>
+
+                  <div className="mt-2 border-t border-neutral-100 px-2 pt-2 dark:border-neutral-800" />
+
+                  <button
+                    onClick={handleAuthAction}
+                    disabled={isLoggingOut}
+                    className="mx-2 mb-2 mt-1 flex w-[calc(100%-16px)] items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-red-950/40"
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={handleAuthAction}
+              disabled={isLoggingOut}
+              className="hidden lg:flex min-w-21 cursor-pointer items-center justify-center rounded-full h-10 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isLoggingOut ? "Đang xuất…" : "Đăng nhập"}
+            </button>
+          )}
           <button
-            onClick={handleAuthAction}
-            disabled={isLoggingOut}
-            className="hidden lg:flex min-w-21 cursor-pointer items-center justify-center rounded-full h-10 px-6 bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:bg-primary-dark transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            aria-label="Tìm kiếm sản phẩm"
+            aria-expanded={isSearchOpen}
+            aria-controls="header-search-panel"
+            onClick={() => {
+              setIsMenuOpen(false);
+              setIsUserMenuOpen(false);
+              setActiveRootCategoryId(null);
+              setIsSearchOpen(true);
+            }}
+            className="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            {isLoggingOut
-              ? "Đang xuất…"
-              : isAuthenticated
-                ? "Đăng xuất"
-                : "Đăng nhập"}
-          </button>
-          <button className="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors">
             <Search className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
           </button>
-          <button className="group relative flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors">
+          <button
+            aria-label="Mở giỏ hàng"
+            onClick={() => router.push("/cart")}
+            className="group relative flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
             <ShoppingCart className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
-              {cartCount}
-            </span>
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+                {cartCount}
+              </span>
+            )}
           </button>
-          <button className="hidden md:flex group size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors">
-            <User className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
-          </button>
+          {!isAuthenticated && (
+            <button
+              aria-label="Đăng nhập"
+              onClick={handleAuthAction}
+              className="hidden md:flex group size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <User className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
+            </button>
+          )}
           <button
             onClick={onToggleDarkMode}
-            className="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors"
+            aria-label={
+              isDark
+                ? "Chuyển sang giao diện sáng"
+                : "Chuyển sang giao diện tối"
+            }
+            className="group flex size-10 items-center justify-center rounded-full bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {isDark ? (
               <Sun className="size-5 text-neutral-800 dark:text-neutral-50 group-hover:text-primary" />
@@ -110,6 +825,11 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
           <button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={
+              isMenuOpen ? "Đóng menu điều hướng" : "Mở menu điều hướng"
+            }
+            aria-expanded={isMenuOpen}
+            aria-controls="mobile-main-menu"
           >
             {isMenuOpen ? (
               <X className="size-6" />
@@ -120,48 +840,386 @@ export function Header({ isDark, onToggleDarkMode, cartCount }: HeaderProps) {
         </div>
       </header>
 
-      {/* Mobile Menu */}
+      <div aria-hidden className="h-18.25" />
+
+      <AnimatePresence>
+        {isSearchOpen ? (
+          <motion.div
+            className="fixed inset-x-0 bottom-0 top-18.25 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <button
+              type="button"
+              aria-label="Đóng tìm kiếm"
+              onClick={closeSearch}
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            />
+
+            <div className="relative px-4 pt-5 md:px-6 lg:px-10">
+              <motion.div
+                id="header-search-panel"
+                ref={searchPanelRef}
+                className="mx-auto w-full max-w-330 overflow-hidden border border-black/10 bg-[#f8f4ed] shadow-[0_30px_90px_rgba(0,0,0,0.22)] dark:border-white/10 dark:bg-neutral-950"
+                role="dialog"
+                aria-modal="true"
+                initial={{ y: -18, opacity: 0.9 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -12, opacity: 0 }}
+                transition={{ duration: 0.36, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const trimmed = searchKeyword.trim();
+                    setDebouncedSearchKeyword(trimmed);
+                    if (trimmed.length >= 2) rememberSearch(trimmed);
+                  }}
+                  className="border-b border-black/10 dark:border-white/10"
+                >
+                  <div className="relative">
+                    <input
+                      ref={searchInputRef}
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      placeholder="Tìm silhouette, chất liệu, dịp mặc..."
+                      className="h-18 w-full bg-transparent px-5 pr-28 text-xl font-light text-neutral-950 outline-none placeholder:text-neutral-400 dark:text-white md:text-3xl"
+                    />
+
+                    <div className="absolute right-0 top-0 flex h-full items-center">
+                      <button
+                        type="button"
+                        onClick={closeSearch}
+                        className="h-full px-3 text-neutral-500 hover:text-neutral-900 dark:hover:text-white"
+                        aria-label="Tắt tìm kiếm"
+                      >
+                        <X className="size-5" />
+                      </button>
+                      <div className="h-6 w-px bg-neutral-200 dark:bg-neutral-700" />
+                      <button
+                        type="submit"
+                        className="h-full px-3 text-neutral-700 hover:text-neutral-900 dark:text-neutral-200 dark:hover:text-white"
+                        aria-label="Tìm kiếm"
+                      >
+                        <Search className="size-5" />
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                <div className="grid gap-0 md:grid-cols-12">
+                  <div className="border-b border-black/10 p-5 dark:border-white/10 md:col-span-4 md:border-b-0 md:border-r">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                      Discovery cues
+                    </p>
+
+                    <div className="mt-4 space-y-5">
+                      <div>
+                        <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                          Gợi ý nhanh
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {(headerSuggestions.length > 0
+                            ? headerSuggestions
+                            : TRENDING_SEARCHES
+                          ).map((item) => (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => {
+                                const matchedCategory =
+                                  findCategoryForSuggestion(item);
+                                if (matchedCategory) {
+                                  closeSearch();
+                                  router.push(
+                                    `/collection/${matchedCategory.slug}`,
+                                  );
+                                  return;
+                                }
+
+                                setSearchKeyword(item);
+                                setDebouncedSearchKeyword(item.trim());
+                                rememberSearch(item);
+                                searchInputRef.current?.focus();
+                              }}
+                              className="luxury-chip"
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {recentSearches.length > 0 ? (
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                            Đã tìm gần đây
+                          </p>
+                          <div className="space-y-2">
+                            {recentSearches.map((item) => (
+                              <button
+                                key={item}
+                                type="button"
+                                onClick={() => {
+                                  setSearchKeyword(item);
+                                  setDebouncedSearchKeyword(item.trim());
+                                  searchInputRef.current?.focus();
+                                }}
+                                className="block w-full text-left text-sm uppercase tracking-[0.08em] text-neutral-800 transition-opacity hover:opacity-55 dark:text-neutral-100"
+                              >
+                                {item}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {rootCategories.length > 0 ? (
+                        <div>
+                          <p className="mb-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                            Lối vào bộ sưu tập
+                          </p>
+                          <div className="space-y-2">
+                            {rootCategories.slice(0, 4).map((category) => (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() => {
+                                  closeSearch();
+                                  router.push(`/collection/${category.slug}`);
+                                }}
+                                className="flex w-full items-center justify-between text-left text-sm uppercase tracking-[0.08em] text-neutral-800 transition-opacity hover:opacity-55 dark:text-neutral-100"
+                              >
+                                <span>{category.name}</span>
+                                <ArrowRight className="size-3.5" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="p-5 md:col-span-8">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-neutral-500 dark:text-neutral-400">
+                      Product edit
+                    </p>
+
+                    <div className="mt-3">
+                      {debouncedSearchKeyword.trim().length < 2 ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {rootCategories.slice(0, 2).map((category) => (
+                            <button
+                              key={category.id}
+                              type="button"
+                              onClick={() => {
+                                closeSearch();
+                                router.push(`/collection/${category.slug}`);
+                              }}
+                              className="group border-y border-black/10 py-4 text-left transition-opacity hover:opacity-70 dark:border-white/10"
+                            >
+                              <p className="text-xs uppercase tracking-[0.24em] text-neutral-500">
+                                Curated category
+                              </p>
+                              <p className="mt-2 text-2xl font-semibold uppercase tracking-[-0.04em] text-neutral-950 dark:text-white">
+                                {category.name}
+                              </p>
+                              <p className="mt-2 text-sm text-neutral-500">
+                                Khám phá lựa chọn được biên tập theo mood.
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      ) : isHeaderSearching ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {Array.from({ length: 4 }).map((_, idx) => (
+                            <div key={idx} className="flex gap-4">
+                              <div className="h-24 w-18 luxury-skeleton" />
+                              <div className="flex-1 space-y-2 pt-2">
+                                <div className="h-3 w-3/4 luxury-skeleton" />
+                                <div className="h-3 w-1/2 luxury-skeleton" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : isHeaderSearchError ? (
+                        <p className="text-sm text-red-600 dark:text-red-300">
+                          Không thể mở tủ đồ gợi ý lúc này. Vui lòng thử lại.
+                        </p>
+                      ) : headerSearchProducts.length === 0 ? (
+                        <div className="border-y border-black/10 py-8 dark:border-white/10">
+                          <p className="text-2xl font-semibold uppercase tracking-[-0.04em] text-neutral-950 dark:text-white">
+                            Chưa có item đúng với mood này.
+                          </p>
+                          <p className="mt-2 max-w-md text-sm text-neutral-600 dark:text-neutral-300">
+                            Thử một chất liệu, dịp mặc hoặc bộ sưu tập khác để
+                            mở thêm lựa chọn được tuyển chọn.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          {headerSearchProducts.slice(0, 4).map((product) => (
+                            <button
+                              key={product.id}
+                              type="button"
+                              onClick={() => {
+                                closeSearch();
+                                router.push(`/product/${product.id}`);
+                              }}
+                              className="group flex w-full items-start gap-4 border-y border-black/10 py-3 text-left transition-opacity hover:opacity-75 dark:border-white/10"
+                            >
+                              <div className="relative h-28 w-20 overflow-hidden bg-neutral-100 dark:bg-neutral-800">
+                                <Image
+                                  src={normalizeProductImageUrl(
+                                    product.imageUrl,
+                                  )}
+                                  alt={product.name}
+                                  fill
+                                  sizes="80px"
+                                  className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1 pt-1">
+                                <p
+                                  className="line-clamp-2 text-sm font-medium uppercase tracking-[0.08em] text-neutral-900 dark:text-white"
+                                  title={product.name}
+                                >
+                                  {product.name}
+                                </p>
+                                <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                  Xem thiết kế
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {searchKeyword.trim().length >= 2 ? (
+                  <button
+                    type="button"
+                    onClick={() => submitSearch(searchKeyword)}
+                    className="flex w-full items-center justify-between border-t border-neutral-200 px-5 py-4 text-sm font-semibold uppercase tracking-[0.16em] text-neutral-900 transition-colors hover:bg-white/65 dark:border-neutral-700 dark:text-white dark:hover:bg-white/10"
+                  >
+                    <span>Khám phá “{searchKeyword.trim()}”</span>
+                    <ArrowRight className="size-4" />
+                  </button>
+                ) : null}
+              </motion.div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
       {isMenuOpen && (
-        <div className="md:hidden border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-6 py-4 transition-colors duration-200">
+        <div
+          id="mobile-main-menu"
+          className="md:hidden border-b border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-6 py-4 transition-colors duration-200"
+        >
           <nav className="flex flex-col gap-4">
-            <a
-              href="#"
+            <Link
+              href="/"
+              onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
               Trang chủ
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              href="/#new-arrivals"
+              onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
-              Áo
-            </a>
-            <a
-              href="#"
+              New Arrivals
+            </Link>
+            {rootCategories.map((category) => (
+              <Link
+                key={category.id}
+                href={`/collection/${category.slug}`}
+                onClick={() => setIsMenuOpen(false)}
+                className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
+              >
+                {category.name}
+              </Link>
+            ))}
+
+            <Link
+              href={storeIntroPath}
+              onClick={() => setIsMenuOpen(false)}
               className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
             >
-              Quần
-            </a>
-            <a
-              href="#"
-              className="text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-primary"
-            >
-              Phụ kiện
-            </a>
-            <a href="#" className="text-sm font-medium text-red-500">
-              Khuyến mãi
-            </a>
-            <button
-              onClick={handleAuthAction}
-              disabled={isLoggingOut}
-              className="w-full bg-primary text-white font-semibold py-2 rounded-lg mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isLoggingOut
-                ? "Đang xuất…"
-                : isAuthenticated
-                  ? "Đăng xuất"
-                  : "Đăng nhập"}
-            </button>
+              Cửa hàng
+            </Link>
+            {isAuthenticated ? (
+              <div className="mt-2 rounded-lg border border-neutral-200 p-3 dark:border-neutral-700">
+                <button
+                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                  aria-label="Mở menu tài khoản"
+                  aria-expanded={isUserMenuOpen}
+                  aria-controls="mobile-user-menu"
+                  className="flex w-full items-center justify-between text-sm font-semibold text-neutral-700 dark:text-neutral-100"
+                >
+                  <span className="truncate">{userLabel}</span>
+                  <ChevronDown
+                    className={`size-4 transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {isUserMenuOpen && (
+                  <div
+                    id="mobile-user-menu"
+                    className="mt-3 flex flex-col gap-2"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleNavigate("/cart");
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    >
+                      Giỏ hàng
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleNavigate("/orders");
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    >
+                      Đơn mua
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleNavigate("/favorites");
+                      }}
+                      className="block w-full rounded-md bg-neutral-100 px-3 py-2 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+                    >
+                      Yêu thích
+                    </button>
+                    <button
+                      onClick={handleAuthAction}
+                      disabled={isLoggingOut}
+                      className="w-full rounded-md bg-red-50 py-2 text-left text-sm font-semibold text-red-500 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-red-950/40"
+                    >
+                      {isLoggingOut ? "Đang xuất…" : "Đăng xuất"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={handleAuthAction}
+                disabled={isLoggingOut}
+                className="w-full bg-primary text-white font-semibold py-2 rounded-lg mt-4 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoggingOut ? "Đang xuất…" : "Đăng nhập"}
+              </button>
+            )}
           </nav>
         </div>
       )}

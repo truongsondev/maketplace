@@ -1,0 +1,202 @@
+import { Sidebar } from "@/components/admin/sidebar";
+import { Header } from "@/components/admin/header";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { productService } from "@/services/api";
+import type { ProductDetail } from "@/types/api";
+import { toast } from "sonner";
+import { Loader2, ArrowLeft } from "lucide-react";
+import {
+  BasicInformationTab,
+  VariantsTab,
+  ImagesTab,
+  InventoryTab,
+} from "@/components/admin/tabs";
+
+type TabType = "basic" | "variants" | "images" | "inventory";
+
+export default function ProductDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState<ProductDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>("basic");
+
+  const fetchProduct = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const response = await productService.getProduct(id);
+      setProduct(response.data);
+    } catch (error) {
+      toast.error("Không tải được sản phẩm");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProduct();
+  }, [id]);
+
+  const visibleVariantCount = useMemo(() => {
+    if (!product) return undefined;
+
+    const variants = product.variants ?? [];
+    if (variants.length !== 1) return variants.length;
+
+    const onlyVariant = variants[0];
+    const nonEmptyAttributes = Object.entries(
+      onlyVariant.attributes ?? {},
+    ).filter(([key, value]) => {
+      if (!key || key.trim() === "") return false;
+      if (value === null || value === undefined) return false;
+      return String(value).trim().length > 0;
+    }).length;
+
+    const isInternalDefaultVariant =
+      nonEmptyAttributes === 0 &&
+      onlyVariant.sku.trim().toUpperCase().endsWith("-DEFAULT");
+
+    return isInternalDefaultVariant ? 0 : variants.length;
+  }, [product]);
+
+  const tabs = [
+    { id: "basic" as TabType, label: "Thông tin cơ bản" },
+    {
+      id: "variants" as TabType,
+      label: "Biến thể",
+      badge: visibleVariantCount,
+    },
+    {
+      id: "images" as TabType,
+      label: "Hình ảnh",
+      badge: product?.images.length,
+    },
+    { id: "inventory" as TabType, label: "Tồn kho" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Không tìm thấy sản phẩm
+          </h2>
+          <button
+            onClick={() => navigate("/products")}
+            className="text-blue-600 hover:text-blue-700"
+          >
+            Quay lại danh sách sản phẩm
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Header />
+        <main className="min-w-0 flex-1 p-8">
+          <div className="max-w-9xl mx-auto">
+            <div className="mb-6">
+              <button
+                onClick={() => navigate("/products")}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Quay lại danh sách sản phẩm
+              </button>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1
+                    className="line-clamp-2 text-3xl font-bold text-gray-900"
+                    title={product.name}
+                  >
+                    {product.name}
+                  </h1>
+                  <p className="text-gray-600 mt-1">
+                    Mã sản phẩm: {product.id}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                      product.status === "active"
+                        ? "bg-green-100 text-green-700"
+                        : product.status === "inactive"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {product.status === "active"
+                      ? "Đang hoạt động"
+                      : product.status === "inactive"
+                        ? "Tạm ngưng"
+                        : product.status === "deleted"
+                          ? "Đã xoá"
+                          : product.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="border-b border-gray-200">
+                <nav className="flex">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                        activeTab === tab.id
+                          ? "border-blue-600 text-blue-600"
+                          : "border-transparent text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      {tab.label}
+                      {tab.badge !== undefined && (
+                        <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                          {tab.badge}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="p-6">
+                {activeTab === "basic" && (
+                  <BasicInformationTab
+                    product={product}
+                    onUpdate={fetchProduct}
+                  />
+                )}
+                {activeTab === "variants" && (
+                  <VariantsTab product={product} onUpdate={fetchProduct} />
+                )}
+                {activeTab === "images" && (
+                  <ImagesTab product={product} onUpdate={fetchProduct} />
+                )}
+                {activeTab === "inventory" && (
+                  <InventoryTab product={product} onUpdate={fetchProduct} />
+                )}
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

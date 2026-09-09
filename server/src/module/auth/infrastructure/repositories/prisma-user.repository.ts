@@ -1,6 +1,5 @@
 import {
   PrismaClient,
-  User as PrismaUser,
   UserStatus as PrismaUserStatus,
 } from '@/generated/prisma/client';
 import { IUserRepository } from '../../applications/ports/output/user.repository';
@@ -10,9 +9,22 @@ import { Email } from '../../entities/value-object/email.vo';
 export class PrismaUserRepository implements IUserRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
+  private readonly userSelect = {
+    id: true,
+    email: true,
+    phone: true,
+    passwordHash: true,
+    emailVerified: true,
+    status: true,
+    lastLogin: true,
+    createdAt: true,
+    updatedAt: true,
+  } as const;
+
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { email },
+      select: this.userSelect,
     });
 
     return user ? this.toDomain(user) : null;
@@ -21,6 +33,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findByPhone(phone: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { phone },
+      select: this.userSelect,
     });
 
     return user ? this.toDomain(user) : null;
@@ -29,6 +42,7 @@ export class PrismaUserRepository implements IUserRepository {
   async findById(id: string): Promise<User | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
+      select: this.userSelect,
     });
 
     return user ? this.toDomain(user) : null;
@@ -42,17 +56,38 @@ export class PrismaUserRepository implements IUserRepository {
       status: user.status as PrismaUserStatus,
     };
 
-    // If user has ID, update; otherwise create
     if (user.id) {
       const updated = await this.prisma.user.update({
         where: { id: user.id },
         data,
+        select: this.userSelect,
       });
       return this.toDomain(updated);
     }
 
-    const created = await this.prisma.user.create({
-      data,
+    const created = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data,
+        select: this.userSelect,
+      });
+
+      const buyerRole = await tx.role.findUnique({
+        where: { code: 'BUYER' },
+      });
+
+      if (!buyerRole) {
+        throw new Error('BUYER role not found in database');
+      }
+
+      // 3. Assign BUYER role to new user
+      await tx.userRole.create({
+        data: {
+          userId: newUser.id,
+          roleId: buyerRole.id,
+        },
+      });
+
+      return newUser;
     });
 
     return this.toDomain(created);
@@ -65,6 +100,13 @@ export class PrismaUserRepository implements IUserRepository {
     return count > 0;
   }
 
+  async updateLastLogin(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLogin: new Date() },
+    });
+  }
+
   async existsByPhone(phone: string): Promise<boolean> {
     const count = await this.prisma.user.count({
       where: { phone },
@@ -75,7 +117,9 @@ export class PrismaUserRepository implements IUserRepository {
   /**
    * Map Prisma User to Domain User
    */
-  private toDomain(prismaUser: PrismaUser): User {
+  private toDomain(
+    prismaUser: NonNullable<Awaited<ReturnType<PrismaUserRepository['findRawById']>>>,
+  ): User {
     return User.fromPersistence({
       id: prismaUser.id,
       email: prismaUser.email ? new Email(prismaUser.email) : undefined,
@@ -84,6 +128,13 @@ export class PrismaUserRepository implements IUserRepository {
       status: prismaUser.status as UserStatus,
       createdAt: prismaUser.createdAt,
       updatedAt: prismaUser.updatedAt,
+    });
+  }
+
+  private async findRawById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: this.userSelect,
     });
   }
 }

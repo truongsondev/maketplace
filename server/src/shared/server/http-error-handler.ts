@@ -1,10 +1,6 @@
 import { Response } from 'express';
 import { ResponseFormatter, ApiErrorResponse } from './api-response';
-import {
-  ErrorCode,
-  ErrorCodeType,
-  getStatusCodeFromErrorCode,
-} from './error-codes';
+import { ErrorCode, ErrorCodeType, getStatusCodeFromErrorCode } from './error-codes';
 import { CustomError } from '../../error-handlling/customError';
 import { BadRequestError } from '../../error-handlling/badRequestError';
 import { ConflicError } from '../../error-handlling/conflicError';
@@ -17,11 +13,7 @@ export interface ApplicationError extends Error {
 
 export class HttpErrorHandler {
   static handle(error: unknown, res: Response, logger?: any): ApiErrorResponse {
-    if (logger) {
-      logger.error('HTTP Error:', error);
-    } else {
-      console.error('HTTP Error:', error);
-    }
+    // Don't log here anymore - let the middleware handle it
 
     let errorCode: ErrorCodeType = ErrorCode.INTERNAL_SERVER_ERROR;
     let message: string = 'Internal server error';
@@ -31,8 +23,13 @@ export class HttpErrorHandler {
     if (error instanceof CustomError) {
       statusCode = error.statusCode;
       message = error.message;
+      if (error.code) {
+        errorCode = error.code as ErrorCodeType;
+      }
 
-      if (error.statusCode === 400) {
+      if (error.code) {
+        // Keep application-specific error code from the thrown CustomError.
+      } else if (error.statusCode === 400) {
         errorCode = ErrorCode.VALIDATION_ERROR;
       } else if (error.statusCode === 401) {
         errorCode = ErrorCode.UNAUTHORIZED;
@@ -42,6 +39,8 @@ export class HttpErrorHandler {
         errorCode = ErrorCode.CONFLICT;
       } else if (error.statusCode === 403) {
         errorCode = ErrorCode.FORBIDDEN;
+      } else if (error.statusCode === 503) {
+        errorCode = ErrorCode.SERVICE_UNAVAILABLE;
       }
     } else if (error instanceof BadRequestError) {
       errorCode = ErrorCode.VALIDATION_ERROR;
@@ -65,17 +64,13 @@ export class HttpErrorHandler {
       typeof (error as ApplicationError).code === 'string'
     ) {
       const appError = error as ApplicationError;
-      errorCode =
-        (appError.code as ErrorCodeType) || ErrorCode.INTERNAL_SERVER_ERROR;
+      errorCode = (appError.code as ErrorCodeType) || ErrorCode.INTERNAL_SERVER_ERROR;
       message = error.message;
       statusCode = getStatusCodeFromErrorCode(errorCode);
     } else if (error instanceof Error) {
       message = error.message;
 
-      if (
-        message.includes('Invalid email') ||
-        message.includes('Invalid phone')
-      ) {
+      if (message.includes('Invalid email') || message.includes('Invalid phone')) {
         errorCode = ErrorCode.VALIDATION_ERROR;
         statusCode = 400;
       } else if (message.includes('not found')) {
@@ -104,15 +99,10 @@ export class HttpErrorHandler {
     return this.handle(error, res, logger);
   }
 
-  static validateRequired(
-    data: Record<string, any>,
-    ...fields: string[]
-  ): void {
+  static validateRequired(data: Record<string, any>, ...fields: string[]): void {
     for (const field of fields) {
       if (!data[field]) {
-        throw new BadRequestError(
-          `${field.charAt(0).toUpperCase() + field.slice(1)} is required`,
-        );
+        throw new BadRequestError(`${field.charAt(0).toUpperCase() + field.slice(1)} is required`);
       }
     }
   }
@@ -126,9 +116,7 @@ export class HttpErrorHandler {
 
   static validatePassword(password: string, minLength: number = 8): void {
     if (password.length < minLength) {
-      throw new BadRequestError(
-        `Password must be at least ${minLength} characters`,
-      );
+      throw new BadRequestError(`Password must be at least ${minLength} characters`);
     }
   }
 }

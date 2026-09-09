@@ -12,4 +12,10 @@ export interface GetProductsQuery {
   color?: string;
   /** Filter theo khoảng giá (format: "min-max" hoặc "min-" hoặc "-max") */
   priceRange?: string;
+  /** Từ khóa tìm kiếm theo tên/slug sản phẩm */
+  search?: string;
+  /** Filter theo mục đích sử dụng (usage_occasions), ví dụ: tap_the_thao */
+  usageOccasion?: string;
+  /** Sort theo format "field:order", ví dụ: "createdAt:desc" */
+  sort?: string;
 }

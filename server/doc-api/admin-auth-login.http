@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:8080
+
+### Admin login - success case
+POST {{baseUrl}}/api/admin/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "123456"
+}
+
+### Admin login - invalid password
+POST {{baseUrl}}/api/admin/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "wrong-password"
+}
+
+### Admin login - invalid input
+POST {{baseUrl}}/api/admin/auth/login
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "123"
+}

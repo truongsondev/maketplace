@@ -1,7 +1,11 @@
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
+}
+
+// Standard JS Prisma Client runtime (required for running standalone Node scripts in containers)
+generator client_js {
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -24,27 +28,58 @@ enum OAuthProvider {
   APPLE
 }
 
-enum Gender {
-  MALE
-  FEMALE
-  OTHER
-}
-
 enum OrderStatus {
   PENDING
   CONFIRMED
   PAID
+  PACKING
+  AWAITING_PICKUP
   SHIPPED
+  DELIVERING
+  DELIVERY_FAILED
+  LOST
+  RETURN_TO_STORE
   DELIVERED
+  COMPLETED
   CANCELLED
   RETURNED
 }
 
+enum PhysicalSaleStatus {
+  COMPLETED
+  CANCELLED
+}
+
+enum VoucherScopeType {
+  ALL_PRODUCTS
+  INCLUDE_CATEGORIES
+  INCLUDE_PRODUCTS
+  MEMBER_TIERS
+}
+
+enum VoucherMinAmountBasis {
+  ELIGIBLE_SUBTOTAL
+  CART_SUBTOTAL
+}
+
 enum PaymentStatus {
   PENDING
+  /// New (spec): payment succeeded
+  PAID
+  /// Legacy (kept for backward compatibility; treat as PAID in code)
   SUCCESS
   FAILED
+  /// New (spec): payment link expired
+  EXPIRED
   REFUNDED
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  PAID
+  FAILED
+  /// New (spec): payment link expired
+  EXPIRED
 }
 
 enum InventoryAction {
@@ -52,6 +87,9 @@ enum InventoryAction {
   EXPORT
   RETURN
   ADJUSTMENT
+  RESERVE
+  RELEASE
+  SALE
 }
 
 enum ActorType {
@@ -61,6 +99,68 @@ enum ActorType {
 }
 
 enum ReturnStatus {
+  RT_REQUESTED
+  RT_APPROVED
+  RT_SHIPPING
+  RT_COMPLETED
+  RT_REJECTED
+}
+
+enum SalesChannel {
+  ONLINE
+  PHYSICAL_STORE
+  INTERNAL
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+  REVERSE
+  ADJUST
+  EXPIRE
+}
+
+enum ReturnFlowStatus {
+  /// Buyer yeu cau tra hang (cho duyet)
+  REQUESTED
+  /// Admin da duyet yeu cau tra hang
+  APPROVED
+  /// GHN dang den lay hang tai dia chi khach
+  PICKING
+  /// Hang dang duoc gui tra ve shop
+  SHIPPING
+  /// Shop da nhan hang tra (ket thuc)
+  COMPLETED
+  /// Yeu cau tra hang bi tu choi (ket thuc)
+  REJECTED
+}
+
+enum ReturnRequestType {
+  EXCHANGE
+  RETURN_REFUND
+}
+
+enum RefundType {
+  CANCEL_REFUND
+  RETURN_REFUND
+  LOST_SHIPMENT_REFUND
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  RETRYING
+}
+
+enum CancelReason {
+  NO_LONGER_NEEDED
+  BUY_OTHER_ITEM
+  FOUND_CHEAPER
+  OTHER
+}
+
+enum CancelRequestStatus {
   REQUESTED
   APPROVED
   REJECTED
@@ -68,8 +168,113 @@ enum ReturnStatus {
 }
 
 enum DiscountType {
-  PERCENTAGE   // Giảm theo %
+  PERCENTAGE // Giảm theo %
   FIXED_AMOUNT // Giảm số tiền cố định
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  SALE_PRICE
+  COMBO_FIXED
+  BUY_X_GET_Y
+}
+
+enum PromotionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum PromotionCampaignType {
+  FLASH_SALE
+  HOLIDAY
+  CUSTOMER_APPRECIATION
+  SEASONAL
+  CUSTOM
+}
+
+enum PromotionScopeType {
+  ALL_PRODUCTS
+  INCLUDE_CATEGORIES
+  INCLUDE_PRODUCTS
+  MEMBER_TIERS
+}
+
+// ============================================================================
+// LONG-TERM CATALOG (ProductType + Attribute System)
+// (Additive: designed to coexist with current Product/ProductVariant JSON attrs)
+// ============================================================================
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum VariantStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AttributeScope {
+  PRODUCT
+  VARIANT
+}
+
+enum AttributeDataType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+  MULTI_SELECT
+}
+
+enum RecommendationEventType {
+  VIEW_PRODUCT
+  ADD_TO_CART
+  REMOVE_FROM_CART
+  PURCHASE
+  SEARCH_QUERY
+  FAVORITE_PRODUCT
+  RECOMMENDATION_IMPRESSION
+  RECOMMENDATION_CLICK
+}
+
+enum RecommendationModelKind {
+  TRENDING
+  TOP_VIEWED
+  TOP_PURCHASED
+  ITEM_SIMILARITY
+  PERSONALIZED
+  HYBRID
+  SESSION_BASED
+}
+
+enum ChatMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ChatSessionStatus {
+  OPEN
+  QUALIFIED
+  CONTACT_CAPTURED
+  ESCALATED
+  CLOSED
+}
+
+enum VirtualTryOnStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELED
+  TIMEOUT
 }
 
 // ============================================================================
@@ -78,32 +283,42 @@ enum DiscountType {
 
 /// Bảng người dùng gốc - lưu thông tin xác thực cốt lõi
 model User {
-  id            String     @id @default(uuid()) @db.VarChar(36)
-  email         String?    @unique @db.VarChar(255)
-  phone         String?    @unique @db.VarChar(20)
-  passwordHash  String?    @map("password_hash") @db.VarChar(255)
-  emailVerified Boolean    @default(false) @map("email_verified")
-  phoneVerified Boolean    @default(false) @map("phone_verified")
-  status        UserStatus @default(ACTIVE)
-  lastLogin     DateTime?  @map("last_login")
+  id                   String     @id @default(uuid()) @db.VarChar(36)
+  email                String?    @unique @db.VarChar(255)
+  phone                String?    @unique @db.VarChar(20)
+  passwordHash         String?    @map("password_hash") @db.VarChar(255)
+  emailVerified        Boolean    @default(false) @map("email_verified")
+  status               UserStatus @default(ACTIVE)
+  lastLogin            DateTime?  @map("last_login")
+  age                  Int?
+  birthday             DateTime?  @db.Date
+  heightCm             Decimal?   @map("height_cm") @db.Decimal(5, 2)
+  weightKg             Decimal?   @map("weight_kg") @db.Decimal(5, 2)
+  bodyProfileUpdatedAt DateTime?  @map("body_profile_updated_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  profile                    UserProfile?
-  addresses                  UserAddress[]
-  refreshTokens              RefreshToken[]
-  oauthAccounts              OAuthAccount[]
-  emailVerificationTokens    EmailVerificationToken[]
-  passwordResetTokens        PasswordResetToken[]
-  userRoles                  UserRole[]
-  cart                       Cart?
-  orders                     Order[]
-  notifications              Notification[]
-  activityLogs               UserActivityLog[]
-  wishlist                   Wishlist[]
-  reviews                    Review[]
+  addresses               UserAddress[]
+  refreshTokens           RefreshToken[]
+  oauthAccounts           OAuthAccount[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  userRoles               UserRole[]
+  cart                    Cart?
+  orders                  Order[]
+  notifications           Notification[]
+  activityLogs            UserActivityLog[]
+  wishlist                Wishlist[]
+  reviews                 Review[]
+  recommendationEvents    RecommendationEvent[]
+  recommendationCaches    RecommendationCache[]
+  userEmbeddings          UserEmbedding[]
+  chatSessions            ChatSession[]
+  virtualTryOnRequests    VirtualTryOnRequest[]
+  loyaltyAccount          LoyaltyAccount?
+  birthdayVoucherGrants   BirthdayVoucherGrant[]
 
   @@map("users")
 }
@@ -124,21 +339,6 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
-}
-
-/// OTP cho xác minh email (đăng ký/đăng nhập)
-model Otp {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  email        String   @unique @db.VarChar(255)
-  otp          String   @db.VarChar(20)
-  passwordHash String?  @map("password_hash") @db.VarChar(255)
-  expiresAt    DateTime @map("expires_at")
-  attempts     Int      @default(0)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("otps")
 }
 
 /// Email verification tokens for registration flow
@@ -210,9 +410,8 @@ model Role {
 
 /// Bảng trung gian - gán vai trò cho user (n-n)
 model UserRole {
-  userId     String   @map("user_id") @db.VarChar(36)
-  roleId     Int      @map("role_id")
-  assignedAt DateTime @default(now()) @map("assigned_at")
+  userId String @map("user_id") @db.VarChar(36)
+  roleId Int    @map("role_id")
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -227,34 +426,20 @@ model UserRole {
 // PROFILE
 // ============================================================================
 
-/// Hồ sơ cá nhân - tách khỏi auth để dễ mở rộng
-model UserProfile {
-  userId    String    @id @map("user_id") @db.VarChar(36)
-  fullName  String?   @map("full_name") @db.VarChar(255)
-  avatarUrl String?   @map("avatar_url") @db.Text
-  gender    Gender?
-  birthday  DateTime? @db.Date
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_profiles")
-}
-
 /// Địa chỉ người dùng - quản lý nhiều địa chỉ giao hàng
 model UserAddress {
-  id          String  @id @default(uuid()) @db.VarChar(36)
-  userId      String  @map("user_id") @db.VarChar(36)
-  recipient   String  @db.VarChar(255)
-  phone       String  @db.VarChar(20)
-  addressLine String  @map("address_line") @db.Text
-  ward        String  @db.VarChar(100)
-  district    String  @db.VarChar(100)
-  city        String  @db.VarChar(100)
-  isDefault   Boolean @default(false) @map("is_default")
+  id            String  @id @default(uuid()) @db.VarChar(36)
+  userId        String  @map("user_id") @db.VarChar(36)
+  recipient     String  @db.VarChar(255)
+  phone         String  @db.VarChar(20)
+  addressLine   String  @map("address_line") @db.Text
+  ward          String  @db.VarChar(100)
+  district      String  @db.VarChar(100)
+  city          String  @db.VarChar(100)
+  isDefault     Boolean @default(false) @map("is_default")
+  ghnProvinceId Int?    @map("ghn_province_id")
+  ghnDistrictId Int?    @map("ghn_district_id")
+  ghnWardCode   String? @map("ghn_ward_code") @db.VarChar(20)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -271,28 +456,50 @@ model UserAddress {
 
 /// Sản phẩm - thông tin cơ bản; tồn kho & giá thực tế nằm ở ProductVariant
 model Product {
-  id          String  @id @default(uuid()) @db.VarChar(36)
-  name        String  @db.VarChar(255)
-  description String? @db.Text
+  id            String        @id @default(uuid()) @db.VarChar(36)
+  /// Loại sản phẩm (áo/quần/phụ kiện...). Nullable để migrate dần.
+  productTypeId String?       @map("product_type_id") @db.VarChar(36)
+  name          String        @db.VarChar(255)
+  description   String?       @db.Text
   /// Giá hiển thị / khởi điểm; giá bán thực tế lấy từ ProductVariant.price
-  basePrice   Decimal @map("base_price") @db.Decimal(10, 2)
-  isDeleted   Boolean @default(false) @map("is_deleted")
+  basePrice     Decimal       @map("base_price") @db.Decimal(10, 2)
+  /// Trạng thái catalog (đi đường dài). Migrate dần, mặc định ACTIVE.
+  status        ProductStatus @default(ACTIVE)
+  isSale        Boolean       @default(false) @map("is_sale")
+  isDeleted     Boolean       @default(false) @map("is_deleted")
+  /// Soft-delete chuẩn (nullable để migrate dần).
+  deletedAt     DateTime?     @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  variants         ProductVariant[]
-  images           ProductImage[]
-  categories       ProductCategory[]
-  tags             ProductTag[]
-  cartItems        CartItem[]
-  orderItems       OrderItem[]
-  wishlist         Wishlist[]
-  reviews          Review[]
-  priceHistory     ProductPriceHistory[]
-  campaignProducts CampaignProduct[]
+  productType          ProductType?               @relation(fields: [productTypeId], references: [id], onDelete: SetNull)
+  variants             ProductVariant[]
+  images               ProductImage[]
+  categories           ProductCategory[]
+  tags                 ProductTag[]
+  cartItems            CartItem[]
+  orderItems           OrderItem[]
+  wishlist             Wishlist[]
+  reviews              Review[]
+  priceHistory         ProductPriceHistory[]
+  recommendationEvents RecommendationEvent[]
+  similaritySources    ProductSimilarity[]        @relation("ProductSimilaritySource")
+  similarityTargets    ProductSimilarity[]        @relation("ProductSimilarityTarget")
+  recommendationCaches RecommendationCache[]
+  productEmbeddings    ProductEmbedding[]
+  virtualTryOnRequests VirtualTryOnRequest[]
+  sizeChartRules       SizeChartRule[]
+  discountIncludes     DiscountIncludedProduct[]
+  discountExcludes     DiscountExcludedProduct[]
+  promotionIncludes    PromotionIncludedProduct[]
 
+  attributeValues ProductAttributeValue[]
+
+  @@index([createdAt])
+  @@index([productTypeId, status])
+  @@index([deletedAt])
   @@fulltext([name])
   @@map("products")
 }
@@ -303,29 +510,42 @@ model Product {
 
 /// Biến thể sản phẩm - quản lý SKU, size/màu, tồn kho
 model ProductVariant {
-  id             String  @id @default(uuid()) @db.VarChar(36)
-  productId      String  @map("product_id") @db.VarChar(36)
-  sku            String  @unique @db.VarChar(100)
+  id             String        @id @default(uuid()) @db.VarChar(36)
+  productId      String        @map("product_id") @db.VarChar(36)
+  sku            String        @unique @db.VarChar(100)
+  /// Canonical key cho tổ hợp biến thể (vd: color=red|size=m). Nullable để backfill dần.
+  optionKey      String?       @map("option_key") @db.VarChar(500)
+  status         VariantStatus @default(ACTIVE)
+  isDefault      Boolean       @default(false) @map("is_default")
   /// Thuộc tính biến thể: {"color": "đỏ", "size": "M"}
-  attributes     Json    @default("{}")
-  price          Decimal @db.Decimal(10, 2)
-  stockAvailable Int     @default(0) @map("stock_available")
-  stockReserved  Int     @default(0) @map("stock_reserved")
-  minStock       Int     @default(5) @map("min_stock")
-  isDeleted      Boolean @default(false) @map("is_deleted")
+  attributes     Json          @default("{}")
+  price          Decimal       @db.Decimal(10, 2)
+  stockAvailable Int           @default(0) @map("stock_available")
+  /// Chuẩn dài hạn: stockOnHand (giữ song song để migrate)
+  stockOnHand    Int           @default(0) @map("stock_on_hand")
+  stockReserved  Int           @default(0) @map("stock_reserved")
+  minStock       Int           @default(5) @map("min_stock")
+  isDeleted      Boolean       @default(false) @map("is_deleted")
+  deletedAt      DateTime?     @map("deleted_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
-  cartItems     CartItem[]
-  orderItems    OrderItem[]
-  images        ProductImage[]
-  inventoryLogs InventoryLog[]
-  priceHistory  ProductPriceHistory[]
+  product           Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  images            ProductImage[]
+  inventoryLogs     InventoryLog[]
+  priceHistory      ProductPriceHistory[]
+  physicalSaleItems PhysicalSaleItem[]
 
+  attributeValues VariantAttributeValue[]
+
+  @@unique([productId, optionKey])
   @@index([productId])
+  @@index([productId, status])
+  @@index([deletedAt])
   @@map("product_variants")
 }
 
@@ -353,25 +573,30 @@ model ProductImage {
 // CATEGORIES & TAGS
 // ============================================================================
 
-/// Danh mục sản phẩm - hỗ trợ cây phân cấp đa cấp
 model Category {
   id          String  @id @default(uuid()) @db.VarChar(36)
   name        String  @db.VarChar(255)
   slug        String  @unique @db.VarChar(255)
   description String? @db.Text
   imageUrl    String? @map("image_url") @db.VarChar(1000)
-  parentId    String? @map("parent_id") @db.VarChar(36)
   sortOrder   Int     @default(0) @map("sort_order")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  parentId String? @map("parent_id") @db.VarChar(36)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   // Relations
-  parent   Category?         @relation("CategoryTree", fields: [parentId], references: [id])
-  children Category[]        @relation("CategoryTree")
-  products ProductCategory[]
+  parent            Category?                   @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children          Category[]                  @relation("CategoryHierarchy")
+  products          ProductCategory[]
+  discountIncludes  DiscountIncludedCategory[]
+  discountExcludes  DiscountExcludedCategory[]
+  promotionIncludes PromotionIncludedCategory[]
 
   @@index([parentId])
+  @@index([deletedAt])
   @@map("categories")
 }
 
@@ -380,11 +605,203 @@ model ProductCategory {
   productId  String @map("product_id") @db.VarChar(36)
   categoryId String @map("category_id") @db.VarChar(36)
 
+  /// Merchandising
+  isPrimary Boolean @default(false) @map("is_primary")
+  sortOrder Int     @default(0) @map("sort_order")
+
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@id([productId, categoryId])
+  @@index([categoryId, isPrimary, sortOrder])
   @@map("product_categories")
+}
+
+// ============================================================================
+// PRODUCT TYPE
+// ============================================================================
+
+model ProductType {
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  code        String    @unique @db.VarChar(100)
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  deletedAt   DateTime? @map("deleted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products       Product[]
+  attributes     ProductTypeAttribute[]
+  sizeChartRules SizeChartRule[]
+
+  @@index([deletedAt])
+  @@map("product_types")
+}
+
+model SizeChartRule {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  productId     String?  @map("product_id") @db.VarChar(36)
+  productTypeId String?  @map("product_type_id") @db.VarChar(36)
+  sizeLabel     String   @map("size_label") @db.VarChar(30)
+  minHeightCm   Decimal? @map("min_height_cm") @db.Decimal(5, 2)
+  maxHeightCm   Decimal? @map("max_height_cm") @db.Decimal(5, 2)
+  minWeightKg   Decimal? @map("min_weight_kg") @db.Decimal(5, 2)
+  maxWeightKg   Decimal? @map("max_weight_kg") @db.Decimal(5, 2)
+  fitPreference String   @default("REGULAR") @map("fit_preference") @db.VarChar(20)
+  priority      Int      @default(0)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productType ProductType? @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+
+  @@index([productId, isActive])
+  @@index([productTypeId, isActive])
+  @@map("size_chart_rules")
+}
+
+// ============================================================================
+// ATTRIBUTE DEFINITIONS
+// ============================================================================
+
+model AttributeDefinition {
+  id       String            @id @default(uuid()) @db.VarChar(36)
+  code     String            @unique @db.VarChar(100)
+  name     String            @db.VarChar(255)
+  scope    AttributeScope
+  dataType AttributeDataType @map("data_type")
+  unit     String?           @db.VarChar(50)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  options       AttributeOption[]
+  typeMaps      ProductTypeAttribute[]
+  productValues ProductAttributeValue[]
+  variantValues VariantAttributeValue[]
+
+  @@index([scope, dataType])
+  @@index([deletedAt])
+  @@map("attribute_definitions")
+}
+
+model AttributeOption {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  attributeId String  @map("attribute_id") @db.VarChar(36)
+  value       String  @db.VarChar(100)
+  label       String  @db.VarChar(255)
+  sortOrder   Int     @default(0) @map("sort_order")
+  swatchHex   String? @map("swatch_hex") @db.VarChar(16)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  productValues           ProductAttributeValue[]
+  productMultiSelectJoins ProductAttributeValueOption[]
+  variantValues           VariantAttributeValue[]
+
+  @@unique([attributeId, value])
+  @@index([attributeId, sortOrder])
+  @@index([deletedAt])
+  @@map("attribute_options")
+}
+
+model ProductTypeAttribute {
+  productTypeId String @map("product_type_id") @db.VarChar(36)
+  attributeId   String @map("attribute_id") @db.VarChar(36)
+
+  isRequired       Boolean @default(false) @map("is_required")
+  isFilterable     Boolean @default(false) @map("is_filterable")
+  isVariantAxis    Boolean @default(false) @map("is_variant_axis")
+  variantAxisOrder Int?    @map("variant_axis_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  productType ProductType         @relation(fields: [productTypeId], references: [id], onDelete: Cascade)
+  attribute   AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@id([productTypeId, attributeId])
+  @@index([productTypeId, isVariantAxis, variantAxisOrder])
+  @@map("product_type_attributes")
+}
+
+// ============================================================================
+// ATTRIBUTE VALUES (PRODUCT)
+// ============================================================================
+
+model ProductAttributeValue {
+  id          String @id @default(uuid()) @db.VarChar(36)
+  productId   String @map("product_id") @db.VarChar(36)
+  attributeId String @map("attribute_id") @db.VarChar(36)
+
+  textValue    String?   @map("text_value") @db.Text
+  numberValue  Decimal?  @map("number_value") @db.Decimal(18, 4)
+  booleanValue Boolean?  @map("boolean_value")
+  dateValue    DateTime? @map("date_value")
+  optionId     String?   @map("option_id") @db.VarChar(36)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  product   Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  option    AttributeOption?    @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  multiSelectOptions ProductAttributeValueOption[]
+
+  @@unique([productId, attributeId])
+  @@index([attributeId, optionId])
+  @@index([deletedAt])
+  @@map("product_attribute_values")
+}
+
+model ProductAttributeValueOption {
+  productAttributeValueId String @map("product_attribute_value_id") @db.VarChar(36)
+  optionId                String @map("option_id") @db.VarChar(36)
+
+  value  ProductAttributeValue @relation(fields: [productAttributeValueId], references: [id], onDelete: Cascade)
+  option AttributeOption       @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@id([productAttributeValueId, optionId])
+  @@index([optionId])
+  @@map("product_attribute_value_options")
+}
+
+// ============================================================================
+// ATTRIBUTE VALUES (VARIANT)
+// ============================================================================
+
+model VariantAttributeValue {
+  id          String @id @default(uuid()) @db.VarChar(36)
+  variantId   String @map("variant_id") @db.VarChar(36)
+  attributeId String @map("attribute_id") @db.VarChar(36)
+
+  textValue    String?   @map("text_value") @db.Text
+  numberValue  Decimal?  @map("number_value") @db.Decimal(18, 4)
+  booleanValue Boolean?  @map("boolean_value")
+  dateValue    DateTime? @map("date_value")
+  optionId     String?   @map("option_id") @db.VarChar(36)
+
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  variant   ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  attribute AttributeDefinition @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  option    AttributeOption?    @relation(fields: [optionId], references: [id], onDelete: SetNull)
+
+  @@unique([variantId, attributeId])
+  @@index([attributeId, optionId])
+  @@index([deletedAt])
+  @@map("variant_attribute_values")
 }
 
 /// Tag - nhãn tự do gắn vào sản phẩm
@@ -454,44 +871,153 @@ model CartItem {
 
 /// Đơn hàng
 model Order {
-  id             String      @id @default(uuid()) @db.VarChar(36)
-  userId         String      @map("user_id") @db.VarChar(36)
-  totalPrice     Decimal     @map("total_price") @db.Decimal(10, 2)
-  status         OrderStatus @default(PENDING)
-  discountId     String?     @map("discount_id") @db.VarChar(36)
-  discountAmount Decimal?    @map("discount_amount") @db.Decimal(10, 2)
+  id                String            @id @default(uuid()) @db.VarChar(36)
+  userId            String            @map("user_id") @db.VarChar(36)
+  subtotalPrice     Decimal           @default(0) @map("subtotal_price") @db.Decimal(10, 2)
+  shippingFee       Decimal           @default(0) @map("shipping_fee") @db.Decimal(10, 2)
+  totalPrice        Decimal           @map("total_price") @db.Decimal(10, 2)
+  status            OrderStatus       @default(PENDING)
+  returnStatus      ReturnFlowStatus? @map("return_status")
+  discountId        String?           @map("discount_id") @db.VarChar(36)
+  discountAmount    Decimal?          @map("discount_amount") @db.Decimal(10, 2)
+  itemsSubtotal     Decimal           @default(0) @map("items_subtotal") @db.Decimal(10, 2)
+  productDiscount   Decimal           @default(0) @map("product_discount") @db.Decimal(10, 2)
+  promotionDiscount Decimal           @default(0) @map("promotion_discount") @db.Decimal(10, 2)
+  voucherDiscount   Decimal           @default(0) @map("voucher_discount") @db.Decimal(10, 2)
+  grandTotal        Decimal           @default(0) @map("grand_total") @db.Decimal(10, 2)
+  carrierName       String?           @map("carrier_name") @db.VarChar(120)
+  trackingCode      String?           @map("tracking_code") @db.VarChar(120)
+  deliveryNote      String?           @map("delivery_note") @db.VarChar(500)
+  shippedAt         DateTime?         @map("shipped_at")
+  deliveredAt       DateTime?         @map("delivered_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  user          User                 @relation(fields: [userId], references: [id])
-  items         OrderItem[]
-  payment       Payment?
-  statusHistory OrderStatusHistory[]
-  invoice       Invoice?
-  discount      Discount?            @relation(fields: [discountId], references: [id])
-  discountUsage DiscountUsage?
+  user               User                  @relation(fields: [userId], references: [id])
+  items              OrderItem[]
+  payment            Payment?
+  paymentTransaction PaymentTransaction?
+  refundTransactions RefundTransaction[]
+  cancelRequest      OrderCancelRequest?
+  statusHistory      OrderStatusHistory[]
+  shippingAddress    OrderShippingAddress?
+  discount           Discount?             @relation(fields: [discountId], references: [id])
+  discountUsage      DiscountUsage?
+  promotionUsages    PromotionUsage[]
+  shipment           OrderShipment?
+  returnShipment     ReturnShipment?
 
   @@index([status])
   @@index([userId])
   @@map("orders")
 }
 
+/// Snapshot bất biến của địa chỉ giao hàng tại thời điểm tạo đơn.
+/// sourceAddressId chỉ dùng để truy vết; không tạo FK để việc xóa địa chỉ hồ sơ
+/// không thể làm thay đổi hoặc xóa dữ liệu lịch sử của đơn hàng.
+model OrderShippingAddress {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  orderId         String   @unique @map("order_id") @db.VarChar(36)
+  recipientName   String   @map("recipient_name") @db.VarChar(255)
+  phone           String   @db.VarChar(20)
+  addressLine     String   @map("address_line") @db.Text
+  ward            String   @db.VarChar(100)
+  district        String   @db.VarChar(100)
+  city            String   @db.VarChar(100)
+  sourceAddressId String?  @map("source_address_id") @db.VarChar(36)
+  snapshotSource  String   @default("CHECKOUT") @map("snapshot_source") @db.VarChar(40)
+  ghnProvinceId   Int?     @map("ghn_province_id")
+  ghnDistrictId   Int?     @map("ghn_district_id")
+  ghnWardCode     String?  @map("ghn_ward_code") @db.VarChar(20)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([sourceAddressId])
+  @@map("order_shipping_addresses")
+}
+
+model OrderShipment {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  orderId           String    @unique @map("order_id") @db.VarChar(36)
+  provider          String    @db.VarChar(30)
+  providerOrderCode String    @unique @map("provider_order_code") @db.VarChar(120)
+  providerStatus    String?   @map("provider_status") @db.VarChar(80)
+  serviceId         Int?      @map("service_id")
+  serviceTypeId     Int?      @map("service_type_id")
+  codAmount         Decimal?  @map("cod_amount") @db.Decimal(12, 2)
+  externalFee       Decimal?  @map("external_fee") @db.Decimal(12, 2)
+  rawCreatePayload  Json?     @map("raw_create_payload")
+  rawCreateResponse Json?     @map("raw_create_response")
+  rawLatestWebhook  Json?     @map("raw_latest_webhook")
+  lastWebhookTime   DateTime? @map("last_webhook_time")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, providerStatus])
+  @@map("order_shipments")
+}
+
+/// Vận đơn GHN độc lập để lấy hàng từ khách sau khi đơn giao đi đã hoàn tất.
+model ReturnShipment {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  orderId           String    @unique @map("order_id") @db.VarChar(36)
+  provider          String    @db.VarChar(30)
+  providerOrderCode String    @unique @map("provider_order_code") @db.VarChar(120)
+  providerStatus    String?   @map("provider_status") @db.VarChar(80)
+  externalFee       Decimal?  @map("external_fee") @db.Decimal(12, 2)
+  rawCreatePayload  Json?     @map("raw_create_payload")
+  rawCreateResponse Json?     @map("raw_create_response")
+  rawLatestStatus   Json?     @map("raw_latest_status")
+  lastSyncedAt      DateTime? @map("last_synced_at")
+  deliveredAt       DateTime? @map("delivered_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([provider, providerStatus])
+  @@map("return_shipments")
+}
+
 /// Chi tiết đơn hàng
 model OrderItem {
-  id        String  @id @default(uuid()) @db.VarChar(36)
-  orderId   String  @map("order_id") @db.VarChar(36)
-  productId String  @map("product_id") @db.VarChar(36)
-  variantId String? @map("variant_id") @db.VarChar(36)
-  quantity  Int
-  price     Decimal @db.Decimal(10, 2)
+  id                      String  @id @default(uuid()) @db.VarChar(36)
+  orderId                 String  @map("order_id") @db.VarChar(36)
+  productId               String  @map("product_id") @db.VarChar(36)
+  variantId               String? @map("variant_id") @db.VarChar(36)
+  quantity                Int
+  price                   Decimal @db.Decimal(10, 2)
+  productName             String  @default("") @map("product_name") @db.VarChar(255)
+  productSlug             String? @map("product_slug") @db.VarChar(255)
+  sku                     String  @default("") @db.VarChar(100)
+  variantName             String? @map("variant_name") @db.VarChar(255)
+  variantAttributes       Json?   @map("variant_attributes")
+  imageUrl                String? @map("image_url") @db.VarChar(1000)
+  originalUnitPrice       Decimal @default(0) @map("original_unit_price") @db.Decimal(10, 2)
+  sellingUnitPrice        Decimal @default(0) @map("selling_unit_price") @db.Decimal(10, 2)
+  lineSubtotal            Decimal @default(0) @map("line_subtotal") @db.Decimal(10, 2)
+  lineDiscountAmount      Decimal @default(0) @map("line_discount_amount") @db.Decimal(10, 2)
+  promotionDiscountAmount Decimal @default(0) @map("promotion_discount_amount") @db.Decimal(10, 2)
+  voucherDiscountAmount   Decimal @default(0) @map("voucher_discount_amount") @db.Decimal(10, 2)
+  lineTotal               Decimal @default(0) @map("line_total") @db.Decimal(10, 2)
+  voucherEligible         Boolean @default(false) @map("voucher_eligible")
+  promotionId             String? @map("promotion_id") @db.VarChar(36)
+  promotionName           String? @map("promotion_name") @db.VarChar(255)
+  promotionSnapshot       Json?   @map("promotion_snapshot")
+  snapshotSource          String  @default("CHECKOUT") @map("snapshot_source") @db.VarChar(40)
 
   // Relations
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product         @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
-  returns Return[]
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  promotion Promotion?      @relation(fields: [promotionId], references: [id])
+  returns   Return[]
+  reviews   Review[]        @relation("OrderItemReviews")
 
   @@unique([orderId, productId, variantId])
   @@index([productId])
@@ -521,18 +1047,43 @@ model Payment {
   @@map("payments")
 }
 
+/// Giao dịch thanh toan online (idempotent qua trang thai PENDING)
+model PaymentTransaction {
+  id               String                   @id @default(uuid()) @db.VarChar(36)
+  orderId          String                   @unique @map("order_id") @db.VarChar(36)
+  orderCode        String                   @unique @map("order_code") @db.VarChar(64)
+  amount           Decimal                  @db.Decimal(10, 2)
+  status           PaymentTransactionStatus @default(PENDING)
+  bankCode         String?                  @map("bank_code") @db.VarChar(20)
+  gatewayReference String?                  @unique @map("vnp_transaction_no") @db.VarChar(64)
+  gatewayCode      String?                  @map("vnp_response_code") @db.VarChar(10)
+  gatewayStatus    String?                  @map("vnp_transaction_status") @db.VarChar(10)
+  paidAt           DateTime?                @map("paid_at")
+  rawPayload       Json?                    @map("raw_payload")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([orderCode])
+  @@map("payment_transactions")
+}
+
 // ============================================================================
 // PRICING HISTORY
 // ============================================================================
 
 /// Lịch sử thay đổi giá - phục vụ analytics và audit
 model ProductPriceHistory {
-  id        String   @id @default(uuid()) @db.VarChar(36)
-  productId String   @map("product_id") @db.VarChar(36)
-  variantId String?  @map("variant_id") @db.VarChar(36)
-  oldPrice  Decimal  @map("old_price") @db.Decimal(10, 2)
-  newPrice  Decimal  @map("new_price") @db.Decimal(10, 2)
-  changedBy String?  @map("changed_by") @db.VarChar(36)
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  productId String  @map("product_id") @db.VarChar(36)
+  variantId String? @map("variant_id") @db.VarChar(36)
+  oldPrice  Decimal @map("old_price") @db.Decimal(10, 2)
+  newPrice  Decimal @map("new_price") @db.Decimal(10, 2)
+  changedBy String? @map("changed_by") @db.VarChar(36)
 
   changedAt DateTime @default(now()) @map("changed_at")
 
@@ -551,92 +1102,95 @@ model ProductPriceHistory {
 
 /// Mã giảm giá
 model Discount {
-  id             String       @id @default(uuid()) @db.VarChar(36)
-  code           String       @unique @db.VarChar(50)
-  description    String?      @db.VarChar(500)
-  type           DiscountType
-  value          Decimal      @db.Decimal(10, 2)
-  minOrderAmount Decimal?     @map("min_order_amount") @db.Decimal(10, 2)
-  maxUsage       Int?         @map("max_usage")
-  usedCount      Int          @default(0) @map("used_count")
-  startAt        DateTime     @map("start_at")
-  endAt          DateTime     @map("end_at")
-  isActive       Boolean      @default(true) @map("is_active")
+  id                 String                @id @default(uuid()) @db.VarChar(36)
+  code               String                @unique @db.VarChar(50)
+  description        String?               @db.VarChar(500)
+  type               DiscountType
+  value              Decimal               @db.Decimal(10, 2)
+  maxDiscount        Decimal?              @map("max_discount") @db.Decimal(10, 2)
+  minOrderAmount     Decimal?              @map("min_order_amount") @db.Decimal(10, 2)
+  maxUsage           Int?                  @map("max_usage")
+  userUsageLimit     Int?                  @map("user_usage_limit")
+  usedCount          Int                   @default(0) @map("used_count")
+  startAt            DateTime              @map("start_at")
+  endAt              DateTime              @map("end_at")
+  isActive           Boolean               @default(true) @map("is_active")
+  isBirthdayVoucher  Boolean               @default(false) @map("is_birthday_voucher")
+  bannerImageUrl     String?               @map("banner_image_url") @db.VarChar(1000)
+  scopeType          VoucherScopeType      @default(ALL_PRODUCTS) @map("scope_type")
+  includeDescendants Boolean               @default(false) @map("include_descendants")
+  minAmountBasis     VoucherMinAmountBasis @default(ELIGIBLE_SUBTOTAL) @map("min_amount_basis")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  usages    DiscountUsage[]
-  campaigns CampaignDiscount[]
-  orders    Order[]
+  usages             DiscountUsage[]
+  birthdayGrants     BirthdayVoucherGrant[]
+  orders             Order[]
+  includedCategories DiscountIncludedCategory[]
+  excludedCategories DiscountExcludedCategory[]
+  includedProducts   DiscountIncludedProduct[]
+  excludedProducts   DiscountExcludedProduct[]
+  memberTiers        DiscountMemberTier[]
 
+  @@index([isActive, startAt, endAt])
   @@map("discounts")
+}
+
+model Banner {
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  title       String  @db.VarChar(255)
+  subtitle    String? @db.VarChar(255)
+  description String? @db.VarChar(500)
+  imageUrl    String  @map("image_url") @db.VarChar(1000)
+  isActive    Boolean @default(false) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, sortOrder])
+  @@map("banners")
 }
 
 /// Lịch sử sử dụng mã giảm giá
 model DiscountUsage {
-  id         String   @id @default(uuid()) @db.VarChar(36)
-  discountId String   @map("discount_id") @db.VarChar(36)
-  userId     String   @map("user_id") @db.VarChar(36)
-  orderId    String   @unique @map("order_id") @db.VarChar(36)
-
-  usedAt DateTime @default(now()) @map("used_at")
+  id         String @id @default(uuid()) @db.VarChar(36)
+  discountId String @map("discount_id") @db.VarChar(36)
+  userId     String @map("user_id") @db.VarChar(36)
+  orderId    String @unique @map("order_id") @db.VarChar(36)
+  usageYear  Int?   @map("usage_year")
 
   // Relations
   discount Discount @relation(fields: [discountId], references: [id])
   order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@unique([discountId, userId, usageYear])
   @@index([discountId])
   @@index([userId])
   @@map("discount_usages")
 }
 
-/// Chiến dịch khuyến mãi - nhóm sản phẩm giảm giá theo thời gian
-model Campaign {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  name        String   @db.VarChar(255)
-  description String?  @db.Text
-  startAt     DateTime @map("start_at")
-  endAt       DateTime @map("end_at")
-  isActive    Boolean  @default(true) @map("is_active")
+model BirthdayVoucherGrant {
+  id             String    @id @default(uuid()) @db.VarChar(36)
+  userId         String    @map("user_id") @db.VarChar(36)
+  discountId     String    @map("discount_id") @db.VarChar(36)
+  year           Int
+  birthdayDate   DateTime  @map("birthday_date") @db.Date
+  email          String    @db.VarChar(255)
+  emailSentAt    DateTime? @map("email_sent_at")
+  idempotencyKey String    @unique @map("idempotency_key") @db.VarChar(120)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  products  CampaignProduct[]
-  discounts CampaignDiscount[]
-
-  @@map("campaigns")
-}
-
-/// Sản phẩm tham gia chiến dịch khuyến mãi
-model CampaignProduct {
-  campaignId      String  @map("campaign_id") @db.VarChar(36)
-  productId       String  @map("product_id") @db.VarChar(36)
-  /// % giảm riêng cho sản phẩm trong chiến dịch (0.00 - 100.00)
-  discountPercent Decimal @map("discount_percent") @db.Decimal(5, 2)
-
-  // Relations
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@id([campaignId, productId])
-  @@map("campaign_products")
-}
-
-/// Mã giảm giá áp dụng trong chiến dịch
-model CampaignDiscount {
-  campaignId String @map("campaign_id") @db.VarChar(36)
-  discountId String @map("discount_id") @db.VarChar(36)
-
-  // Relations
-  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   discount Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
 
-  @@id([campaignId, discountId])
-  @@map("campaign_discounts")
+  @@unique([userId, year])
+  @@index([discountId])
+  @@index([birthdayDate])
+  @@map("birthday_voucher_grants")
 }
 
 // ============================================================================
@@ -645,11 +1199,17 @@ model CampaignDiscount {
 
 /// Lịch sử nhập/xuất kho - theo dõi ở cấpđộ variant
 model InventoryLog {
-  id          String          @id @default(uuid()) @db.VarChar(36)
-  variantId   String          @map("variant_id") @db.VarChar(36)
-  action      InventoryAction
-  quantity    Int
-  referenceId String?         @map("reference_id") @db.VarChar(36)
+  id             String          @id @default(uuid()) @db.VarChar(36)
+  variantId      String          @map("variant_id") @db.VarChar(36)
+  action         InventoryAction
+  quantity       Int
+  referenceId    String?         @map("reference_id") @db.VarChar(36)
+  beforeQuantity Int?            @map("before_quantity")
+  afterQuantity  Int?            @map("after_quantity")
+  referenceType  String?         @map("reference_type") @db.VarChar(50)
+  actorId        String?         @map("actor_id") @db.VarChar(36)
+  reason         String?         @db.VarChar(500)
+  salesChannel   SalesChannel    @default(INTERNAL) @map("sales_channel")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -666,11 +1226,18 @@ model InventoryLog {
 
 /// Yêu cầu trả hàng - liên kết với từng order_item
 model Return {
-  id          String       @id @default(uuid()) @db.VarChar(36)
-  orderItemId String       @map("order_item_id") @db.VarChar(36)
-  quantity    Int
-  reason      String?      @db.Text
-  status      ReturnStatus @default(REQUESTED)
+  id                 String            @id @default(uuid()) @db.VarChar(36)
+  orderItemId        String            @map("order_item_id") @db.VarChar(36)
+  quantity           Int
+  requestType        ReturnRequestType @default(RETURN_REFUND) @map("request_type")
+  requestedVariantId String?           @map("requested_variant_id") @db.VarChar(36)
+  reason             String?           @db.Text
+  reasonCode         String?           @map("reason_code") @db.VarChar(50)
+  evidenceImages     Json?             @map("evidence_images")
+  bankAccountName    String?           @map("bank_account_name") @db.VarChar(255)
+  bankAccountNumber  String?           @map("bank_account_number") @db.VarChar(50)
+  bankName           String?           @map("bank_name") @db.VarChar(120)
+  status             ReturnStatus      @default(RT_REQUESTED)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -678,6 +1245,9 @@ model Return {
   orderItem OrderItem @relation(fields: [orderItemId], references: [id])
 
   @@index([orderItemId])
+  @@index([reasonCode])
+  @@index([requestType])
+  @@index([requestedVariantId])
   @@map("returns")
 }
 
@@ -692,6 +1262,7 @@ model OrderStatusHistory {
   oldStatus OrderStatus? @map("old_status")
   newStatus OrderStatus  @map("new_status")
   changedBy String?      @map("changed_by") @db.VarChar(36)
+  reason    String?      @db.VarChar(500)
 
   changedAt DateTime @default(now()) @map("changed_at")
 
@@ -742,6 +1313,278 @@ model UserActivityLog {
   @@map("user_activity_logs")
 }
 
+model DiscountIncludedCategory {
+  discountId String   @map("discount_id") @db.VarChar(36)
+  categoryId String   @map("category_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([discountId, categoryId])
+  @@index([categoryId])
+  @@map("discount_included_categories")
+}
+
+model DiscountExcludedCategory {
+  discountId String   @map("discount_id") @db.VarChar(36)
+  categoryId String   @map("category_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([discountId, categoryId])
+  @@index([categoryId])
+  @@map("discount_excluded_categories")
+}
+
+model DiscountIncludedProduct {
+  discountId String   @map("discount_id") @db.VarChar(36)
+  productId  String   @map("product_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([discountId, productId])
+  @@index([productId])
+  @@map("discount_included_products")
+}
+
+model DiscountExcludedProduct {
+  discountId String   @map("discount_id") @db.VarChar(36)
+  productId  String   @map("product_id") @db.VarChar(36)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([discountId, productId])
+  @@index([productId])
+  @@map("discount_excluded_products")
+}
+
+model DiscountMemberTier {
+  discountId String   @map("discount_id") @db.VarChar(36)
+  tier       String   @db.VarChar(30)
+  discount   Discount @relation(fields: [discountId], references: [id], onDelete: Cascade)
+
+  @@id([discountId, tier])
+  @@map("discount_member_tiers")
+}
+
+model ChatSession {
+  id                      String            @id @default(uuid()) @db.VarChar(36)
+  userId                  String?           @map("user_id") @db.VarChar(36)
+  status                  ChatSessionStatus @default(OPEN)
+  channel                 String            @default("WEB_WIDGET") @db.VarChar(40)
+  guestToken              String?           @map("guest_token") @db.VarChar(100)
+  leadName                String?           @map("lead_name") @db.VarChar(120)
+  leadPhone               String?           @map("lead_phone") @db.VarChar(20)
+  leadEmail               String?           @map("lead_email") @db.VarChar(255)
+  budgetMin               Decimal?          @map("budget_min") @db.Decimal(10, 2)
+  budgetMax               Decimal?          @map("budget_max") @db.Decimal(10, 2)
+  shopperProfile          Json?             @map("shopper_profile")
+  lastIntent              String?           @map("last_intent") @db.VarChar(80)
+  lastSummary             String?           @map("last_summary") @db.VarChar(500)
+  lastSuggestedProductIds Json?             @map("last_suggested_product_ids")
+  lastMessageAt           DateTime          @default(now()) @map("last_message_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user     User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages ChatMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([leadPhone])
+  @@index([leadEmail])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String          @id @default(uuid()) @db.VarChar(36)
+  sessionId String          @map("session_id") @db.VarChar(36)
+  role      ChatMessageRole
+  content   String          @db.Text
+  metadata  Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
+model RecommendationEvent {
+  id          String                  @id @default(uuid()) @db.VarChar(36)
+  eventType   RecommendationEventType @map("event_type")
+  userId      String?                 @map("user_id") @db.VarChar(36)
+  sessionId   String                  @map("session_id") @db.VarChar(100)
+  productId   String?                 @map("product_id") @db.VarChar(36)
+  orderId     String?                 @map("order_id") @db.VarChar(36)
+  searchQuery String?                 @map("search_query") @db.VarChar(255)
+  dedupeKey   String                  @unique @map("dedupe_key") @db.VarChar(120)
+  source      String?                 @db.VarChar(100)
+  placement   String?                 @db.VarChar(120)
+  metadata    Json?
+  occurredAt  DateTime                @map("occurred_at")
+  processedAt DateTime?               @map("processed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([eventType, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([productId, occurredAt])
+  @@index([sessionId, occurredAt])
+  @@map("recommendation_events")
+}
+
+model ProductSimilarity {
+  productId        String  @map("product_id") @db.VarChar(36)
+  relatedProductId String  @map("related_product_id") @db.VarChar(36)
+  algorithm        String  @db.VarChar(50)
+  score            Decimal @db.Decimal(8, 4)
+  rank             Int     @default(0)
+  metadata         Json?
+
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product        Product @relation("ProductSimilaritySource", fields: [productId], references: [id], onDelete: Cascade)
+  relatedProduct Product @relation("ProductSimilarityTarget", fields: [relatedProductId], references: [id], onDelete: Cascade)
+
+  @@id([productId, relatedProductId, algorithm])
+  @@index([relatedProductId, algorithm, score])
+  @@index([algorithm, score])
+  @@map("product_similarities")
+}
+
+model RecommendationCache {
+  id        String                  @id @default(uuid()) @db.VarChar(36)
+  cacheKey  String                  @unique @map("cache_key") @db.VarChar(255)
+  modelKind RecommendationModelKind @map("model_kind")
+  userId    String?                 @map("user_id") @db.VarChar(36)
+  productId String?                 @map("product_id") @db.VarChar(36)
+  sessionId String?                 @map("session_id") @db.VarChar(100)
+  itemsJson Json                    @map("items_json")
+  metadata  Json?
+  expiresAt DateTime                @map("expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([modelKind, expiresAt])
+  @@index([userId, modelKind])
+  @@index([productId, modelKind])
+  @@map("recommendation_caches")
+}
+
+model ProductEmbedding {
+  productId     String  @id @map("product_id") @db.VarChar(36)
+  embedding     Json
+  embeddingText String? @map("embedding_text") @db.Text
+  modelVersion  String  @map("model_version") @db.VarChar(80)
+  dimensions    Int
+  metadata      Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_embeddings")
+}
+
+model UserEmbedding {
+  userId       String    @id @map("user_id") @db.VarChar(36)
+  embedding    Json
+  modelVersion String    @map("model_version") @db.VarChar(80)
+  dimensions   Int
+  lastEventAt  DateTime? @map("last_event_at")
+  metadata     Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_embeddings")
+}
+
+model RecommendationExperiment {
+  id          String    @id @default(uuid()) @db.VarChar(36)
+  key         String    @unique @db.VarChar(80)
+  name        String    @db.VarChar(255)
+  description String?   @db.VarChar(500)
+  status      String    @db.VarChar(40)
+  traffic     Int       @default(100)
+  variants    Json
+  metadata    Json?
+  startAt     DateTime? @map("start_at")
+  endAt       DateTime? @map("end_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status, startAt, endAt])
+  @@map("recommendation_experiments")
+}
+
+model RecommendationMetricSnapshot {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  metricDate  DateTime @map("metric_date")
+  metricName  String   @map("metric_name") @db.VarChar(120)
+  metricValue Decimal  @map("metric_value") @db.Decimal(14, 4)
+  dimensions  Json?
+  metadata    Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([metricDate, metricName])
+  @@map("recommendation_metric_snapshots")
+}
+
+model VirtualTryOnRequest {
+  id               String             @id @default(uuid()) @db.VarChar(36)
+  userId           String             @map("user_id") @db.VarChar(36)
+  productId        String             @map("product_id") @db.VarChar(36)
+  productImageUrl  String             @map("product_image_url") @db.VarChar(1000)
+  humanImageUrl    String             @map("human_image_url") @db.VarChar(1000)
+  outputImageUrl   String?            @map("output_image_url") @db.VarChar(1000)
+  outputPublicId   String?            @map("output_public_id") @db.VarChar(255)
+  provider         String             @default("replicate") @db.VarChar(80)
+  modelName        String             @default("cuuupid/idm-vton") @map("model_name") @db.VarChar(160)
+  providerJobId    String?            @map("provider_job_id") @db.VarChar(160)
+  status           VirtualTryOnStatus @default(PENDING)
+  category         String             @db.VarChar(40)
+  garmentDes       String             @map("garment_des") @db.VarChar(500)
+  crop             Boolean            @default(false)
+  forceDc          Boolean            @default(false) @map("force_dc")
+  maskOnly         Boolean            @default(false) @map("mask_only")
+  steps            Int                @default(30)
+  seed             Int?
+  latencyMs        Int?               @map("latency_ms")
+  estimatedCostUsd Decimal?           @map("estimated_cost_usd") @db.Decimal(10, 4)
+  errorCode        String?            @map("error_code") @db.VarChar(80)
+  errorMessage     String?            @map("error_message") @db.VarChar(500)
+  startedAt        DateTime?          @map("started_at")
+  completedAt      DateTime?          @map("completed_at")
+  deletedAt        DateTime?          @map("deleted_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([productId])
+  @@index([status])
+  @@index([providerJobId])
+  @@map("virtual_try_on_requests")
+}
+
 // ============================================================================
 // WISHLIST
 // ============================================================================
@@ -769,40 +1612,41 @@ model Wishlist {
 
 /// Đánh giá sản phẩm - mỗi user chỉ đánh giá 1 lần/sản phẩm
 model Review {
-  id        String  @id @default(uuid()) @db.VarChar(36)
-  userId    String  @map("user_id") @db.VarChar(36)
-  productId String  @map("product_id") @db.VarChar(36)
-  rating    Int // 1-5
-  comment   String? @db.Text
+  id          String  @id @default(uuid()) @db.VarChar(36)
+  userId      String  @map("user_id") @db.VarChar(36)
+  productId   String  @map("product_id") @db.VarChar(36)
+  orderItemId String? @map("order_item_id") @db.VarChar(36)
+  rating      Int // 1-5
+  comment     String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  user    User    @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+  product   Product       @relation(fields: [productId], references: [id])
+  orderItem OrderItem?    @relation("OrderItemReviews", fields: [orderItemId], references: [id], onDelete: Cascade)
+  images    ReviewImage[]
 
-  @@unique([userId, productId])
+  @@unique([userId, orderItemId])
   @@index([productId])
+  @@index([orderItemId])
   @@map("reviews")
 }
 
-// ============================================================================
-// INVOICES
-// ============================================================================
+model ReviewImage {
+  id        String  @id @default(uuid()) @db.VarChar(36)
+  reviewId  String  @map("review_id") @db.VarChar(36)
+  url       String  @db.VarChar(1000)
+  publicId  String? @map("public_id") @db.VarChar(255)
+  sortOrder Int     @default(0) @map("sort_order")
 
-/// Hóa đơn - 1:1 với đơn hàng
-model Invoice {
-  id            String  @id @default(uuid()) @db.VarChar(36)
-  orderId       String  @unique @map("order_id") @db.VarChar(36)
-  invoiceNumber String  @unique @map("invoice_number") @db.VarChar(50)
-  totalAmount   Decimal @map("total_amount") @db.Decimal(10, 2)
-
-  issuedAt DateTime @default(now()) @map("issued_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  order Order @relation(fields: [orderId], references: [id])
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
-  @@map("invoices")
+  @@index([reviewId])
+  @@map("review_images")
 }
 
 // ============================================================================
@@ -824,4 +1668,236 @@ model AuditLog {
 
   @@index([actorId])
   @@map("audit_logs")
+}
+
+model RefundTransaction {
+  id               String       @id @default(uuid()) @db.VarChar(36)
+  orderId          String       @map("order_id") @db.VarChar(36)
+  type             RefundType
+  amount           Decimal      @db.Decimal(10, 2)
+  currency         String       @default("VND") @db.VarChar(10)
+  status           RefundStatus @default(PENDING)
+  provider         String?      @db.VarChar(50)
+  providerRefundId String?      @unique @map("provider_refund_id") @db.VarChar(100)
+  reason           String?      @db.Text
+  initiatedBy      ActorType    @default(SYSTEM) @map("initiated_by")
+  idempotencyKey   String       @unique @map("idempotency_key") @db.VarChar(120)
+  failureReason    String?      @map("failure_reason") @db.VarChar(500)
+  retryCount       Int          @default(0) @map("retry_count")
+  requestedAt      DateTime     @default(now()) @map("requested_at")
+  processedAt      DateTime?    @map("processed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, type])
+  @@index([orderId])
+  @@index([status])
+  @@index([type])
+  @@map("refund_transactions")
+}
+
+model OrderCancelRequest {
+  id                String              @id @default(uuid()) @db.VarChar(36)
+  orderId           String              @unique @map("order_id") @db.VarChar(36)
+  reasonCode        CancelReason        @map("reason_code")
+  reasonText        String?             @map("reason_text") @db.VarChar(500)
+  status            CancelRequestStatus @default(REQUESTED)
+  requestedByUserId String              @map("requested_by_user_id") @db.VarChar(36)
+  approvedByAdminId String?             @map("approved_by_admin_id") @db.VarChar(36)
+  rejectedByAdminId String?             @map("rejected_by_admin_id") @db.VarChar(36)
+  approvedAt        DateTime?           @map("approved_at")
+  rejectedAt        DateTime?           @map("rejected_at")
+  completedAt       DateTime?           @map("completed_at")
+  rejectionReason   String?             @map("rejection_reason") @db.VarChar(500)
+
+  bankAccountName   String @map("bank_account_name") @db.VarChar(255)
+  bankAccountNumber String @map("bank_account_number") @db.VarChar(50)
+  bankName          String @map("bank_name") @db.VarChar(120)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([requestedByUserId])
+  @@map("order_cancel_requests")
+}
+
+model LoyaltyAccount {
+  id        String   @id @default(uuid()) @db.VarChar(36)
+  userId    String   @unique @map("user_id") @db.VarChar(36)
+  balance   Int      @default(0)
+  tier      String   @default("MEMBER") @db.VarChar(30)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions LoyaltyTransaction[]
+
+  @@map("loyalty_accounts")
+}
+
+model LoyaltyTransaction {
+  id                  String                 @id @default(uuid()) @db.VarChar(36)
+  accountId           String                 @map("account_id") @db.VarChar(36)
+  type                LoyaltyTransactionType
+  points              Int
+  balanceAfter        Int                    @map("balance_after")
+  referenceType       String?                @map("reference_type") @db.VarChar(50)
+  referenceId         String?                @map("reference_id") @db.VarChar(36)
+  idempotencyKey      String                 @unique @map("idempotency_key") @db.VarChar(120)
+  description         String?                @db.VarChar(255)
+  expiresAt           DateTime?              @map("expires_at")
+  expiredAt           DateTime?              @map("expired_at")
+  sourcePoints        Int?                   @map("source_points")
+  sourceTransactionId String?                @map("source_transaction_id") @db.VarChar(36)
+  createdAt           DateTime               @default(now()) @map("created_at")
+
+  account LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt])
+  @@index([expiresAt, expiredAt])
+  @@index([referenceType, referenceId])
+  @@map("loyalty_transactions")
+}
+
+model LoyaltyConfig {
+  id                Int      @id @default(1)
+  spendPerPoint     Int      @default(10000) @map("spend_per_point")
+  pointValidityDays Int      @default(365) @map("point_validity_days")
+  silverMinPoints   Int      @default(1000) @map("silver_min_points")
+  goldMinPoints     Int      @default(5000) @map("gold_min_points")
+  isActive          Boolean  @default(true) @map("is_active")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("loyalty_config")
+}
+
+model Promotion {
+  id                   String                @id @default(uuid()) @db.VarChar(36)
+  name                 String                @db.VarChar(255)
+  slug                 String                @unique @db.VarChar(255)
+  title                String                @db.VarChar(255)
+  subtitle             String?               @db.VarChar(255)
+  description          String?               @db.Text
+  bannerImageUrl       String?               @map("banner_image_url") @db.VarChar(1000)
+  mobileBannerImageUrl String?               @map("mobile_banner_image_url") @db.VarChar(1000)
+  campaignType         PromotionCampaignType @default(CUSTOM) @map("campaign_type")
+  type                 PromotionType
+  status               PromotionStatus       @default(DRAFT)
+  scopeType            PromotionScopeType    @default(ALL_PRODUCTS) @map("scope_type")
+  includeDescendants   Boolean               @default(false) @map("include_descendants")
+  value                Decimal               @db.Decimal(10, 2)
+  maxDiscount          Decimal?              @map("max_discount") @db.Decimal(10, 2)
+  priority             Int                   @default(0)
+  displayPriority      Int                   @default(0) @map("display_priority")
+  isFeatured           Boolean               @default(false) @map("is_featured")
+  ctaLabel             String?               @map("cta_label") @db.VarChar(100)
+  ctaUrl               String?               @map("cta_url") @db.VarChar(1000)
+  memberTiers          Json?                 @map("member_tiers")
+  usageLimit           Int?                  @map("usage_limit")
+  usedCount            Int                   @default(0) @map("used_count")
+  stackableWithVoucher Boolean               @default(true) @map("stackable_with_voucher")
+  startAt              DateTime              @map("start_at")
+  endAt                DateTime              @map("end_at")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+
+  includedCategories PromotionIncludedCategory[]
+  includedProducts   PromotionIncludedProduct[]
+  orderItems         OrderItem[]
+  usages             PromotionUsage[]
+
+  @@index([status, startAt, endAt])
+  @@index([priority])
+  @@index([isFeatured, displayPriority])
+  @@map("promotions")
+}
+
+model PromotionIncludedCategory {
+  promotionId String @map("promotion_id") @db.VarChar(36)
+  categoryId  String @map("category_id") @db.VarChar(36)
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, categoryId])
+  @@index([categoryId])
+  @@map("promotion_included_categories")
+}
+
+model PromotionIncludedProduct {
+  promotionId String @map("promotion_id") @db.VarChar(36)
+  productId   String @map("product_id") @db.VarChar(36)
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, productId])
+  @@index([productId])
+  @@map("promotion_included_products")
+}
+
+model PromotionUsage {
+  id             String   @id @default(uuid()) @db.VarChar(36)
+  promotionId    String   @map("promotion_id") @db.VarChar(36)
+  orderId        String   @map("order_id") @db.VarChar(36)
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(10, 2)
+  idempotencyKey String   @unique @map("idempotency_key") @db.VarChar(120)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, orderId])
+  @@index([orderId])
+  @@map("promotion_usages")
+}
+
+model PhysicalSale {
+  id             String             @id @default(uuid()) @db.VarChar(36)
+  cashierId      String             @map("cashier_id") @db.VarChar(36)
+  paymentMethod  String             @map("payment_method") @db.VarChar(30)
+  totalAmount    Decimal            @map("total_amount") @db.Decimal(10, 2)
+  code           String             @unique @db.VarChar(40)
+  idempotencyKey String             @unique @map("idempotency_key") @db.VarChar(120)
+  status         PhysicalSaleStatus @default(COMPLETED)
+  customerId     String?            @map("customer_id") @db.VarChar(36)
+  customerName   String?            @map("customer_name") @db.VarChar(255)
+  customerPhone  String?            @map("customer_phone") @db.VarChar(20)
+  paidAt         DateTime           @default(now()) @map("paid_at")
+  cancelledAt    DateTime?          @map("cancelled_at")
+  cancelledBy    String?            @map("cancelled_by") @db.VarChar(36)
+  cancelReason   String?            @map("cancel_reason") @db.VarChar(500)
+  note           String?            @db.VarChar(500)
+  createdAt      DateTime           @default(now()) @map("created_at")
+  items          PhysicalSaleItem[]
+
+  @@index([createdAt])
+  @@index([cashierId])
+  @@index([customerPhone])
+  @@map("physical_sales")
+}
+
+model PhysicalSaleItem {
+  id                String         @id @default(uuid()) @db.VarChar(36)
+  saleId            String         @map("sale_id") @db.VarChar(36)
+  variantId         String         @map("variant_id") @db.VarChar(36)
+  quantity          Int
+  unitPrice         Decimal        @map("unit_price") @db.Decimal(10, 2)
+  productName       String         @map("product_name") @db.VarChar(255)
+  sku               String         @db.VarChar(100)
+  variantAttributes Json?          @map("variant_attributes")
+  imageUrl          String?        @map("image_url") @db.VarChar(1000)
+  lineTotal         Decimal        @map("line_total") @db.Decimal(10, 2)
+  sale              PhysicalSale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  variant           ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([saleId])
+  @@index([variantId])
+  @@map("physical_sale_items")
 }

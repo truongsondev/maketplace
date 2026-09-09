@@ -4,3 +4,4 @@ export * from './login.result';
 export * from './logout.result';
 export * from './forgot-password.result';
 export * from './reset-password.result';
+export * from './refresh-token.result';

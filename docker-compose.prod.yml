@@ -1,0 +1,346 @@
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: prod-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - user-client
+      - admin-client
+      - backend
+    networks:
+      - prod-network
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: prod-mysql
+    restart: always
+    ports:
+      - "127.0.0.1:3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-app_db}
+    volumes:
+      - mysql_prod_data:/var/lib/mysql
+    networks:
+      - prod-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${DB_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --max_connections=1000
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: prod-redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - prod-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: prod-rabbitmq
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_prod_data:/var/lib/rabbitmq
+    networks:
+      - prod-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  vector-db:
+    image: pgvector/pgvector:pg16
+    container_name: prod-vector-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${VECTOR_DB_NAME:-recommendation}
+      POSTGRES_USER: ${VECTOR_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${VECTOR_DB_PASSWORD:-postgres}
+    volumes:
+      - vector_prod_data:/var/lib/postgresql/data
+    networks:
+      - prod-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${VECTOR_DB_USER:-postgres} -d ${VECTOR_DB_NAME:-recommendation}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    image: maketplace-server:prod
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: prod-backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@mysql:3306/${DB_NAME:-app_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      RABBITMQ_PAYMENT_EXCHANGE: shop_events
+      RABBITMQ_PAYMENT_SUCCESS_ROUTING_KEY: order.payment.success
+      RABBITMQ_ADMIN_NOTIFICATION_QUEUE: admin_notification_q
+      RABBITMQ_ADMIN_NOTIFICATION_DLX: admin_notification_dlx
+      RABBITMQ_ADMIN_NOTIFICATION_DLQ: admin_notification_dlq
+      RABBITMQ_RECOMMENDATION_EXCHANGE: recommendation.events
+      RABBITMQ_RECOMMENDATION_ROUTING_KEY: tracking.ingest
+      RABBITMQ_RECOMMENDATION_QUEUE: recommendation_tracking_q
+      RABBITMQ_RECOMMENDATION_RETRY_QUEUE: recommendation_tracking_retry_q
+      RABBITMQ_RECOMMENDATION_DLQ: recommendation_tracking_dlq
+      RABBITMQ_RECOMMENDATION_DLX: recommendation.events.dlx
+      AI_SERVICE_URL: http://ai-service:8000
+      RECOMMENDATION_REFRESH_INTERVAL_MS: ${RECOMMENDATION_REFRESH_INTERVAL_MS:-900000}
+      VIRTUAL_TRY_ON_COST_PER_RUN_USD: ${VIRTUAL_TRY_ON_COST_PER_RUN_USD:-0.025}
+      VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR: ${VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR:-10}
+      VIRTUAL_TRY_ON_TIMEOUT_MS: ${VIRTUAL_TRY_ON_TIMEOUT_MS:-120000}
+      ENABLE_FILE_LOGGING: "true"
+    env_file:
+      - ./server/.env.prod
+    volumes:
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      vector-db:
+        condition: service_healthy
+    networks:
+      - prod-network
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && node dist/server.js"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PayOS Reconcile Worker (periodic safety-net)
+  payos-reconcile-worker:
+    image: maketplace-server:prod
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: prod-payos-reconcile-worker
+    restart: always
+    environment:
+      NODE_ENV: production
+      PAYOS_RECONCILE_INTERVAL_MS: 60000
+      PAYOS_RECONCILE_BATCH_SIZE: 50
+      PAYOS_RECONCILE_CONCURRENCY: 6
+      PAYOS_RECONCILE_MIN_AGE_SECONDS: 30
+      PAYOS_PENDING_EXPIRE_MINUTES: ${PAYOS_PENDING_EXPIRE_MINUTES:-30}
+      PAYOS_RECONCILE_LOCK_KEY: locks:payos-reconcile
+      PAYOS_RECONCILE_LOCK_TTL_MS: 55000
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@mysql:3306/${DB_NAME:-app_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@rabbitmq:5672
+      ENABLE_FILE_LOGGING: "true"
+      AI_SERVICE_URL: http://ai-service:8000
+    env_file:
+      - ./server/.env.prod
+    volumes:
+      - backend_logs:/app/logs
+    depends_on:
+      backend:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      vector-db:
+        condition: service_healthy
+    networks:
+      - prod-network
+    command: sh -c "npx prisma generate && node dist/payos-reconcile-worker.js"
+
+  birthday-voucher-worker:
+    image: maketplace-server:prod
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: prod-birthday-voucher-worker
+    restart: always
+    environment:
+      NODE_ENV: production
+      BIRTHDAY_VOUCHER_INTERVAL_MS: ${BIRTHDAY_VOUCHER_INTERVAL_MS:-3600000}
+      BIRTHDAY_VOUCHER_BATCH_SIZE: ${BIRTHDAY_VOUCHER_BATCH_SIZE:-200}
+      BIRTHDAY_VOUCHER_LOCK_KEY: locks:birthday-voucher
+      BIRTHDAY_VOUCHER_LOCK_TTL_MS: 600000
+      DATABASE_URL: mysql://root:${DB_PASSWORD}@mysql:3306/${DB_NAME:-app_db}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      ENABLE_FILE_LOGGING: "true"
+    env_file:
+      - ./server/.env.prod
+    volumes:
+      - backend_logs:/app/logs
+    depends_on:
+      backend:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - prod-network
+    command: sh -c "npx prisma generate && node dist/birthday-voucher-worker.js"
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: prod-ai-service
+    restart: always
+    environment:
+      VECTOR_DATABASE_URL: postgresql://${VECTOR_DB_USER:-postgres}:${VECTOR_DB_PASSWORD:-postgres}@vector-db:5432/${VECTOR_DB_NAME:-recommendation}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-384}
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      REPLICATE_IDM_VTON_MODEL: ${REPLICATE_IDM_VTON_MODEL:-cuuupid/idm-vton}
+    depends_on:
+      vector-db:
+        condition: service_healthy
+    networks:
+      - prod-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prod-prometheus
+    restart: always
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      backend:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    networks:
+      - prod-network
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: prod-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_prod_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - prod-network
+
+  # Admin Frontend (React - client-seller)
+  admin-client:
+    build:
+      context: ./client-seller
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    container_name: prod-admin-client
+    restart: always
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - prod-network
+
+  # User Frontend (Next.js - client-next)
+  user-client:
+    build:
+      context: ./client-next
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    container_name: prod-user-client
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - prod-network
+networks:
+  prod-network:
+    driver: bridge
+
+volumes:
+  mysql_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+  rabbitmq_prod_data:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_uploads:
+    driver: local
+  vector_prod_data:
+    driver: local
+  grafana_prod_data:
+    driver: local

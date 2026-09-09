@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from "@/lib/api-base-url";
+
 const SOCIAL_PROVIDERS = [
   {
     id: "google",
@@ -37,14 +39,46 @@ const SOCIAL_PROVIDERS = [
   },
 ] as const;
 
-export function SocialLoginButtons() {
+type SocialLoginButtonsProps = {
+  redirectAfterLogin?: string;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+function buildOAuthUrl(params: {
+  provider: string;
+  redirectAfterLogin?: string;
+}) {
+  const url = new URL(`/api/auth/${params.provider}`, API_BASE_URL);
+  if (params.redirectAfterLogin) {
+    url.searchParams.set("redirect", params.redirectAfterLogin);
+  }
+  return url.toString();
+}
+
+export function SocialLoginButtons({
+  redirectAfterLogin,
+}: SocialLoginButtonsProps) {
+  const handleClick = (providerId: string) => {
+    if (providerId === "google") {
+      window.location.assign(
+        buildOAuthUrl({
+          provider: "google",
+          redirectAfterLogin,
+        }),
+      );
+      return;
+    }
+  };
+
   return (
     <div className="grid grid-cols-2 gap-4">
       {SOCIAL_PROVIDERS.map(({ id, label, icon }) => (
         <button
           key={id}
           type="button"
-          className="flex items-center justify-center gap-2 bg-background-light hover:bg-gray-200 border border-transparent hover:border-border-color text-text-main font-medium py-2.5 px-4 rounded-lg transition-all"
+          onClick={() => handleClick(id)}
+          className="flex items-center justify-center gap-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-200 hover:border-neutral-300 text-neutral-900 font-medium py-2.5 px-4 rounded-sm transition-colors dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-700"
         >
           {icon}
           <span>{label}</span>

@@ -42,9 +42,7 @@ export class User {
 
   static registerWithOAuth(email?: Email): User {
     if (!email) {
-      throw new Error(
-        'Either email or phone is required for OAuth registration',
-      );
+      throw new Error('Either email or phone is required for OAuth registration');
     }
 
     return new User({

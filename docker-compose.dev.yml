@@ -1,0 +1,330 @@
+version: "3.8"
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: dev-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: app_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+    networks:
+      - dev-network
+    healthcheck:
+      test:
+        ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: dev-redis
+    restart: unless-stopped
+    command: redis-server --requirepass root
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "root", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: dev-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_dev_data:/var/lib/rabbitmq
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  vector-db:
+    image: pgvector/pgvector:pg16
+    container_name: dev-vector-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: recommendation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - vector_dev_data:/var/lib/postgresql/data
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recommendation"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # Backend API
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: dev-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "500"
+      TSC_WATCHFILE: UsePolling
+      DATABASE_URL: mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: app_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: root
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_PAYMENT_EXCHANGE: shop_events
+      RABBITMQ_PAYMENT_SUCCESS_ROUTING_KEY: order.payment.success
+      RABBITMQ_ADMIN_NOTIFICATION_QUEUE: admin_notification_q
+      RABBITMQ_ADMIN_NOTIFICATION_DLX: admin_notification_dlx
+      RABBITMQ_ADMIN_NOTIFICATION_DLQ: admin_notification_dlq
+      RABBITMQ_RECOMMENDATION_EXCHANGE: recommendation.events
+      RABBITMQ_RECOMMENDATION_ROUTING_KEY: tracking.ingest
+      RABBITMQ_RECOMMENDATION_QUEUE: recommendation_tracking_q
+      RABBITMQ_RECOMMENDATION_RETRY_QUEUE: recommendation_tracking_retry_q
+      RABBITMQ_RECOMMENDATION_DLQ: recommendation_tracking_dlq
+      RABBITMQ_RECOMMENDATION_DLX: recommendation.events.dlx
+      AI_SERVICE_URL: http://ai-service:8000
+      RECOMMENDATION_REFRESH_INTERVAL_MS: 900000
+      VIRTUAL_TRY_ON_COST_PER_RUN_USD: ${VIRTUAL_TRY_ON_COST_PER_RUN_USD:-0.025}
+      VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR: ${VIRTUAL_TRY_ON_RATE_LIMIT_PER_HOUR:-10}
+      VIRTUAL_TRY_ON_TIMEOUT_MS: ${VIRTUAL_TRY_ON_TIMEOUT_MS:-120000}
+    env_file:
+      - ./server/.env.development
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/generated
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      vector-db:
+        condition: service_healthy
+    networks:
+      - dev-network
+    command: sh -c "npm ci && npx prisma generate && npx prisma migrate deploy && npm run dev"
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: dev-ai-service
+    restart: unless-stopped
+    environment:
+      VECTOR_DATABASE_URL: postgresql://postgres:postgres@vector-db:5432/recommendation
+      REPLICATE_API_TOKEN: ${REPLICATE_API_TOKEN:-}
+      REPLICATE_IDM_VTON_MODEL: ${REPLICATE_IDM_VTON_MODEL:-cuuupid/idm-vton}
+    ports:
+      - "8000:8000"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    depends_on:
+      vector-db:
+        condition: service_healthy
+    networks:
+      - dev-network
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: dev-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      backend:
+        condition: service_started
+      ai-service:
+        condition: service_started
+    networks:
+      - dev-network
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    container_name: dev-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_dev_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - dev-network
+
+  # PayOS Reconcile Worker (periodic safety-net)
+  payos-reconcile-worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: dev-payos-reconcile-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PAYOS_RECONCILE_INTERVAL_MS: 60000
+      PAYOS_RECONCILE_BATCH_SIZE: 50
+      PAYOS_RECONCILE_CONCURRENCY: 6
+      PAYOS_RECONCILE_MIN_AGE_SECONDS: 30
+      PAYOS_PENDING_EXPIRE_MINUTES: ${PAYOS_PENDING_EXPIRE_MINUTES:-30}
+      PAYOS_RECONCILE_LOCK_KEY: locks:payos-reconcile
+      PAYOS_RECONCILE_LOCK_TTL_MS: 55000
+      DATABASE_URL: mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: app_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: root
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+    env_file:
+      - ./server/.env.development
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/generated
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - dev-network
+    command: sh -c "npm ci && npx prisma generate && npm run payos:worker:dev"
+
+  birthday-voucher-worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    container_name: dev-birthday-voucher-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      BIRTHDAY_VOUCHER_INTERVAL_MS: ${BIRTHDAY_VOUCHER_INTERVAL_MS:-3600000}
+      BIRTHDAY_VOUCHER_BATCH_SIZE: ${BIRTHDAY_VOUCHER_BATCH_SIZE:-200}
+      BIRTHDAY_VOUCHER_LOCK_KEY: locks:birthday-voucher
+      BIRTHDAY_VOUCHER_LOCK_TTL_MS: 600000
+      DATABASE_URL: mysql://root:root@mysql:3306/app_db?allowPublicKeyRetrieval=true
+      DATABASE_HOST: mysql
+      DATABASE_PORT: 3306
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: app_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: root
+    env_file:
+      - ./server/.env.development
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/generated
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dev-network
+    command: sh -c "npm ci && npx prisma generate && npm run birthday-voucher:dev"
+
+  # Admin Frontend (React - client-seller)
+  admin-client:
+    build:
+      context: ./client-seller
+      dockerfile: Dockerfile.dev
+    container_name: dev-admin-client
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: http://localhost:8080
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client-seller:/app
+      - /app/node_modules
+    networks:
+      - dev-network
+
+  # User Frontend (Next.js - client-next)
+  user-client:
+    build:
+      context: ./client-next
+      dockerfile: Dockerfile.dev
+    container_name: dev-user-client
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "300"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client-next:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - dev-network
+
+networks:
+  dev-network:
+    driver: bridge
+
+volumes:
+  mysql_dev_data:
+  redis_dev_data:
+  rabbitmq_dev_data:
+  vector_dev_data:
+  huggingface_cache:
+  grafana_dev_data:

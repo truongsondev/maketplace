@@ -1,0 +1,18 @@
+@baseUrl = http://localhost:8080/api/admin
+@accessToken = REPLACE_ME
+
+### Top selling products (default)
+GET {{baseUrl}}/products/analytics/top-selling
+Authorization: Bearer {{accessToken}}
+
+### Top selling products (custom)
+GET {{baseUrl}}/products/analytics/top-selling?days=30&limit=5
+Authorization: Bearer {{accessToken}}
+
+### Top favorited products
+GET {{baseUrl}}/products/analytics/top-favorited?days=30&limit=5
+Authorization: Bearer {{accessToken}}
+
+### Least bought products
+GET {{baseUrl}}/products/analytics/least-bought?days=30&limit=5
+Authorization: Bearer {{accessToken}}

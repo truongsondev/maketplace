@@ -1,0 +1,58 @@
+{
+  "name": "Tai nghe Bluetooth cao cấp",
+  "description": "Tai nghe không dây Bluetooth 5.0, chống ồn chủ động ANC, pin 30 giờ, âm thanh Hi-Res",
+  "basePrice": 3990000,
+  "variants": [
+    {
+      "sku": "HEAD-BT-001-BLK",
+      "attributes": {
+        "color": "Đen"
+      },
+      "price": 3990000,
+      "stockAvailable": 75,
+      "minStock": 15
+    },
+    {
+      "sku": "HEAD-BT-001-SLV",
+      "attributes": {
+        "color": "Bạc"
+      },
+      "price": 3990000,
+      "stockAvailable": 60,
+      "minStock": 15
+    },
+    {
+      "sku": "HEAD-BT-001-BLU",
+      "attributes": {
+        "color": "Xanh dương"
+      },
+      "price": 4190000,
+      "stockAvailable": 45,
+      "minStock": 10
+    }
+  ],
+  "images": [
+    {
+      "url": "https://via.placeholder.com/800x800/000000/FFFFFF?text=Headphones+Main",
+      "altText": "Tai nghe Bluetooth - Hình chính",
+      "sortOrder": 0,
+      "isPrimary": true
+    },
+    {
+      "url": "https://via.placeholder.com/800x800/000000/FFFFFF?text=Side+View",
+      "altText": "Góc nhìn bên",
+      "sortOrder": 1
+    },
+    {
+      "url": "https://via.placeholder.com/800x800/000000/FFFFFF?text=Folded",
+      "altText": "Trạng thái gấp gọn",
+      "sortOrder": 2
+    }
+  ],
+  "categoryIds": ["550e8400-e29b-41d4-a716-446655440005", "550e8400-e29b-41d4-a716-446655440006"],
+  "tagIds": [
+    "660e8400-e29b-41d4-a716-446655440006",
+    "660e8400-e29b-41d4-a716-446655440007",
+    "660e8400-e29b-41d4-a716-446655440008"
+  ]
+}

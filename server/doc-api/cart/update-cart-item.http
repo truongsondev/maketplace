@@ -1,0 +1,32 @@
+### Update Cart Item - Success
+PATCH http://localhost:5000/api/cart/items/{{cartItemId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "quantity": 3
+}
+
+###
+
+### Update Cart Item - Invalid Quantity
+PATCH http://localhost:5000/api/cart/items/{{cartItemId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "quantity": 0
+}
+
+###
+
+### Update Cart Item - Not Found
+PATCH http://localhost:5000/api/cart/items/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "quantity": 2
+}
+
+###

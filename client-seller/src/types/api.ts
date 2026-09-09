@@ -1,0 +1,590 @@
+// API Interfaces
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  imageUrl: string | null;
+  parentId: string | null;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+}
+
+export interface CategoryResponse {
+  success: boolean;
+  data: {
+    categories: Category[];
+    total: number;
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface TagResponse {
+  success: boolean;
+  data: {
+    tags: Tag[];
+    total: number;
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface ProductTypeSchema {
+  productType: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  variantAxisAttributes: Array<{
+    id: string;
+    code: string;
+    name: string;
+    dataType: string;
+    unit: string | null;
+    axisOrder: number | null;
+  }>;
+  productAttributes?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    dataType: string;
+    unit: string | null;
+    isRequired: boolean;
+    isFilterable: boolean;
+    options: Array<{
+      id: string;
+      value: string;
+      label: string;
+      sortOrder: number;
+    }>;
+  }>;
+}
+
+export interface ProductTypeSchemaResponse {
+  success: boolean;
+  data: ProductTypeSchema;
+  message: string;
+  timestamp: string;
+}
+
+// Server API Interfaces
+export interface CreateProductCommand {
+  name: string;
+  basePrice: number;
+  variants: CreateProductVariantDto[];
+  images: CreateProductImageDto[]; // Ảnh chính của product
+  categoryIds?: string[];
+  tagIds?: string[];
+  productAttributes?: ProductAttributeInputDto[];
+}
+
+export interface ProductAttributeInputDto {
+  code: string;
+  value: unknown;
+}
+
+export interface CreateProductVariantDto {
+  sku: string;
+  attributes: Record<string, string | number | boolean>;
+  price: number;
+  stockAvailable: number;
+  minStock?: number;
+  images: CreateProductImageDto[];
+}
+
+export interface CreateProductImageDto {
+  url: string;
+  altText?: string;
+  sortOrder?: number;
+  isPrimary?: boolean;
+}
+
+export interface CreateProductResult {
+  productId: string;
+  message: string;
+}
+
+export interface CloudinarySignature {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  folder: string;
+  signature: string;
+}
+
+export interface CloudinarySignatureResponse {
+  success: boolean;
+  data: CloudinarySignature;
+  message: string;
+  timestamp: string;
+}
+
+export interface CloudinaryUploadResult {
+  url: string;
+  publicId: string;
+}
+
+export interface ProductImage {
+  id: string;
+  url: string;
+  altText: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+  variantId: string | null;
+}
+
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  attributes: Record<string, string | number | boolean>;
+  price: number;
+  stockAvailable: number;
+  stockReserved: number;
+  minStock: number;
+  status: string;
+  createdAt: string;
+  images: ProductImage[];
+}
+
+export interface ProductListItem {
+  id: string;
+  name: string;
+  basePrice: number;
+  status: "active" | "inactive" | "deleted";
+  createdAt: string;
+  updatedAt: string;
+  primaryImage: ProductImage | null;
+  variantsSummary: {
+    count: number;
+    priceRange: {
+      min: number;
+      max: number;
+    };
+    totalStock: number;
+    lowStockCount: number;
+  };
+  categories: Category[];
+  tags: Tag[];
+}
+
+export interface ProductDetail {
+  id: string;
+  name: string;
+  basePrice: number;
+  status: "active" | "inactive" | "deleted";
+  createdAt: string;
+  updatedAt: string;
+  variants: ProductVariant[];
+  images: ProductImage[];
+  categories: Category[];
+  tags: Tag[];
+  productAttributes: Array<{
+    code: string;
+    name: string;
+    dataType: string;
+    value: unknown;
+    displayValue: string | string[] | null;
+  }>;
+  stats: {
+    totalVariants: number;
+    totalStock: number;
+    lowStockVariants: number;
+    totalImages: number;
+  };
+}
+
+export interface ProductListFilters {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  status?: "active" | "inactive" | "deleted";
+  minPrice?: number;
+  maxPrice?: number;
+  stockStatus?: "all" | "low" | "out";
+  tagIds?: string;
+  sortBy?: "name" | "basePrice" | "createdAt" | "totalStock";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface ProductListResponse {
+  success: boolean;
+  data: {
+    items: ProductListItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+    aggregations: {
+      statusCount: {
+        active: number;
+        inactive: number;
+        deleted: number;
+      };
+      stockStatus: {
+        all: number;
+        low: number;
+        out: number;
+      };
+    };
+  };
+}
+
+export interface ProductDetailResponse {
+  success: boolean;
+  data: ProductDetail;
+}
+
+export interface UpdateProductResult {
+  productId: string;
+  message: string;
+  priceChanged: boolean;
+}
+
+export interface UpdateProductResponse {
+  success: boolean;
+  data: UpdateProductResult;
+  message: string;
+  timestamp: string;
+}
+
+export interface InventoryLog {
+  id: string;
+  variantId: string;
+  action: "IMPORT" | "EXPORT" | "RETURN" | "ADJUSTMENT";
+  quantity: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  referenceId: string | null;
+  referenceType: string | null;
+  note: string | null;
+  actorId: string;
+  createdAt: string;
+}
+
+export interface InventoryLogsResponse {
+  success: boolean;
+  data: {
+    items: InventoryLog[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+}
+
+export type AuditActorType = "ADMIN" | "USER" | "SYSTEM";
+
+export interface AdminLogItem {
+  id: string;
+  actorType: AuditActorType;
+  actorId: string | null;
+  actorEmail: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  targetLabel: string | null;
+  oldData: unknown | null;
+  newData: unknown | null;
+  createdAt: string;
+}
+
+export interface AdminLogsResponse {
+  success: boolean;
+  data: {
+    items: AdminLogItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+}
+
+export interface UpdateProductCommand {
+  name?: string;
+  basePrice?: number;
+  status?: "active" | "inactive";
+  categoryIds?: string[];
+  tagIds?: string[];
+  variants?: UpdateProductVariantDto[];
+  images?: UpdateProductImageDto[];
+  productAttributes?: ProductAttributeInputDto[];
+}
+
+export interface UpdateProductVariantDto {
+  id?: string;
+  sku: string;
+  attributes: Record<string, string | number | boolean>;
+  price: number;
+  stockAvailable?: number;
+  minStock?: number;
+  images?: UpdateProductImageDto[];
+}
+
+export interface UpdateProductImageDto {
+  id?: string;
+  url: string;
+  altText?: string;
+  sortOrder?: number;
+  isPrimary?: boolean;
+  variantId?: string | null;
+}
+
+export interface BulkDeleteRequest {
+  productIds: string[];
+}
+
+export interface BulkAssignCategoriesRequest {
+  productIds: string[];
+  categoryIds: string[];
+  mode: "append" | "replace";
+}
+
+export interface BulkAssignTagsRequest {
+  productIds: string[];
+  tagIds: string[];
+  mode: "append" | "replace";
+}
+
+export interface AdjustStockRequest {
+  action: "IMPORT" | "EXPORT" | "ADJUSTMENT";
+  quantity: number;
+  referenceId?: string;
+  note?: string;
+}
+
+export type VoucherType = "PERCENTAGE" | "FIXED_AMOUNT";
+export type VoucherScopeType = "ALL_PRODUCTS" | "INCLUDE_CATEGORIES" | "INCLUDE_PRODUCTS" | "MEMBER_TIERS";
+
+export interface VoucherItem {
+  id: string;
+  code: string;
+  description: string | null;
+  type: VoucherType;
+  value: number;
+  maxDiscount: number | null;
+  minOrderAmount: number | null;
+  maxUsage: number | null;
+  userUsageLimit: number | null;
+  usedCount: number;
+  startAt: string;
+  endAt: string;
+  isActive: boolean;
+  isBirthdayVoucher: boolean;
+  bannerImageUrl: string | null;
+  scopeType: VoucherScopeType;
+  includeDescendants: boolean;
+  minAmountBasis: "ELIGIBLE_SUBTOTAL" | "CART_SUBTOTAL";
+  includedCategoryIds: string[];
+  excludedCategoryIds: string[];
+  includedProductIds: string[];
+  excludedProductIds: string[];
+  memberTiers: string[];
+}
+
+export interface VoucherListResponse {
+  success: boolean;
+  data: {
+    items: VoucherItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface VoucherResponse {
+  success: boolean;
+  data: VoucherItem;
+  message: string;
+  timestamp: string;
+}
+
+export interface VoucherUpsertCommand {
+  code: string;
+  isBirthdayVoucher?: boolean;
+  description?: string | null;
+  type: VoucherType;
+  value: number;
+  maxDiscount?: number | null;
+  minOrderAmount?: number | null;
+  maxUsage?: number | null;
+  userUsageLimit?: number | null;
+  startAt: string;
+  endAt: string;
+  isActive?: boolean;
+  bannerImageUrl?: string | null;
+  scopeType?: VoucherScopeType;
+  includeDescendants?: boolean;
+  minAmountBasis?: "ELIGIBLE_SUBTOTAL" | "CART_SUBTOTAL";
+  includedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
+  includedProductIds?: string[];
+  excludedProductIds?: string[];
+  memberTiers?: string[];
+}
+
+export interface BannerItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  imageUrl: string;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BannerListResponse {
+  success: boolean;
+  data: {
+    items: BannerItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface BannerResponse {
+  success: boolean;
+  data: BannerItem;
+  message: string;
+  timestamp: string;
+}
+
+export interface BannerUpsertCommand {
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  imageUrl: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+export type PromotionType =
+  | "PERCENTAGE"
+  | "FIXED_AMOUNT"
+  | "SALE_PRICE"
+  | "COMBO_FIXED"
+  | "BUY_X_GET_Y";
+export type PromotionStatus = "DRAFT" | "SCHEDULED" | "ACTIVE" | "PAUSED" | "ENDED";
+export type PromotionCampaignType = "FLASH_SALE" | "HOLIDAY" | "CUSTOMER_APPRECIATION" | "SEASONAL" | "CUSTOM";
+export type PromotionScopeType =
+  | "ALL_PRODUCTS"
+  | "INCLUDE_CATEGORIES"
+  | "INCLUDE_PRODUCTS"
+  | "MEMBER_TIERS";
+
+export interface PromotionItem {
+  id: string;
+  name: string;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  description: string | null;
+  bannerImageUrl: string | null;
+  mobileBannerImageUrl: string | null;
+  campaignType: PromotionCampaignType;
+  type: PromotionType;
+  status: PromotionStatus;
+  scopeType: PromotionScopeType;
+  includeDescendants: boolean;
+  value: number;
+  maxDiscount: number | null;
+  priority: number;
+  displayPriority: number;
+  isFeatured: boolean;
+  ctaLabel: string | null;
+  ctaUrl: string | null;
+  memberTiers: string[] | null;
+  usageLimit: number | null;
+  usedCount: number;
+  stackableWithVoucher: boolean;
+  startAt: string;
+  endAt: string;
+  includedProducts: Array<{ productId: string }>;
+  includedCategories: Array<{ categoryId: string }>;
+}
+
+export interface PromotionListResponse {
+  success: boolean;
+  data: { items: PromotionItem[] };
+  message: string;
+  timestamp: string;
+}
+
+export interface PromotionResponse {
+  success: boolean;
+  data: PromotionItem;
+  message: string;
+  timestamp: string;
+}
+
+export interface PromotionUpsertCommand {
+  name: string;
+  slug?: string;
+  title: string;
+  subtitle?: string | null;
+  description?: string | null;
+  bannerImageUrl?: string | null;
+  mobileBannerImageUrl?: string | null;
+  campaignType: PromotionCampaignType;
+  type: PromotionType;
+  status: PromotionStatus;
+  scopeType: PromotionScopeType;
+  includeDescendants?: boolean;
+  value: number;
+  maxDiscount?: number | null;
+  priority?: number;
+  displayPriority?: number;
+  isFeatured?: boolean;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  memberTiers?: string[];
+  usageLimit?: number | null;
+  stackableWithVoucher?: boolean;
+  startAt: string;
+  endAt: string;
+  includedProductIds?: string[];
+  includedCategoryIds?: string[];
+}
+
+export interface LoyaltyConfig {
+  id: number;
+  spendPerPoint: number;
+  pointValidityDays: number;
+  silverMinPoints: number;
+  goldMinPoints: number;
+  isActive: boolean;
+  updatedAt: string;
+}
+
+export interface LoyaltyConfigResponse {
+  success: boolean;
+  data: LoyaltyConfig;
+  message: string;
+  timestamp: string;
+}

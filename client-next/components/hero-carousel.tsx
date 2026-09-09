@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { voucherService } from "@/services/voucher.service";
 
 interface Slide {
   id: number;
@@ -14,6 +16,7 @@ interface Slide {
   ctaPrimary: string;
   ctaSecondary: string;
   gradient: string;
+  imageUrl?: string;
 }
 
 const slides: Slide[] = [
@@ -72,24 +75,68 @@ const slides: Slide[] = [
 export function HeroCarousel() {
   const [current, setCurrent] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
+  const [dynamicSlides, setDynamicSlides] = useState<Slide[]>([]);
+
+  const allSlides = [...dynamicSlides, ...slides];
 
   useEffect(() => {
     if (!isAutoPlay) return;
 
     const interval = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % slides.length);
+      setCurrent((prev) => (prev + 1) % allSlides.length);
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isAutoPlay]);
+  }, [allSlides.length, isAutoPlay]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    voucherService
+      .getActiveVouchers()
+      .then((items) => {
+        if (!mounted) return;
+
+        const mapped = items
+          .filter((item) => item.bannerImageUrl)
+          .slice(0, 3)
+          .map((item, idx) => ({
+            id: 1000 + idx,
+            title: `Voucher ${item.code}`,
+            subtitle:
+              item.type === "PERCENTAGE"
+                ? `Giảm ${item.value}%`
+                : `Giảm ${item.value.toLocaleString("vi-VN")}đ`,
+            description:
+              item.description ||
+              "Ưu đãi giới hạn thời gian cho đơn hàng thời trang.",
+            bgColor: "from-neutral-900 to-black",
+            accentColor: "text-amber-300",
+            emoji: "🎟️",
+            ctaPrimary: "Mua ngay",
+            ctaSecondary: "Áp dụng tại checkout",
+            gradient: "from-black/70 to-black/20",
+            imageUrl: item.bannerImageUrl || undefined,
+          }));
+
+        setDynamicSlides(mapped);
+      })
+      .catch(() => {
+        if (mounted) setDynamicSlides([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const next = () => {
-    setCurrent((prev) => (prev + 1) % slides.length);
+    setCurrent((prev) => (prev + 1) % allSlides.length);
     setIsAutoPlay(false);
   };
 
   const prev = () => {
-    setCurrent((prev) => (prev - 1 + slides.length) % slides.length);
+    setCurrent((prev) => (prev - 1 + allSlides.length) % allSlides.length);
     setIsAutoPlay(false);
   };
 
@@ -102,13 +149,13 @@ export function HeroCarousel() {
 
   return (
     <div
-      className="relative w-full h-screen overflow-hidden bg-black"
+      className="relative w-full h-[68vh] min-h-125 max-h-190 md:h-[72vh] overflow-hidden bg-black"
       onMouseEnter={() => setIsAutoPlay(false)}
       onMouseLeave={() => setIsAutoPlay(true)}
     >
       {/* Slides Container */}
       <div className="relative w-full h-full">
-        {slides.map((s, index) => (
+        {allSlides.map((s, index) => (
           <div
             key={s.id}
             className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
@@ -117,6 +164,17 @@ export function HeroCarousel() {
           >
             {/* Background Gradient */}
             <div className={`absolute inset-0 bg-linear-to-r ${s.bgColor}`} />
+
+            {s.imageUrl && (
+              <Image
+                src={s.imageUrl}
+                alt={s.title}
+                fill
+                sizes="100vw"
+                className="object-cover opacity-70"
+                priority={index === 0}
+              />
+            )}
 
             {/* Content Overlay */}
             <div className={`absolute inset-0 bg-linear-to-r ${s.gradient}`} />
@@ -169,7 +227,7 @@ export function HeroCarousel() {
       <button
         onClick={prev}
         className="absolute left-6 md:left-8 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center size-12 md:size-14 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md transition-all hover:scale-110 text-white group"
-        aria-label="Previous slide"
+        aria-label="Slide trước"
       >
         <ChevronLeft className="size-6 md:size-7 group-hover:scale-125 transition-transform" />
       </button>
@@ -177,14 +235,14 @@ export function HeroCarousel() {
       <button
         onClick={next}
         className="absolute right-6 md:right-8 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center size-12 md:size-14 rounded-full bg-white/20 hover:bg-white/40 backdrop-blur-md transition-all hover:scale-110 text-white group"
-        aria-label="Next slide"
+        aria-label="Slide tiếp theo"
       >
         <ChevronRight className="size-6 md:size-7 group-hover:scale-125 transition-transform" />
       </button>
 
       {/* Navigation Dots */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 md:gap-3">
-        {slides.map((_, index) => (
+        {allSlides.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
@@ -193,7 +251,7 @@ export function HeroCarousel() {
                 ? "w-8 md:w-10 h-2 md:h-2.5 bg-orange-500"
                 : "w-2 md:w-2.5 h-2 md:h-2.5 bg-white/40 hover:bg-white/60"
             } rounded-full`}
-            aria-label={`Go to slide ${index + 1}`}
+            aria-label={`Chuyển đến slide ${index + 1}`}
           />
         ))}
       </div>
@@ -204,7 +262,7 @@ export function HeroCarousel() {
           {String(current + 1).padStart(2, "0")}
         </span>
         <span className="mx-2">/</span>
-        <span>{String(slides.length).padStart(2, "0")}</span>
+        <span>{String(allSlides.length).padStart(2, "0")}</span>
       </div>
     </div>
   );

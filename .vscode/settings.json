@@ -1,0 +1,5 @@
+{
+  // Use the project's TypeScript version (avoids mismatched TS warnings)
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
+}

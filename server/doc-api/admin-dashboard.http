@@ -1,0 +1,14 @@
+@baseUrl = http://localhost:8080
+@accessToken = REPLACE_WITH_ADMIN_ACCESS_TOKEN
+
+### Admin dashboard overview
+GET {{baseUrl}}/api/admin/dashboard/overview
+Authorization: Bearer {{accessToken}}
+
+### Admin dashboard timeseries (30 days)
+GET {{baseUrl}}/api/admin/dashboard/timeseries?days=30
+Authorization: Bearer {{accessToken}}
+
+### Admin dashboard recent orders
+GET {{baseUrl}}/api/admin/dashboard/recent-orders?limit=5
+Authorization: Bearer {{accessToken}}

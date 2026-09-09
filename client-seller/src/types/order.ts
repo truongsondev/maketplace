@@ -1,0 +1,260 @@
+export type AdminOrderTab =
+  | "all"
+  | "pending"
+  | "processing"
+  | "shipped"
+  | "shipment-lost"
+  | "waiting-return"
+  | "return-in-transit"
+  | "return-received"
+  | "return-lost"
+  | "return-damaged"
+  | "completed"
+  | "canceled";
+
+export type AdminOrderSort = "new" | "old";
+
+export type AdminOrderRequestType = "all" | "cancel" | "return" | "refund";
+
+export type AdminOrderRequestStatus =
+  | "all"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "completed"
+  | "failed";
+
+export type OrderStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "PAID"
+  | "PACKING"
+  | "AWAITING_PICKUP"
+  | "SHIPPED"
+  | "DELIVERING"
+  | "DELIVERY_FAILED"
+  | "LOST"
+  | "RETURN_TO_STORE"
+  | "DELIVERED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "RETURNED";
+
+export interface AdminOrderItem {
+  id: string;
+  productId: string;
+  variantId: string | null;
+  name: string;
+  imageUrl: string | null;
+  attributesText: string;
+  quantity: number;
+  price: string;
+}
+
+export interface AdminOrderListItem {
+  id: string;
+  createdAt: string;
+  status: string;
+  returnStatus?: string | null;
+  totalPrice: string;
+  subtotalPrice: string;
+  discountAmount: string;
+  shippingFee: string;
+  delivery: {
+    carrierName: string | null;
+    trackingCode: string | null;
+    providerStatus: string | null;
+    deliveryNote: string | null;
+    shippedAt: string | null;
+    deliveredAt: string | null;
+  };
+  returnShipment?: {
+    trackingCode: string;
+    providerStatus: string | null;
+    externalFee: string | null;
+    deliveredAt: string | null;
+    updatedAt: string;
+  } | null;
+  cancelRequest?: {
+    id: string;
+    status: "REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
+    reasonCode:
+      | "NO_LONGER_NEEDED"
+      | "BUY_OTHER_ITEM"
+      | "FOUND_CHEAPER"
+      | "OTHER";
+    reasonText: string | null;
+    bankAccountName: string;
+    bankAccountNumber: string;
+    bankName: string;
+    rejectionReason: string | null;
+    approvedAt: string | null;
+    completedAt: string | null;
+  } | null;
+  cancelRefund?: {
+    id: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+    amount: string;
+    failureReason: string | null;
+    requestedAt: string;
+    processedAt: string | null;
+  } | null;
+  returnRefund?: {
+    id: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+    amount: string;
+    failureReason: string | null;
+    requestedAt: string;
+    processedAt: string | null;
+  } | null;
+  lostShipmentRefund?: {
+    id: string;
+    status: "PENDING" | "SUCCESS" | "FAILED" | "RETRYING";
+    amount: string;
+    failureReason: string | null;
+    requestedAt: string;
+    processedAt: string | null;
+  } | null;
+  returns?: {
+    requested: number;
+    approved: number;
+    shipping?: number;
+    rejected: number;
+    completed: number;
+    details?: Array<{
+      id: string;
+      orderItemId: string;
+      status:
+        | "RT_REQUESTED"
+        | "RT_APPROVED"
+        | "RT_SHIPPING"
+        | "RT_REJECTED"
+        | "RT_COMPLETED";
+      requestType: "RETURN_REFUND" | "EXCHANGE";
+      reason: string | null;
+      reasonCode: string | null;
+      evidenceImages: Array<{ url: string; publicId?: string | null }>;
+      bankAccountName: string | null;
+      bankAccountNumber: string | null;
+      bankName: string | null;
+      createdAt: string;
+    }>;
+  };
+  user: {
+    id: string;
+    label: string;
+    email: string | null;
+    phone: string | null;
+  };
+  shipping?: {
+    addressId: string | null;
+    recipient: string | null;
+    phone: string | null;
+    addressLine: string | null;
+    ward: string | null;
+    district: string | null;
+    city: string | null;
+    source: "CHECKOUT" | "LEGACY_PROFILE_BACKFILL" | "LEGACY_MISSING_SNAPSHOT";
+  };
+  payment: {
+    method: string | null;
+    status: string | null;
+    paidAt: string | null;
+    transactionStatus: string | null;
+    orderCode: string | null;
+    transactionPaidAt: string | null;
+  };
+  items: AdminOrderItem[];
+}
+
+export interface AdminOrdersListResponse {
+  success: boolean;
+  data: {
+    items: AdminOrderListItem[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrdersCountsResponse {
+  success: boolean;
+  data: {
+    all: number;
+    pending: number;
+    processing: number;
+    shipped: number;
+    shipmentLost: number;
+    waitingReturn: number;
+    returnInTransit: number;
+    returnReceived: number;
+    returnLost: number;
+    returnDamaged: number;
+    completed: number;
+    canceled: number;
+  };
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrderStatusBreakdown {
+  from: string;
+  to: string;
+  days: number;
+  total: number;
+  counts: Record<OrderStatus, number>;
+  updatedAt: string;
+}
+
+export interface AdminOrderTimeseriesPoint {
+  date: string;
+  total: number;
+}
+
+export interface AdminOrderTimeseries {
+  from: string;
+  to: string;
+  days: number;
+  points: AdminOrderTimeseriesPoint[];
+  updatedAt: string;
+}
+
+export interface AdminOrderStatusBreakdownResponse {
+  success: boolean;
+  data: AdminOrderStatusBreakdown;
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrderTimeseriesResponse {
+  success: boolean;
+  data: AdminOrderTimeseries;
+  message: string;
+  timestamp: string;
+}
+
+export interface AdminOrderConfirmCheckData {
+  orderId: string;
+  currentStatus: OrderStatus;
+  canConfirm: boolean;
+  issues: string[];
+  blockingItems: Array<{
+    orderItemId: string;
+    productId: string;
+    productName: string;
+    variantId: string | null;
+    reasons: string[];
+  }>;
+}
+
+export interface AdminOrderConfirmCheckResponse {
+  success: boolean;
+  data: AdminOrderConfirmCheckData;
+  message: string;
+  timestamp: string;
+}

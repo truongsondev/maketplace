@@ -3,11 +3,16 @@ import { ProductListResult, ProductSummary } from '../dto/result/product-list.re
 import { IGetProductsUseCase } from '../ports/input/get-products.usecase';
 import { IProductRepository, ProductFilters } from '../ports/output/product.repository';
 import { Product } from '../../entities/product/product.entity';
+import { createLogger } from '@/shared/util/logger';
 
 export class GetProductsUseCase implements IGetProductsUseCase {
+  private readonly logger = createLogger('GetProductsUseCase');
+
   constructor(private readonly productRepository: IProductRepository) {}
 
   async execute(query: GetProductsQuery): Promise<ProductListResult> {
+    this.logger.debug('Fetching products', { query });
+
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 && query.limit <= 100 ? query.limit : 10;
 
@@ -15,7 +20,25 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       categorySlugOrId: query.category,
       size: query.size,
       color: query.color,
+      usageOccasion: query.usageOccasion,
+      sortField: 'createdAt',
+      sortOrder: 'desc',
     };
+
+    const normalizedSearch = query.search?.trim();
+    if (normalizedSearch) {
+      filters.search = normalizedSearch;
+    }
+
+    if (query.sort) {
+      const [field, order] = query.sort.split(':');
+      if (field === 'createdAt') {
+        filters.sortField = 'createdAt';
+      }
+      if (order === 'asc' || order === 'desc') {
+        filters.sortOrder = order;
+      }
+    }
 
     if (query.priceRange) {
       const [minStr, maxStr] = query.priceRange.split('-');
@@ -29,9 +52,20 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       }
     }
 
-    const { products, total } = await this.productRepository.findWithFilters(filters, {
+    const { products, total, aggregations } = await this.productRepository.findWithFilters(
+      filters,
+      {
+        page,
+        limit,
+      },
+    );
+
+    this.logger.info('Products fetched successfully', {
+      total,
       page,
       limit,
+      resultsCount: products.length,
+      filters,
     });
 
     return {
@@ -42,6 +76,7 @@ export class GetProductsUseCase implements IGetProductsUseCase {
         total,
         totalPages: Math.ceil(total / limit),
       },
+      aggregations,
     };
   }
 
@@ -54,6 +89,8 @@ export class GetProductsUseCase implements IGetProductsUseCase {
       minPrice: product.minPrice,
       originalPrice: product.originalPrice,
       discountPercent: product.discountPercent,
+      isNew: product.isNew,
+      isSale: product.isSale,
     };
   }
 }

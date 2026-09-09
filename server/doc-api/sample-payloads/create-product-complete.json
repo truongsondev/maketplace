@@ -1,0 +1,71 @@
+{
+  "name": "Premium Cotton T-Shirt",
+  "description": "Áo thun cotton cao cấp, thoáng mát, phù hợp cho mọi hoạt động hàng ngày",
+  "basePrice": 299000,
+  "variants": [
+    {
+      "sku": "TSHIRT-PREM-001-RED-M",
+      "attributes": {
+        "color": "Đỏ",
+        "size": "M"
+      },
+      "price": 299000,
+      "stockAvailable": 50,
+      "minStock": 10
+    },
+    {
+      "sku": "TSHIRT-PREM-001-RED-L",
+      "attributes": {
+        "color": "Đỏ",
+        "size": "L"
+      },
+      "price": 299000,
+      "stockAvailable": 45,
+      "minStock": 10
+    },
+    {
+      "sku": "TSHIRT-PREM-001-BLUE-M",
+      "attributes": {
+        "color": "Xanh",
+        "size": "M"
+      },
+      "price": 299000,
+      "stockAvailable": 40,
+      "minStock": 10
+    },
+    {
+      "sku": "TSHIRT-PREM-001-BLUE-L",
+      "attributes": {
+        "color": "Xanh",
+        "size": "L"
+      },
+      "price": 299000,
+      "stockAvailable": 35,
+      "minStock": 10
+    }
+  ],
+  "images": [
+    {
+      "url": "https://via.placeholder.com/800x800/FF0000/FFFFFF?text=T-Shirt+Main",
+      "altText": "Áo thun Premium - Hình chính",
+      "sortOrder": 0,
+      "isPrimary": true
+    },
+    {
+      "url": "https://via.placeholder.com/800x800/FF0000/FFFFFF?text=Red+Front",
+      "altText": "Màu đỏ - Mặt trước",
+      "sortOrder": 1,
+      "isPrimary": false,
+      "variantId": "TSHIRT-PREM-001-RED-M"
+    },
+    {
+      "url": "https://via.placeholder.com/800x800/0000FF/FFFFFF?text=Blue+Front",
+      "altText": "Màu xanh - Mặt trước",
+      "sortOrder": 2,
+      "isPrimary": false,
+      "variantId": "TSHIRT-PREM-001-BLUE-M"
+    }
+  ],
+  "categoryIds": ["550e8400-e29b-41d4-a716-446655440001", "550e8400-e29b-41d4-a716-446655440002"],
+  "tagIds": ["660e8400-e29b-41d4-a716-446655440001", "660e8400-e29b-41d4-a716-446655440002"]
+}

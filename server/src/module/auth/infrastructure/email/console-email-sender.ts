@@ -4,6 +4,31 @@ import nodemailer from 'nodemailer';
 export class EmailSender implements IEmailSender {
   constructor() {}
 
+  private resolveFrontendBaseUrl(): string {
+    const configuredBaseUrl = process.env.FRONTEND_URL?.trim();
+
+    if (configuredBaseUrl) {
+      return configuredBaseUrl.endsWith('/') ? configuredBaseUrl.slice(0, -1) : configuredBaseUrl;
+    }
+
+    const configuredApiPublicUrl = process.env.API_PUBLIC_URL?.trim();
+    if (configuredApiPublicUrl) {
+      try {
+        const parsed = new URL(configuredApiPublicUrl);
+        parsed.port = '3000';
+        return `${parsed.protocol}//${parsed.host}`;
+      } catch {
+        // ignore invalid API_PUBLIC_URL and continue fallback chain
+      }
+    }
+
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FRONTEND_URL (or API_PUBLIC_URL) is required in production environment');
+    }
+
+    return 'http://localhost:3000';
+  }
+
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
@@ -32,7 +57,8 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendEmailVerification(email: string, token: string): Promise<void> {
-    const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/api/auth/verify-email?token=${token}`;
+    const frontendBaseUrl = this.resolveFrontendBaseUrl();
+    const verifyUrl = `${frontendBaseUrl}/verify-email?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Verify Your Email Address</h2>
@@ -57,7 +83,7 @@ export class EmailSender implements IEmailSender {
   }
 
   async sendPasswordReset(email: string, token: string): Promise<void> {
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:8080'}/auth/reset-password?token=${token}`;
+    const resetUrl = `${this.resolveFrontendBaseUrl()}/auth/reset-password?token=${token}`;
     const html = `
       <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
         <h2>Reset Your Password</h2>
